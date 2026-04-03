@@ -512,6 +512,30 @@ select.input {
   width: 140px;
 }
 
+.signup-remove-cell {
+  width: 36px;
+  text-align: center;
+  padding: 4px !important;
+}
+
+.btn-remove-signup {
+  background: none;
+  border: none;
+  color: var(--danger, #c0392b);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.btn-remove-signup:hover {
+  opacity: 1;
+  background: rgba(192, 57, 43, 0.08);
+}
+
 .signup-sheet-table tr.min-marker-row td {
   border-bottom: 3px dashed rgba(191, 73, 18, 0.7);
   background: rgba(240, 107, 34, 0.1);
@@ -656,7 +680,8 @@ select.input {
   #public-event-select,
   #btn-print-event,
   .modal-overlay,
-  .signup-actions {
+  .signup-actions,
+  .no-print {
     display: none !important;
   }
 

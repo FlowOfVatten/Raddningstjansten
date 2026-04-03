@@ -822,12 +822,26 @@ function initPublicPage() {
               <th>Antal</th>
               <th>Namn</th>
               <th>Station</th>
+              <th class="no-print"></th>
             </tr>
           </thead>
           <tbody>
             ${buildSignupRows(signups, event.maxParticipants, event.minParticipants)}
           </tbody>
         `;
+
+        table.addEventListener('click', (e) => {
+          const btn = e.target.closest('.btn-remove-signup');
+          if (!btn) return;
+          const signupId = btn.dataset.signupId;
+          const signup = session.signups.find((s) => s.id === signupId);
+          if (!signup) return;
+          const confirmed = window.confirm(`Avboka ${signup.name} från ${escapeHtml(event.title)} – ${formatLongDate(session.date)}?`);
+          if (!confirmed) return;
+          session.signups = session.signups.filter((s) => s.id !== signupId);
+          saveState();
+          renderPublicEvents();
+        });
 
         const actions = document.createElement('div');
         actions.className = 'signup-actions';
@@ -1043,11 +1057,15 @@ function buildSignupRows(signups, maxParticipants, minParticipants) {
     const signup = signups[index];
     const isMinMarker = index + 1 === minParticipants;
     const rowClass = isMinMarker ? ' class="min-marker-row"' : '';
+    const removeBtn = signup
+      ? `<button class="btn-remove-signup no-print" data-signup-id="${escapeAttribute(signup.id)}" type="button" title="Avboka">✕</button>`
+      : '';
     rows.push(`
       <tr${rowClass}>
         <td>${index + 1}</td>
         <td>${signup ? escapeHtml(signup.name) : ''}</td>
         <td>${signup ? escapeHtml(signup.station) : ''}</td>
+        <td class="no-print signup-remove-cell">${removeBtn}</td>
       </tr>
     `);
   }
