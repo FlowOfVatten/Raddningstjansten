@@ -57,6 +57,7 @@ let remoteSyncInFlight = false;
 let remoteSyncPending = false;
 let lastRemoteUpdatedAt = null;
 let remotePollTimer = null;
+let supabaseLibLoadPromise = null;
 
 const runtime = {
   calendarYear: new Date().getFullYear(),
@@ -69,6 +70,7 @@ const runtime = {
 bootstrap();
 
 async function bootstrap() {
+  await ensureSupabaseLibrary();
   await initializeSharedPersistence();
   bindRefreshButton();
 
@@ -144,11 +146,62 @@ function saveState() {
   queueRemoteSync();
 }
 
+function hasRemoteConfig() {
+  return !!(appConfig.supabaseUrl && appConfig.supabaseAnonKey);
+}
+
+async function ensureSupabaseLibrary() {
+  if (!hasRemoteConfig()) return false;
+  if (window.supabase) return true;
+  if (supabaseLibLoadPromise) return supabaseLibLoadPromise;
+
+  supabaseLibLoadPromise = (async () => {
+    const scriptUrls = [
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+      'https://unpkg.com/@supabase/supabase-js@2'
+    ];
+
+    for (const url of scriptUrls) {
+      try {
+        await loadScript(url);
+        if (window.supabase) return true;
+      } catch {
+        // Try next CDN.
+      }
+    }
+
+    return !!window.supabase;
+  })();
+
+  return supabaseLibLoadPromise;
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const existing = [...document.querySelectorAll('script')].find((item) => item.src === src);
+    if (existing) {
+      if (window.supabase) {
+        resolve();
+        return;
+      }
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`Could not load ${src}`)), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.addEventListener('load', () => resolve(), { once: true });
+    script.addEventListener('error', () => reject(new Error(`Could not load ${src}`)), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
 function isRemoteEnabled() {
   return !!(
     window.supabase
-    && appConfig.supabaseUrl
-    && appConfig.supabaseAnonKey
+    && hasRemoteConfig()
   );
 }
 
@@ -285,9 +338,15 @@ function bindRefreshButton() {
     refreshButton.textContent = 'Hämtar...';
 
     try {
+      await ensureSupabaseLibrary();
       const client = getSupabaseClient();
       if (!client) {
-        window.alert('Supabase är inte aktivt i config.js ännu.');
+        const reasons = [];
+        if (!appConfig.supabaseUrl) reasons.push('supabaseUrl saknas');
+        if (!appConfig.supabaseAnonKey) reasons.push('supabaseAnonKey saknas');
+        if (!window.supabase) reasons.push('Supabase-biblioteket kunde inte laddas (nät/cdn-block)');
+        const detail = reasons.length ? `\n\nOrsak: ${reasons.join(', ')}` : '';
+        window.alert(`Supabase är inte aktivt ännu.${detail}`);
         return;
       }
 
