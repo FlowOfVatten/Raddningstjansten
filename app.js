@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'raddningstjansten-signups-v1';
 const REMOTE_STATE_ID = 'shared-v1';
+const ADMIN_PASSWORD = 'Havsörn2026';
 const DEFAULT_STATIONS = [
   '110 Fyrislund',
   '140 Skyttorp',
@@ -351,7 +352,6 @@ function initAdminPage() {
   document.getElementById('btn-create-event').addEventListener('click', createEvent);
   document.getElementById('btn-cancel-edit').addEventListener('click', clearEventForm);
   document.getElementById('btn-reset').addEventListener('click', resetAllData);
-  document.getElementById('btn-export').addEventListener('click', exportData);
 
   renderCalendar();
   renderSelectedDates();
@@ -655,21 +655,11 @@ function initAdminPage() {
     wrap.appendChild(card);
   }
 
-  function exportData() {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `anmalningslistor-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  }
-
   function resetAllData() {
     const confirmed = window.confirm('Vill du verkligen rensa alla event och alla anmalningar?');
     if (!confirmed) return;
+    const confirmedAgain = window.confirm('Detta går inte att ångra. Är du helt säker?');
+    if (!confirmedAgain) return;
     localStorage.removeItem(STORAGE_KEY);
     Object.assign(state, loadState());
     saveState();
@@ -683,11 +673,21 @@ function initPublicPage() {
   const stationSelect = document.getElementById('signup-station');
   const eventSelect = document.getElementById('public-event-select');
   const printButton = document.getElementById('btn-print-event');
+  const openAdminButton = document.getElementById('btn-open-admin');
 
   document.getElementById('btn-signup-cancel').addEventListener('click', closeSignupModal);
   document.getElementById('btn-signup-save').addEventListener('click', saveSignup);
   printButton.addEventListener('click', () => {
     window.print();
+  });
+  openAdminButton.addEventListener('click', () => {
+    const entered = window.prompt('Ange lösenord för arrangörsläge:');
+    if (entered === null) return;
+    if (entered.trim() !== ADMIN_PASSWORD) {
+      window.alert('Fel lösenord.');
+      return;
+    }
+    window.location.href = 'admin.html';
   });
 
   renderPublicEvents();

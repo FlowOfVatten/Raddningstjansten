@@ -134,6 +134,10 @@ h3 {
   gap: 16px;
 }
 
+.form-grid-2 > * {
+  min-width: 0;
+}
+
 .public-layout {
   display: block;
 }
@@ -192,11 +196,19 @@ h3 {
 
 .input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 46px;
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: #f6fbff;
+}
+
+input[type="time"].input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 select.input {
@@ -491,7 +503,8 @@ select.input {
   .layout,
   .editor-grid,
   .editor-grid--wide,
-  .form-grid {
+  .form-grid,
+  .form-grid-2 {
     grid-template-columns: 1fr;
   }
 
