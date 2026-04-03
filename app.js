@@ -894,9 +894,94 @@ function initPublicPage() {
       createdAt: new Date().toISOString()
     });
     saveState();
+
+    const shouldCreateReminder = window.confirm('Vill du lägga till en kalenderpåminnelse för denna övning?');
+    if (shouldCreateReminder) {
+      downloadCalendarReminder(event, session, name);
+    }
+
     closeSignupModal();
     renderPublicEvents();
   }
+}
+
+function downloadCalendarReminder(event, session, attendeeName) {
+  const sessionDateKey = normalizeDateKey(session.date);
+  if (!sessionDateKey) return;
+
+  const startDate = buildLocalDateTime(sessionDateKey, session.startTime || '08:30');
+  const endDate = buildLocalDateTime(sessionDateKey, session.endTime || '16:00');
+  if (!startDate || !endDate) return;
+
+  const uid = `${createId()}@raddningstjansten.local`;
+  const nowUtc = formatIcsUtcTimestamp(new Date());
+  const startLocal = formatIcsLocalTimestamp(startDate);
+  const endLocal = formatIcsLocalTimestamp(endDate);
+  const summary = escapeIcsText(`Övning: ${event.title}`);
+  const location = escapeIcsText(session.location || 'Ej angiven ort');
+  const description = escapeIcsText(`Anmäld: ${attendeeName} (${session.startTime}-${session.endTime})`);
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Raddningstjansten//Anmalningar//SV',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${nowUtc}`,
+    `DTSTART:${startLocal}`,
+    `DTEND:${endLocal}`,
+    `SUMMARY:${summary}`,
+    `LOCATION:${location}`,
+    `DESCRIPTION:${description}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  const safeTitle = (event.title || 'ovning').replace(/[^a-zA-Z0-9_-]+/g, '-');
+  anchor.href = url;
+  anchor.download = `${sessionDateKey}-${safeTitle}.ics`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildLocalDateTime(dateKey, timeValue) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const [hour, minute] = String(timeValue || '00:00').split(':').map(Number);
+  return new Date(year, month - 1, day, Number.isFinite(hour) ? hour : 0, Number.isFinite(minute) ? minute : 0, 0);
+}
+
+function formatIcsLocalTimestamp(date) {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${year}${month}${day}T${hour}${minute}00`;
+}
+
+function formatIcsUtcTimestamp(date) {
+  const year = String(date.getUTCFullYear());
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hour = String(date.getUTCHours()).padStart(2, '0');
+  const minute = String(date.getUTCMinutes()).padStart(2, '0');
+  const second = String(date.getUTCSeconds()).padStart(2, '0');
+  return `${year}${month}${day}T${hour}${minute}${second}Z`;
+}
+
+function escapeIcsText(value) {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
 }
 
 function buildSignupRows(signups, maxParticipants, minParticipants) {
