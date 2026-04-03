@@ -931,10 +931,14 @@ function initPublicPage() {
 
 async function sendOrganizerNotification(event, session, signerName, signerStation) {
   const organizerEmail = state.organizerEmail || '';
-  if (!organizerEmail) return;
+  console.log('[send-mail] organizerEmail from state:', organizerEmail || '(tom)');
+  if (!organizerEmail) {
+    console.warn('[send-mail] Ingen e-post sparad för arrangören – hoppar över mailutskick.');
+    return;
+  }
 
   try {
-    await fetch('/.netlify/functions/send-mail', {
+    const resp = await fetch('/.netlify/functions/send-mail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -947,8 +951,10 @@ async function sendOrganizerNotification(event, session, signerName, signerStati
         sessionTime: `${session.startTime}\u2013${session.endTime}`
       })
     });
-  } catch {
-    // Email notification is non-critical, ignore network errors
+    const body = await resp.text();
+    console.log('[send-mail] Svar från funktionen:', resp.status, body);
+  } catch (err) {
+    console.error('[send-mail] Nätverksfel:', err);
   }
 }
 
