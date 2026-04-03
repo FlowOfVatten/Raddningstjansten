@@ -31,7 +31,7 @@ exports.handler = async function handleSendMail(event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON' }) };
   }
 
-  const { organizerEmail, signerName, signerStation, eventTitle, sessionDate, sessionLocation, sessionTime } = payload;
+  const { organizerEmail, signerName, signerStation, eventTitle, sessionDate, sessionLocation, sessionTime, type } = payload;
 
   if (!organizerEmail || !signerName || !eventTitle) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
@@ -43,11 +43,15 @@ exports.handler = async function handleSendMail(event) {
   }
 
   const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  const isCancellation = type === 'avbokad';
+  const headerColor = isCancellation ? '#888' : '#e73137';
+  const headerLabel = isCancellation ? 'Avbokning' : 'Ny anmälan';
+  const subjectPrefix = isCancellation ? 'Avbokning' : 'Ny anmälan';
 
   const html = `
     <div style="font-family:sans-serif;max-width:520px;color:#222">
-      <div style="background:#e73137;padding:16px 24px;border-radius:6px 6px 0 0">
-        <h2 style="color:#fff;margin:0;font-size:20px">Ny anmälan</h2>
+      <div style="background:${headerColor};padding:16px 24px;border-radius:6px 6px 0 0">
+        <h2 style="color:#fff;margin:0;font-size:20px">${headerLabel}</h2>
       </div>
       <div style="border:1px solid #e0e0e0;border-top:0;padding:20px 24px;border-radius:0 0 6px 6px">
         <p style="margin:0 0 8px"><strong>Övning:</strong> ${escapeHtml(eventTitle)}</p>
@@ -71,7 +75,7 @@ exports.handler = async function handleSendMail(event) {
       body: JSON.stringify({
         from,
         to: organizerEmail,
-        subject: `Ny anmälan: ${eventTitle} – ${signerName}`,
+        subject: `${subjectPrefix}: ${eventTitle} – ${signerName}`,
         html
       })
     });

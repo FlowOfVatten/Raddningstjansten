@@ -840,6 +840,7 @@ function initPublicPage() {
           if (!confirmed) return;
           session.signups = session.signups.filter((s) => s.id !== signupId);
           saveState();
+          sendOrganizerNotification(event, session, signup.name, signup.station, 'avbokad');
           renderPublicEvents();
         });
 
@@ -931,7 +932,7 @@ function initPublicPage() {
       createdAt: new Date().toISOString()
     });
     saveState();
-    sendOrganizerNotification(event, session, name, station);
+    sendOrganizerNotification(event, session, name, station, 'anmäld');
 
     const shouldCreateReminder = window.confirm('Vill du lägga till en kalenderpåminnelse för denna övning?');
     if (shouldCreateReminder) {
@@ -943,32 +944,27 @@ function initPublicPage() {
   }
 }
 
-async function sendOrganizerNotification(event, session, signerName, signerStation) {
+async function sendOrganizerNotification(event, session, signerName, signerStation, type) {
   const organizerEmail = state.organizerEmail || '';
-  console.log('[send-mail] organizerEmail from state:', organizerEmail || '(tom)');
-  if (!organizerEmail) {
-    console.warn('[send-mail] Ingen e-post sparad för arrangören – hoppar över mailutskick.');
-    return;
-  }
+  if (!organizerEmail) return;
 
   try {
-    const resp = await fetch('/.netlify/functions/send-mail', {
+    await fetch('/.netlify/functions/send-mail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         organizerEmail,
         signerName,
         signerStation,
+        type: type || 'anmäld',
         eventTitle: event.title,
         sessionDate: formatLongDate(session.date),
         sessionLocation: session.location,
         sessionTime: `${session.startTime}\u2013${session.endTime}`
       })
     });
-    const body = await resp.text();
-    console.log('[send-mail] Svar från funktionen:', resp.status, body);
-  } catch (err) {
-    console.error('[send-mail] Nätverksfel:', err);
+  } catch {
+    // Non-critical
   }
 }
 
