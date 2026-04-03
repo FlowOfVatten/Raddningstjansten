@@ -11,19 +11,22 @@
 //                       For production, verify your own domain at resend.com and set this variable.
 
 exports.handler = async function handleSendMail(event) {
+  console.log('send-mail invoked, method:', event.httpMethod);
+
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    // Not configured — skip silently so the signup still works
+    console.log('RESEND_API_KEY not set, skipping');
     return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'RESEND_API_KEY not set' }) };
   }
 
   let payload;
   try {
     payload = JSON.parse(event.body || '{}');
+    console.log('Payload received, organizerEmail:', payload.organizerEmail, 'signer:', payload.signerName);
   } catch {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON' }) };
   }

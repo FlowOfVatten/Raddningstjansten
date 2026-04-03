@@ -361,14 +361,14 @@ function initAdminPage() {
   const organizerEmailInput = document.getElementById('organizer-email');
   if (organizerNameInput) {
     organizerNameInput.value = state.organizerName || '';
-    organizerNameInput.addEventListener('change', () => {
+    organizerNameInput.addEventListener('blur', () => {
       state.organizerName = organizerNameInput.value.trim();
       saveState();
     });
   }
   if (organizerEmailInput) {
     organizerEmailInput.value = state.organizerEmail || '';
-    organizerEmailInput.addEventListener('change', () => {
+    organizerEmailInput.addEventListener('blur', () => {
       state.organizerEmail = organizerEmailInput.value.trim();
       saveState();
     });
