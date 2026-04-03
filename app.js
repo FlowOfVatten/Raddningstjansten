@@ -55,6 +55,8 @@ const appConfig = window.APP_CONFIG || {};
 let supabaseClient = null;
 let remoteSyncInFlight = false;
 let remoteSyncPending = false;
+let lastRemoteUpdatedAt = null;
+let remotePollTimer = null;
 
 const runtime = {
   calendarYear: new Date().getFullYear(),
@@ -76,6 +78,8 @@ async function bootstrap() {
   if (page === 'public') {
     initPublicPage();
   }
+
+  startRemotePolling();
 }
 
 function getFallbackState() {
@@ -174,6 +178,7 @@ async function initializeSharedPersistence() {
     if (data && data.payload) {
       Object.assign(state, normalizeStatePayload(data.payload));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      lastRemoteUpdatedAt = data.updated_at || null;
       return;
     }
 
@@ -203,17 +208,59 @@ async function pushStateToRemote() {
   const client = getSupabaseClient();
   if (!client) return;
 
+  const timestamp = new Date().toISOString();
+
   const { error } = await client
     .from('app_state')
     .upsert({
       id: REMOTE_STATE_ID,
       payload: state,
-      updated_at: new Date().toISOString()
+      updated_at: timestamp
     }, { onConflict: 'id' });
 
   if (error) {
     console.error('Could not sync shared state to Supabase.', error.message);
+    return;
   }
+
+  lastRemoteUpdatedAt = timestamp;
+}
+
+function startRemotePolling() {
+  const client = getSupabaseClient();
+  if (!client || remotePollTimer) return;
+
+  remotePollTimer = window.setInterval(async () => {
+    if (remoteSyncInFlight) return;
+    if (page === 'admin' && runtime.editingEventId) return;
+
+    try {
+      const { data, error } = await client
+        .from('app_state')
+        .select('updated_at')
+        .eq('id', REMOTE_STATE_ID)
+        .maybeSingle();
+
+      if (error || !data || !data.updated_at) return;
+
+      if (isRemoteTimestampNewer(data.updated_at, lastRemoteUpdatedAt)) {
+        window.location.reload();
+      }
+    } catch {
+      // Ignore polling errors and keep local app usable.
+    }
+  }, 8000);
+}
+
+function isRemoteTimestampNewer(left, right) {
+  if (!left) return false;
+  if (!right) return true;
+  const leftMs = Date.parse(left);
+  const rightMs = Date.parse(right);
+  if (Number.isNaN(leftMs) || Number.isNaN(rightMs)) {
+    return left !== right;
+  }
+  return leftMs > rightMs;
 }
 
 function initAdminPage() {
