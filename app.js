@@ -86,7 +86,9 @@ async function bootstrap() {
 function getFallbackState() {
   return {
     stations: [...DEFAULT_STATIONS],
-    events: []
+    events: [],
+    organizerName: '',
+    organizerEmail: ''
   };
 }
 
@@ -103,7 +105,9 @@ function normalizeStatePayload(payload) {
 
   return {
     stations: migratedStations,
-    events: Array.isArray(parsed.events) ? parsed.events : []
+    events: Array.isArray(parsed.events) ? parsed.events : [],
+    organizerName: typeof parsed.organizerName === 'string' ? parsed.organizerName : '',
+    organizerEmail: typeof parsed.organizerEmail === 'string' ? parsed.organizerEmail : ''
   };
 }
 
@@ -352,6 +356,23 @@ function initAdminPage() {
   document.getElementById('btn-create-event').addEventListener('click', createEvent);
   document.getElementById('btn-cancel-edit').addEventListener('click', clearEventForm);
   document.getElementById('btn-reset').addEventListener('click', resetAllData);
+
+  const organizerNameInput = document.getElementById('organizer-name');
+  const organizerEmailInput = document.getElementById('organizer-email');
+  if (organizerNameInput) {
+    organizerNameInput.value = state.organizerName || '';
+    organizerNameInput.addEventListener('change', () => {
+      state.organizerName = organizerNameInput.value.trim();
+      saveState();
+    });
+  }
+  if (organizerEmailInput) {
+    organizerEmailInput.value = state.organizerEmail || '';
+    organizerEmailInput.addEventListener('change', () => {
+      state.organizerEmail = organizerEmailInput.value.trim();
+      saveState();
+    });
+  }
 
   renderCalendar();
   renderSelectedDates();
@@ -631,7 +652,8 @@ function initAdminPage() {
       meta.innerHTML = `
         <div class="signup-sheet-head">
           <div>
-            <div class="signup-sheet-title">${formatLongDate(session.date)} • ${escapeHtml(session.location)}</div>
+            <div class="signup-sheet-title">${formatLongDate(session.date)}</div>
+            <div class="signup-sheet-location">${escapeHtml(session.location)}</div>
             <div class="signup-sheet-subtitle">${session.startTime}-${session.endTime}</div>
           </div>
           <div class="signup-capacity">${session.signups.length}/${event.maxParticipants} anmälda</div>
@@ -784,7 +806,8 @@ function initPublicPage() {
         sheet.innerHTML = `
           <div class="signup-sheet-head">
             <div>
-              <div class="signup-sheet-title">${formatLongDate(session.date)} ${escapeHtml(session.location)}</div>
+              <div class="signup-sheet-title">${formatLongDate(session.date)}</div>
+              <div class="signup-sheet-location">${escapeHtml(session.location)}</div>
               <div class="signup-sheet-subtitle">${session.startTime}-${session.endTime}</div>
             </div>
             <div class="signup-capacity">${signups.length}/${event.maxParticipants} anmälda</div>
@@ -894,6 +917,7 @@ function initPublicPage() {
       createdAt: new Date().toISOString()
     });
     saveState();
+    sendOrganizerNotification(event, session, name, station);
 
     const shouldCreateReminder = window.confirm('Vill du lägga till en kalenderpåminnelse för denna övning?');
     if (shouldCreateReminder) {
@@ -902,6 +926,29 @@ function initPublicPage() {
 
     closeSignupModal();
     renderPublicEvents();
+  }
+}
+
+async function sendOrganizerNotification(event, session, signerName, signerStation) {
+  const organizerEmail = state.organizerEmail || '';
+  if (!organizerEmail) return;
+
+  try {
+    await fetch('/.netlify/functions/send-mail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        organizerEmail,
+        signerName,
+        signerStation,
+        eventTitle: event.title,
+        sessionDate: formatLongDate(session.date),
+        sessionLocation: session.location,
+        sessionTime: `${session.startTime}\u2013${session.endTime}`
+      })
+    });
+  } catch {
+    // Email notification is non-critical, ignore network errors
   }
 }
 

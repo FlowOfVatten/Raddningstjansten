@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800;900&display=swap');
+
 :root {
   --bg: #e7edf2;
   --panel: rgba(255, 255, 255, 0.97);
@@ -25,7 +27,7 @@ html {
 body {
   margin: 0;
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Source Sans 3", "Segoe UI", Roboto, Arial, sans-serif;
   background:
     linear-gradient(180deg, rgba(19, 72, 112, 0.2), rgba(240, 107, 34, 0.09) 200px, transparent 420px),
     repeating-linear-gradient(0deg, transparent 0, transparent 27px, rgba(13, 34, 52, 0.045) 27px, rgba(13, 34, 52, 0.045) 28px),
@@ -75,12 +77,82 @@ select {
   align-items: flex-start;
 }
 
+.public-hero {
+  background: #e73137;
+  border-color: #e73137;
+}
+
+.overview-panel {
+  background: #e73137;
+  border-color: #e73137;
+}
+
+.public-events .event-card {
+  background: #e73137;
+  border-color: #e73137;
+  border: 0;
+  box-shadow: none;
+}
+
+.public-events .event-card h2,
+.public-events .event-card .event-badge,
+.public-events .event-card .event-card-copy {
+  color: #fff;
+}
+
+.public-events .event-card .event-badge {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.public-hero,
+.public-hero h1,
+.public-hero .hero-copy,
+.public-hero .eyebrow,
+.public-hero a {
+  color: #fff;
+}
+
+.public-hero .hero-copy,
+.public-hero .eyebrow {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.hero-title-with-logo {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.hero-logo {
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.hero-title-text {
+  min-width: 0;
+}
+
+.hero-title-text h1 {
+  margin-bottom: 0;
+}
+
+.hero-title-text .hero-copy {
+  margin-top: 10px;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-size: 12px;
   color: var(--muted);
+}
+
+.eyebrow-sub {
+  font-size: 10px;
+  letter-spacing: 0.12em;
 }
 
 h1,
@@ -93,16 +165,20 @@ p {
 h1 {
   font-size: clamp(32px, 4vw, 52px);
   margin-bottom: 10px;
+  font-weight: 900;
+  line-height: 1.02;
 }
 
 h2 {
   font-size: 28px;
   margin-bottom: 8px;
+  font-weight: 800;
 }
 
 h3 {
   font-size: 22px;
   margin-bottom: 10px;
+  font-weight: 800;
 }
 
 .hero-copy,
@@ -389,15 +465,22 @@ select.input {
   padding: 14px 16px;
   background: linear-gradient(90deg, #ffe3cf, #ffd2b2);
   border-bottom: 1px solid rgba(161, 80, 24, 0.2);
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
   gap: 12px;
-  flex-wrap: wrap;
+  min-height: 110px;
 }
 
 .signup-sheet-title {
   font-size: 18px;
   font-weight: 700;
+}
+
+.signup-sheet-location {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .signup-sheet-subtitle {
@@ -527,10 +610,15 @@ select.input {
   .event-card-header,
   .calendar-header,
   .hero-actions,
-  .signup-sheet-head,
   .signup-actions,
   .modal-actions-right {
     flex-direction: column;
+  }
+
+  .signup-sheet-head {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    align-items: start;
   }
 
   .calendar-weekdays,
@@ -541,6 +629,15 @@ select.input {
   .calendar-day {
     min-height: 70px;
     padding: 8px;
+  }
+
+  .hero-title-with-logo {
+    gap: 10px;
+  }
+
+  .hero-logo {
+    width: 66px;
+    height: 66px;
   }
 }
 
