@@ -79,8 +79,7 @@ exports.handler = async function handleSendMail(event) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Resend API error:', response.status, errorText);
-      // Return 200 so the signup flow isn't blocked by mail failures
-      return { statusCode: 200, body: JSON.stringify({ error: 'Mail delivery failed' }) };
+      return { statusCode: 200, body: JSON.stringify({ error: 'Mail delivery failed', resend: errorText }) };
     }
 
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
