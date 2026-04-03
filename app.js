@@ -70,6 +70,7 @@ bootstrap();
 
 async function bootstrap() {
   await initializeSharedPersistence();
+  bindRefreshButton();
 
   if (page === 'admin') {
     initAdminPage();
@@ -164,28 +165,39 @@ async function initializeSharedPersistence() {
   if (!client) return;
 
   try {
-    const { data, error } = await client
-      .from('app_state')
-      .select('payload, updated_at')
-      .eq('id', REMOTE_STATE_ID)
-      .maybeSingle();
+    const data = await pullStateFromRemote();
+    if (data && data.payload) return;
 
-    if (error) {
-      console.error('Could not read shared state from Supabase.', error.message);
-      return;
+    if (hasMeaningfulLocalData()) {
+      await pushStateToRemote();
     }
-
-    if (data && data.payload) {
-      Object.assign(state, normalizeStatePayload(data.payload));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      lastRemoteUpdatedAt = data.updated_at || null;
-      return;
-    }
-
-    await pushStateToRemote();
   } catch (error) {
     console.error('Shared state initialization failed.', error);
   }
+}
+
+async function pullStateFromRemote() {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from('app_state')
+    .select('payload, updated_at')
+    .eq('id', REMOTE_STATE_ID)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Could not read shared state from Supabase.', error.message);
+    return null;
+  }
+
+  if (data && data.payload) {
+    Object.assign(state, normalizeStatePayload(data.payload));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    lastRemoteUpdatedAt = data.updated_at || null;
+  }
+
+  return data;
 }
 
 function queueRemoteSync() {
@@ -261,6 +273,36 @@ function isRemoteTimestampNewer(left, right) {
     return left !== right;
   }
   return leftMs > rightMs;
+}
+
+function bindRefreshButton() {
+  const refreshButton = document.getElementById('btn-refresh-data');
+  if (!refreshButton) return;
+
+  refreshButton.addEventListener('click', async () => {
+    refreshButton.disabled = true;
+    const previousLabel = refreshButton.textContent;
+    refreshButton.textContent = 'Hämtar...';
+
+    try {
+      const client = getSupabaseClient();
+      if (!client) {
+        window.alert('Supabase är inte aktivt i config.js ännu.');
+        return;
+      }
+
+      const data = await pullStateFromRemote();
+      if (!data || !data.payload) {
+        window.alert('Ingen delad data hittades i databasen ännu.');
+        return;
+      }
+
+      window.location.reload();
+    } finally {
+      refreshButton.disabled = false;
+      refreshButton.textContent = previousLabel;
+    }
+  });
 }
 
 function initAdminPage() {
@@ -965,4 +1007,13 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value);
+}
+
+function hasMeaningfulLocalData() {
+  const fallback = getFallbackState();
+  const hasEvents = Array.isArray(state.events) && state.events.length > 0;
+  const hasCustomStations = Array.isArray(state.stations)
+    && (state.stations.length !== fallback.stations.length
+      || state.stations.some((value, index) => value !== fallback.stations[index]));
+  return hasEvents || hasCustomStations;
 }
