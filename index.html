@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anmälningslistor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="public">
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Räddningstjänsten</p>
+        <h1>Kommande övningar</h1>
+        <p class="hero-copy">Varje tillfälle visar plats, tid, min/max antal och aktuell deltagarlista.</p>
+      </div>
+      <div class="hero-actions">
+        <a href="admin.html" class="btn btn-secondary">Öppna arrangörsläge</a>
+      </div>
+    </header>
+
+    <main class="public-layout">
+      <section class="panel overview-panel">
+        <div class="split-row">
+          <select id="public-event-select" class="input"></select>
+          <button id="btn-print-event" class="btn btn-secondary" type="button" hidden>Skriv ut</button>
+        </div>
+        <div id="public-events" class="public-events"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="signup-modal" class="modal-overlay" hidden>
+    <div class="modal-box modal-box--medium">
+      <h3 id="signup-modal-title" class="modal-title">Anmäl dig</h3>
+      <p id="signup-modal-subtitle" class="modal-hint"></p>
+      <div class="stack gap-sm">
+        <label class="field-label" for="signup-name">Namn</label>
+        <input id="signup-name" class="input" type="text" placeholder="Förnamn Efternamn">
+      </div>
+      <div class="stack gap-sm">
+        <label class="field-label" for="signup-station">Station</label>
+        <select id="signup-station" class="input"></select>
+      </div>
+      <div class="modal-actions">
+        <div class="modal-actions-right">
+          <button id="btn-signup-cancel" class="btn btn-secondary" type="button">Avbryt</button>
+          <button id="btn-signup-save" class="btn btn-primary" type="button">Spara anmälan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

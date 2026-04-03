@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arrangörsläge</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="admin">
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Räddningstjänsten</p>
+        <h1>Skapa anmälningslistor</h1>
+        <p class="hero-copy">
+          Arrangören skapar övningar med flera datum, tider och orter. Data delas mellan datorer via gemensam databas
+          när Supabase är aktiverat i config-filen.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <a href="index.html" class="btn btn-secondary">Öppna deltagarsidan</a>
+        <button id="btn-export" class="btn btn-secondary" type="button">Exportera JSON</button>
+        <button id="btn-reset" class="btn btn-danger" type="button">Rensa allt</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel panel-main">
+        <div class="panel-heading">
+          <h2 id="form-heading">Skapa event / övning</h2>
+          <p>Välj först grunddata, markera sedan ett eller flera datum i kalendern och fyll i ort/tid per datum.</p>
+        </div>
+
+        <div class="editor-grid editor-grid--wide">
+          <div class="card">
+            <h3>Grunddata</h3>
+            <div class="stack gap-sm">
+              <div class="stack gap-xs">
+                <label class="field-label" for="event-title">Namn på övning</label>
+                <input id="event-title" class="input" type="text" placeholder="Till exempel RIB befälsdag/kväll">
+              </div>
+              <div class="form-grid-2">
+                <div class="stack gap-xs">
+                  <label class="field-label" for="event-min">Min antal</label>
+                  <input id="event-min" class="input" type="number" min="1" value="6">
+                </div>
+                <div class="stack gap-xs">
+                  <label class="field-label" for="event-max">Max antal</label>
+                  <input id="event-max" class="input" type="number" min="1" value="15">
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="stack gap-xs">
+                  <label class="field-label" for="event-default-start">Starttid (standard)</label>
+                  <input id="event-default-start" class="input" type="time" value="08:30">
+                </div>
+                <div class="stack gap-xs">
+                  <label class="field-label" for="event-default-end">Sluttid (standard)</label>
+                  <input id="event-default-end" class="input" type="time" value="16:00">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="calendar-header">
+              <div>
+                <h3>Välj datum</h3>
+                <p>Klicka på så många datum du vill. De behöver inte ligga efter varandra.</p>
+              </div>
+              <div class="calendar-nav">
+                <button id="btn-prev-month" class="btn btn-secondary" type="button">Föregående</button>
+                <strong id="calendar-title"></strong>
+                <button id="btn-next-month" class="btn btn-secondary" type="button">Nästa</button>
+              </div>
+            </div>
+            <div class="calendar-weekdays">
+              <span>Mån</span>
+              <span>Tis</span>
+              <span>Ons</span>
+              <span>Tors</span>
+              <span>Fre</span>
+              <span>Lör</span>
+              <span>Sön</span>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="overview-header">
+            <div>
+              <h3>Valda datum</h3>
+              <p>Sätt ort och tid per datum innan du sparar eventet.</p>
+            </div>
+          </div>
+          <div id="selected-dates-list" class="selected-dates-list"></div>
+          <div class="actions-bar">
+            <button id="btn-create-event" class="btn btn-primary" type="button">Spara event</button>
+            <button id="btn-cancel-edit" class="btn btn-secondary" type="button" hidden>Avbryt redigering</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="overview-header">
+            <div>
+              <h3>Sparade event</h3>
+              <p>Välj ett event i listan för att se detaljer, redigera eller ta bort det.</p>
+            </div>
+          </div>
+          <div class="stack gap-sm">
+            <select id="admin-event-select" class="input"></select>
+          </div>
+          <div id="admin-events-list" class="admin-events-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
