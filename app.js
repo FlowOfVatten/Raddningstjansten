@@ -52,12 +52,10 @@ const page = document.body.dataset.page;
 const state = loadState();
 const appConfig = window.APP_CONFIG || {};
 
-let supabaseClient = null;
 let remoteSyncInFlight = false;
 let remoteSyncPending = false;
 let lastRemoteUpdatedAt = null;
 let remotePollTimer = null;
-let supabaseLibLoadPromise = null;
 
 const runtime = {
   calendarYear: new Date().getFullYear(),
@@ -70,7 +68,6 @@ const runtime = {
 bootstrap();
 
 async function bootstrap() {
-  await ensureSupabaseLibrary();
   await initializeSharedPersistence();
   bindRefreshButton();
 
@@ -150,72 +147,45 @@ function hasRemoteConfig() {
   return !!(appConfig.supabaseUrl && appConfig.supabaseAnonKey);
 }
 
-async function ensureSupabaseLibrary() {
-  if (!hasRemoteConfig()) return false;
-  if (window.supabase) return true;
-  if (supabaseLibLoadPromise) return supabaseLibLoadPromise;
-
-  supabaseLibLoadPromise = (async () => {
-    const scriptUrls = [
-      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-      'https://unpkg.com/@supabase/supabase-js@2'
-    ];
-
-    for (const url of scriptUrls) {
-      try {
-        await loadScript(url);
-        if (window.supabase) return true;
-      } catch {
-        // Try next CDN.
-      }
-    }
-
-    return !!window.supabase;
-  })();
-
-  return supabaseLibLoadPromise;
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const existing = [...document.querySelectorAll('script')].find((item) => item.src === src);
-    if (existing) {
-      if (window.supabase) {
-        resolve();
-        return;
-      }
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error(`Could not load ${src}`)), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.addEventListener('load', () => resolve(), { once: true });
-    script.addEventListener('error', () => reject(new Error(`Could not load ${src}`)), { once: true });
-    document.head.appendChild(script);
-  });
-}
-
 function isRemoteEnabled() {
-  return !!(
-    window.supabase
-    && hasRemoteConfig()
-  );
+  return hasRemoteConfig();
 }
 
-function getSupabaseClient() {
-  if (!isRemoteEnabled()) return null;
-  if (!supabaseClient) {
-    supabaseClient = window.supabase.createClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey);
+async function supabaseRequest(pathWithQuery, options = {}) {
+  if (!isRemoteEnabled()) {
+    return { ok: false, status: 0, error: 'Remote config missing' };
   }
-  return supabaseClient;
+
+  const headers = Object.assign({
+    apikey: appConfig.supabaseAnonKey,
+    Authorization: `Bearer ${appConfig.supabaseAnonKey}`
+  }, options.headers || {});
+
+  const response = await fetch(`${appConfig.supabaseUrl}/rest/v1/${pathWithQuery}`, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body
+  });
+
+  if (!response.ok) {
+    let details = '';
+    try {
+      details = await response.text();
+    } catch {
+      details = '';
+    }
+    return { ok: false, status: response.status, error: details || response.statusText };
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return { ok: true, status: response.status, data: await response.json() };
+  }
+  return { ok: true, status: response.status, data: null };
 }
 
 async function initializeSharedPersistence() {
-  const client = getSupabaseClient();
-  if (!client) return;
+  if (!isRemoteEnabled()) return;
 
   try {
     const data = await pullStateFromRemote();
@@ -230,19 +200,14 @@ async function initializeSharedPersistence() {
 }
 
 async function pullStateFromRemote() {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
-  const { data, error } = await client
-    .from('app_state')
-    .select('payload, updated_at')
-    .eq('id', REMOTE_STATE_ID)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Could not read shared state from Supabase.', error.message);
+  const result = await supabaseRequest(`app_state?select=payload,updated_at&id=eq.${encodeURIComponent(REMOTE_STATE_ID)}`);
+  if (!result.ok) {
+    console.error('Could not read shared state from Supabase.', result.error);
     return null;
   }
+
+  const rows = Array.isArray(result.data) ? result.data : [];
+  const data = rows.length ? rows[0] : null;
 
   if (data && data.payload) {
     Object.assign(state, normalizeStatePayload(data.payload));
@@ -254,7 +219,7 @@ async function pullStateFromRemote() {
 }
 
 function queueRemoteSync() {
-  if (!getSupabaseClient()) return;
+  if (!isRemoteEnabled()) return;
   if (remoteSyncInFlight) {
     remoteSyncPending = true;
     return;
@@ -270,21 +235,25 @@ function queueRemoteSync() {
 }
 
 async function pushStateToRemote() {
-  const client = getSupabaseClient();
-  if (!client) return;
+  if (!isRemoteEnabled()) return;
 
   const timestamp = new Date().toISOString();
 
-  const { error } = await client
-    .from('app_state')
-    .upsert({
+  const result = await supabaseRequest('app_state?on_conflict=id', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify([{
       id: REMOTE_STATE_ID,
       payload: state,
       updated_at: timestamp
-    }, { onConflict: 'id' });
+    }])
+  });
 
-  if (error) {
-    console.error('Could not sync shared state to Supabase.', error.message);
+  if (!result.ok) {
+    console.error('Could not sync shared state to Supabase.', result.error);
     return;
   }
 
@@ -292,21 +261,18 @@ async function pushStateToRemote() {
 }
 
 function startRemotePolling() {
-  const client = getSupabaseClient();
-  if (!client || remotePollTimer) return;
+  if (!isRemoteEnabled() || remotePollTimer) return;
 
   remotePollTimer = window.setInterval(async () => {
     if (remoteSyncInFlight) return;
     if (page === 'admin' && runtime.editingEventId) return;
 
     try {
-      const { data, error } = await client
-        .from('app_state')
-        .select('updated_at')
-        .eq('id', REMOTE_STATE_ID)
-        .maybeSingle();
+      const result = await supabaseRequest(`app_state?select=updated_at&id=eq.${encodeURIComponent(REMOTE_STATE_ID)}`);
+      if (!result.ok || !Array.isArray(result.data) || !result.data.length) return;
 
-      if (error || !data || !data.updated_at) return;
+      const data = result.data[0];
+      if (!data || !data.updated_at) return;
 
       if (isRemoteTimestampNewer(data.updated_at, lastRemoteUpdatedAt)) {
         window.location.reload();
@@ -338,13 +304,10 @@ function bindRefreshButton() {
     refreshButton.textContent = 'Hämtar...';
 
     try {
-      await ensureSupabaseLibrary();
-      const client = getSupabaseClient();
-      if (!client) {
+      if (!isRemoteEnabled()) {
         const reasons = [];
         if (!appConfig.supabaseUrl) reasons.push('supabaseUrl saknas');
         if (!appConfig.supabaseAnonKey) reasons.push('supabaseAnonKey saknas');
-        if (!window.supabase) reasons.push('Supabase-biblioteket kunde inte laddas (nät/cdn-block)');
         const detail = reasons.length ? `\n\nOrsak: ${reasons.join(', ')}` : '';
         window.alert(`Supabase är inte aktivt ännu.${detail}`);
         return;
