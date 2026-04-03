@@ -1,6 +1,22 @@
 const STORAGE_KEY = 'raddningstjansten-signups-v1';
 const REMOTE_STATE_ID = 'shared-v1';
 const ADMIN_PASSWORD = 'Havsörn2026';
+const DEFAULT_PERSONNEL = [
+  { id: 'p-4302', name: 'Kristoffer Gullberg', station: '430 Alunda' },
+  { id: 'p-43PG', name: 'Peter Gustafson', station: '430 Alunda' },
+  { id: 'p-4311', name: 'Stefan Hansson', station: '430 Alunda' },
+  { id: 'p-40JJ', name: 'Joakim Jansson', station: '430 Alunda' },
+  { id: 'p-43PK', name: 'Patrik Jonsér', station: '430 Alunda' },
+  { id: 'p-4304', name: 'Stefan Karlsson', station: '430 Alunda' },
+  { id: 'p-4306', name: 'Marcus Lundgren', station: '430 Alunda' },
+  { id: 'p-4312', name: 'Patric Redander', station: '430 Alunda' },
+  { id: 'p-43NS', name: 'Nicklas Söderberg', station: '430 Alunda' },
+  { id: 'p-4314', name: 'Marcus Thilander', station: '430 Alunda' },
+  { id: 'p-4317', name: 'Jonathan Thyrén', station: '430 Alunda' },
+  { id: 'p-4310', name: 'Tim Widell', station: '430 Alunda' },
+  { id: 'p-43FW', name: 'Fredrik Wiklund', station: '430 Alunda' },
+  { id: 'p-4301', name: 'Victor Åkerlind', station: '430 Alunda' }
+];
 const DEFAULT_STATIONS = [
   '110 Fyrislund',
   '140 Skyttorp',
@@ -88,7 +104,8 @@ function getFallbackState() {
     stations: [...DEFAULT_STATIONS],
     events: [],
     organizerName: '',
-    organizerEmail: ''
+    organizerEmail: '',
+    personnel: [...DEFAULT_PERSONNEL]
   };
 }
 
@@ -107,7 +124,8 @@ function normalizeStatePayload(payload) {
     stations: migratedStations,
     events: Array.isArray(parsed.events) ? parsed.events : [],
     organizerName: typeof parsed.organizerName === 'string' ? parsed.organizerName : '',
-    organizerEmail: typeof parsed.organizerEmail === 'string' ? parsed.organizerEmail : ''
+    organizerEmail: typeof parsed.organizerEmail === 'string' ? parsed.organizerEmail : '',
+    personnel: Array.isArray(parsed.personnel) ? parsed.personnel : [...DEFAULT_PERSONNEL]
   };
 }
 
@@ -377,6 +395,73 @@ function initAdminPage() {
   renderCalendar();
   renderSelectedDates();
   renderAdminEvents();
+  initPersonnelSection();
+
+  function initPersonnelSection() {
+    const stationSel = document.getElementById('personnel-station');
+    const nameInput = document.getElementById('personnel-name');
+    const addBtn = document.getElementById('btn-add-personnel');
+    if (!stationSel || !nameInput || !addBtn) return;
+
+    stationSel.innerHTML = buildStationOptions('', false);
+
+    addBtn.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      const station = stationSel.value;
+      if (!name || !station) {
+        window.alert('Fyll i namn och station.');
+        return;
+      }
+      if ((state.personnel || []).some((p) => p.name.toLowerCase() === name.toLowerCase() && p.station === station)) {
+        window.alert('Den personen finns redan p\u00e5 den stationen.');
+        return;
+      }
+      if (!state.personnel) state.personnel = [];
+      state.personnel.push({ id: createId(), name, station });
+      state.personnel.sort((a, b) => a.station.localeCompare(b.station, 'sv') || a.name.localeCompare(b.name, 'sv'));
+      saveState();
+      nameInput.value = '';
+      renderPersonnelList();
+    });
+
+    renderPersonnelList();
+  }
+
+  function renderPersonnelList() {
+    const wrap = document.getElementById('personnel-list');
+    if (!wrap) return;
+    const personnel = state.personnel || [];
+    if (!personnel.length) {
+      wrap.innerHTML = '<div class="empty-state">Ingen personal tillagd \u00e4nnu.</div>';
+      return;
+    }
+
+    const byStation = {};
+    personnel.forEach((p) => {
+      if (!byStation[p.station]) byStation[p.station] = [];
+      byStation[p.station].push(p);
+    });
+
+    wrap.innerHTML = Object.keys(byStation).sort((a, b) => a.localeCompare(b, 'sv')).map((station) => `
+      <div class="personnel-group">
+        <div class="personnel-group-title">${escapeHtml(station)}</div>
+        ${byStation[station].map((p) => `
+          <div class="personnel-row">
+            <span>${escapeHtml(p.name)}</span>
+            <button class="btn btn-danger btn-sm js-remove-person" data-id="${escapeAttribute(p.id)}" type="button">Ta bort</button>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+
+    wrap.querySelectorAll('.js-remove-person').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.personnel = (state.personnel || []).filter((p) => p.id !== btn.dataset.id);
+        saveState();
+        renderPersonnelList();
+      });
+    });
+  }
 
   function renderCalendar() {
     const grid = document.getElementById('calendar-grid');
@@ -881,11 +966,12 @@ function initPublicPage() {
 
     runtime.signupContext = { eventId, sessionId };
     document.getElementById('signup-modal-title').textContent = `Anmalan till ${event.title}`;
-    document.getElementById('signup-modal-subtitle').textContent = `${formatLongDate(session.date)} • ${session.location} • ${session.startTime}-${session.endTime}`;
-    const savedName = localStorage.getItem('raddningstjansten-my-name') || '';
+    document.getElementById('signup-modal-subtitle').textContent = `${formatLongDate(session.date)} \u2022 ${session.location} \u2022 ${session.startTime}-${session.endTime}`;
     const savedStation = localStorage.getItem('raddningstjansten-my-station') || '';
-    document.getElementById('signup-name').value = savedName;
+    const savedName = localStorage.getItem('raddningstjansten-my-name') || '';
     stationSelect.innerHTML = buildStationOptions(savedStation);
+    updateNameFieldForStation(savedStation, savedName);
+    stationSelect.onchange = () => updateNameFieldForStation(stationSelect.value, '');
     modal.hidden = false;
   }
 
@@ -894,11 +980,44 @@ function initPublicPage() {
     runtime.signupContext = null;
   }
 
+  function updateNameFieldForStation(station, preselectedName) {
+    const nameContainer = document.getElementById('signup-name-container');
+    const people = station
+      ? (state.personnel || []).filter((p) => p.station === station).sort((a, b) => a.name.localeCompare(b.name, 'sv'))
+      : [];
+
+    if (people.length) {
+      nameContainer.innerHTML = `
+        <label class="field-label" for="signup-name">Namn</label>
+        <select id="signup-name" class="input">
+          <option value="">V\u00e4lj namn...</option>
+          ${people.map((p) => `<option value="${escapeAttribute(p.name)}"${p.name === preselectedName ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
+          <option value="__other__">Annan person...</option>
+        </select>
+      `;
+      const sel = document.getElementById('signup-name');
+      sel.onchange = () => {
+        if (sel.value === '__other__') {
+          nameContainer.innerHTML = `
+            <label class="field-label" for="signup-name">Namn</label>
+            <input id="signup-name" class="input" type="text" placeholder="F\u00f6rnamn Efternamn">
+          `;
+        }
+      };
+    } else {
+      nameContainer.innerHTML = `
+        <label class="field-label" for="signup-name">Namn</label>
+        <input id="signup-name" class="input" type="text" placeholder="F\u00f6rnamn Efternamn" value="${escapeAttribute(preselectedName)}">
+      `;
+    }
+  }
+
   function saveSignup() {
-    const name = document.getElementById('signup-name').value.trim();
+    const nameEl = document.getElementById('signup-name');
+    const name = nameEl ? nameEl.value.trim() : '';
     const station = stationSelect.value;
     if (!runtime.signupContext) return;
-    if (!name || !station) {
+    if (!name || name === '__other__' || !station) {
       window.alert('Fyll i bade namn och station.');
       return;
     }

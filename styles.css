@@ -391,6 +391,44 @@ select.input {
   gap: 16px;
 }
 
+.personnel-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.personnel-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.personnel-group-title {
+  background: #f0f6fb;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.personnel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.personnel-row:last-child {
+  border-bottom: 0;
+}
+
+.btn-sm {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
 .selected-date-row {
   display: grid;
   grid-template-columns: 180px minmax(120px, 160px) minmax(120px, 160px) minmax(220px, 1fr) auto;

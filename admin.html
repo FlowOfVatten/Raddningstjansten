@@ -121,6 +121,29 @@
           </div>
           <div id="admin-events-list" class="admin-events-list"></div>
         </div>
+
+        <div class="card">
+          <div class="overview-header">
+            <div>
+              <h3>Personalregister</h3>
+              <p>Lägg till personal per station så att de får en namnlista när de anmäler sig.</p>
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="stack gap-xs">
+              <label class="field-label" for="personnel-name">Namn</label>
+              <input id="personnel-name" class="input" type="text" placeholder="Förnamn Efternamn">
+            </div>
+            <div class="stack gap-xs">
+              <label class="field-label" for="personnel-station">Station</label>
+              <select id="personnel-station" class="input"></select>
+            </div>
+          </div>
+          <div class="actions-bar">
+            <button id="btn-add-personnel" class="btn btn-primary" type="button">Lägg till person</button>
+          </div>
+          <div id="personnel-list" class="personnel-list"></div>
+        </div>
       </section>
     </main>
   </div>
