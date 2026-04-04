@@ -189,6 +189,13 @@ h3 {
   line-height: 1.55;
 }
 
+.event-organizer {
+  margin: -2px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .hero-actions,
 .calendar-nav,
 .overview-header,

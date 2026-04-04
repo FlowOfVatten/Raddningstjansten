@@ -876,10 +876,14 @@ function initPublicPage() {
 
     const article = document.createElement('article');
     article.className = 'event-card';
+    const organizerLine = state.organizerName
+      ? `<p class="event-organizer">Arrangör: ${escapeHtml(state.organizerName)}</p>`
+      : '';
     article.innerHTML = `
       <div class="event-card-header">
         <div>
           <h2>${escapeHtml(event.title)}</h2>
+          ${organizerLine}
           <p class="event-card-copy">Min ${event.minParticipants} deltagare • Max ${event.maxParticipants} deltagare</p>
         </div>
         <div class="event-badge">${event.sessions.length} datum</div>
