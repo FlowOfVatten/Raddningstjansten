@@ -759,6 +759,11 @@ select.input {
     flex-wrap: wrap;
   }
 
+  .event-session-list {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
   .event-extra-info {
     text-align: left;
   }
