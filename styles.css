@@ -97,7 +97,9 @@ select {
 .public-events .event-card h2,
 .public-events .event-card .event-badge,
 .public-events .event-card .event-card-copy,
-.public-events .event-card .event-organizer {
+.public-events .event-card .event-organizer,
+.public-events .event-card .event-extra-info,
+.public-events .event-card .event-tag-chip {
   color: #fff;
 }
 
@@ -470,10 +472,63 @@ select.input {
 
 .event-card-header {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
   align-items: flex-start;
+  gap: 16px;
   margin-bottom: 10px;
+}
+
+.event-card-main {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.event-card-comment {
+  flex: 0 1 auto;
+  padding: 0 16px 0 0;
+}
+
+.event-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.event-extra-info {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.event-tag-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.event-tag-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.event-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.event-tag-chip {
+  display: inline-block;
+  background: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .event-badge {
@@ -485,6 +540,7 @@ select.input {
   color: #15334b;
   font-size: 14px;
   font-weight: 700;
+  justify-self: end;
 }
 
 .event-meta {
@@ -497,7 +553,7 @@ select.input {
 
 .event-session-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   margin-top: 16px;
 }
@@ -554,6 +610,16 @@ select.input {
   text-align: right;
 }
 
+.signup-name-cell.js-toggle-attendance {
+  cursor: pointer;
+}
+
+.signup-name-cell.is-present {
+  background: #2e7d32;
+  color: #fff;
+  font-weight: 700;
+}
+
 .signup-sheet-table td:nth-child(3) {
   width: 140px;
 }
@@ -585,6 +651,11 @@ select.input {
 .signup-sheet-table tr.min-marker-row td {
   border-bottom: 3px dashed rgba(191, 73, 18, 0.7);
   background: rgba(240, 107, 34, 0.1);
+}
+
+.signup-sheet-table tr.min-marker-row td.signup-name-cell.is-present {
+  background: #2e7d32;
+  color: #fff;
 }
 
 .signup-actions {
@@ -677,12 +748,19 @@ select.input {
 
   .hero,
   .overview-header,
-  .event-card-header,
   .calendar-header,
   .hero-actions,
   .signup-actions,
   .modal-actions-right {
     flex-direction: column;
+  }
+
+  .event-card-header {
+    flex-wrap: wrap;
+  }
+
+  .event-extra-info {
+    text-align: left;
   }
 
   .signup-sheet-head {
@@ -717,9 +795,16 @@ select.input {
     margin: 10mm;
   }
 
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   body {
     background: #fff;
     color: #000;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .hero,
@@ -732,8 +817,10 @@ select.input {
   }
 
   .page-shell {
-    max-width: none;
+    max-width: 182mm;
+    width: 182mm;
     padding: 0;
+    margin: 6mm auto 0;
   }
 
   .public-layout,
@@ -749,6 +836,7 @@ select.input {
 
   .event-card {
     padding: 0;
+    width: 100%;
   }
 
   .event-card-header {
@@ -756,7 +844,7 @@ select.input {
   }
 
   .event-session-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     margin-top: 8px;
   }
@@ -792,6 +880,16 @@ select.input {
 
   .signup-sheet-table td:nth-child(3) {
     width: 90px;
+  }
+
+  .signup-sheet-table .signup-name-cell.is-present {
+    background: #2e7d32 !important;
+    color: #fff !important;
+  }
+
+  .signup-sheet-table tr.min-marker-row td.signup-name-cell.is-present {
+    background: #2e7d32 !important;
+    color: #fff !important;
   }
 
   #public-events > * {

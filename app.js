@@ -1,21 +1,257 @@
 const STORAGE_KEY = 'raddningstjansten-signups-v1';
 const REMOTE_STATE_ID = 'shared-v1';
 const ADMIN_PASSWORD = 'Havsörn2026';
+const ADMIN_SESSION_KEY = 'raddningstjansten-admin-authenticated';
 const DEFAULT_PERSONNEL = [
-  { id: 'p-4302', name: 'Kristoffer Gullberg', station: '430 Alunda' },
-  { id: 'p-43PG', name: 'Peter Gustafson', station: '430 Alunda' },
-  { id: 'p-4311', name: 'Stefan Hansson', station: '430 Alunda' },
   { id: 'p-40JJ', name: 'Joakim Jansson', station: '430 Alunda' },
-  { id: 'p-43PK', name: 'Patrik Jonsér', station: '430 Alunda' },
-  { id: 'p-4304', name: 'Stefan Karlsson', station: '430 Alunda' },
-  { id: 'p-4306', name: 'Marcus Lundgren', station: '430 Alunda' },
-  { id: 'p-4312', name: 'Patric Redander', station: '430 Alunda' },
-  { id: 'p-43NS', name: 'Nicklas Söderberg', station: '430 Alunda' },
-  { id: 'p-4314', name: 'Marcus Thilander', station: '430 Alunda' },
-  { id: 'p-4317', name: 'Jonathan Thyrén', station: '430 Alunda' },
-  { id: 'p-4310', name: 'Tim Widell', station: '430 Alunda' },
   { id: 'p-43FW', name: 'Fredrik Wiklund', station: '430 Alunda' },
-  { id: 'p-4301', name: 'Victor Åkerlind', station: '430 Alunda' }
+  { id: 'p-43NS', name: 'Nicklas Söderberg', station: '430 Alunda' },
+  { id: 'p-43PG', name: 'Peter Gustafson', station: '430 Alunda' },
+  { id: 'p-43PK', name: 'Patrik Jonsér', station: '430 Alunda' },
+  { id: 'p-43TA', name: 'Torsten Andersson', station: '430 Alunda' },
+  { id: 'p-4301', name: 'Victor Åkerlind', station: '430 Alunda' },
+  { id: 'p-4302', name: 'Kristoffer Gullberg', station: '430 Alunda' },
+  { id: 'p-4303', name: 'Anders Elm', station: '430 Alunda' },
+  { id: 'p-4304', name: 'Stefan Karlsson', station: '430 Alunda' },
+  { id: 'p-4305', name: 'Christoffer Andersson', station: '430 Alunda' },
+  { id: 'p-4306', name: 'Marcus Lundgren', station: '430 Alunda' },
+  { id: 'p-4307', name: 'Samuel Ejerfeldt', station: '430 Alunda' },
+  { id: 'p-4308', name: 'Andreas Breidenskog', station: '430 Alunda' },
+  { id: 'p-4309', name: 'Jimmy Forsman', station: '430 Alunda' },
+  { id: 'p-4310', name: 'Tim Widell', station: '430 Alunda' },
+  { id: 'p-4311', name: 'Stefan Hansson', station: '430 Alunda' },
+  { id: 'p-4312', name: 'Patric Redander', station: '430 Alunda' },
+  { id: 'p-4314', name: 'Marcus Thilander', station: '430 Alunda' },
+  { id: 'p-4315', name: 'Silas Engström', station: '430 Alunda' },
+  { id: 'p-4317', name: 'Jonathan Thyrén', station: '430 Alunda' },
+  { id: 'p-4318', name: 'Fia Cranz', station: '430 Alunda' },
+  { id: 'p-4319', name: 'Jonathan Bohman', station: '430 Alunda' },
+  { id: 'p-4320', name: 'Albert Andersson', station: '430 Alunda' },
+  { id: 'p-4321', name: 'Gabriel Eriksson', station: '430 Alunda' },
+  { id: 'p-1424', name: 'Wiebrn Boonstra', station: '140 Skyttorp' },
+  { id: 'p-1428', name: 'Mattias Carlsson', station: '140 Skyttorp' },
+  { id: 'p-14PC', name: 'Patric Carlsson', station: '140 Skyttorp' },
+  { id: 'p-14LC', name: 'Lukasz Choroszucha', station: '140 Skyttorp' },
+  { id: 'p-1437', name: 'Eric Hokke', station: '140 Skyttorp' },
+  { id: 'p-14NI', name: 'Niclas Ignell', station: '140 Skyttorp' },
+  { id: 'p-14JL', name: 'Jesper Lembie', station: '140 Skyttorp' },
+  { id: 'p-1429', name: 'Ken Lembie', station: '140 Skyttorp' },
+  { id: 'p-14SL', name: 'Sara Lif', station: '140 Skyttorp' },
+  { id: 'p-1427', name: 'Tomas Nyström', station: '140 Skyttorp' },
+  { id: 'p-1430', name: 'Felix Solum', station: '140 Skyttorp' },
+  { id: 'p-14GS', name: 'Göran Svensson', station: '140 Skyttorp' },
+  { id: 'p-14JÖ', name: 'Jörgen Svensson', station: '140 Skyttorp' },
+  { id: 'p-1425', name: 'Urban Wall', station: '140 Skyttorp' },
+  { id: 'p-15CB', name: 'Christoffer Berglund', station: '150 Knutby' },
+  { id: 'p-15KB', name: 'Karin Berglund', station: '150 Knutby' },
+  { id: 'p-1559', name: 'Torbjörn Berglund', station: '150 Knutby' },
+  { id: 'p-1555', name: 'Örjan Carlborg', station: '150 Knutby' },
+  { id: 'p-1551', name: 'Jonas Honkanen', station: '150 Knutby' },
+  { id: 'p-1554', name: 'Lars Jansson', station: '150 Knutby' },
+  { id: 'p-15RJ', name: 'Rikard Johansson', station: '150 Knutby' },
+  { id: 'p-1561', name: 'Tobias Johansson', station: '150 Knutby' },
+  { id: 'p-1552', name: 'Emil Jonsson', station: '150 Knutby' },
+  { id: 'p-15PK', name: 'Peter Karlsson', station: '150 Knutby' },
+  { id: 'p-15ML', name: 'Mathias Lejholm', station: '150 Knutby' },
+  { id: 'p-1556', name: 'Petter Palmius', station: '150 Knutby' },
+  { id: 'p-1604', name: 'Isla Talviharju', station: '150 Knutby' },
+  { id: 'p-15FW', name: 'Fredrik Wincent', station: '150 Knutby' },
+  { id: 'p-1550', name: 'Robin Wincent', station: '150 Knutby' },
+  { id: 'p-1558', name: 'Magnus Åhström', station: '150 Knutby' },
+  { id: 'p-16SA', name: 'Sture Ahlström', station: '160 Almunge' },
+  { id: 'p-16JA', name: 'Johan Alm', station: '160 Almunge' },
+  { id: 'p-1613', name: 'William Alm', station: '160 Almunge' },
+  { id: 'p-16PA', name: 'Petter Andersson', station: '160 Almunge' },
+  { id: 'p-1610', name: 'Johnny Arctaedius', station: '160 Almunge' },
+  { id: 'p-16MB', name: 'Mikael Berggren', station: '160 Almunge' },
+  { id: 'p-1616', name: 'Olivia Dahmén', station: '160 Almunge' },
+  { id: 'p-1615', name: 'Andreas Deborg', station: '160 Almunge' },
+  { id: 'p-1608', name: 'William Ehrenroth', station: '160 Almunge' },
+  { id: 'p-16ET', name: 'Roger Ejderfelt', station: '160 Almunge' },
+  { id: 'p-1603', name: 'Carl Marcus Ericsson', station: '160 Almunge' },
+  { id: 'p-1612', name: 'Christopher Graham', station: '160 Almunge' },
+  { id: 'p-1623', name: 'Per Grahn', station: '160 Almunge' },
+  { id: 'p-16KH', name: 'Kurt Holm', station: '160 Almunge' },
+  { id: 'p-16JJ', name: 'Johan Jansson', station: '160 Almunge' },
+  { id: 'p-16SJ', name: 'Stefan Jansson', station: '160 Almunge' },
+  { id: 'p-1601', name: 'Ludwig Lindberg', station: '160 Almunge' },
+  { id: 'p-1609', name: 'Jessica Lindell', station: '160 Almunge' },
+  { id: 'p-1614', name: 'Olof Nygren', station: '160 Almunge' },
+  { id: 'p-1602', name: 'Mikael Svensson', station: '160 Almunge' },
+  { id: 'p-1604-160', name: 'Isla Talviharju', station: '160 Almunge' },
+  { id: 'p-17MN', name: 'Micael Albertson', station: '170 Storvreta' },
+  { id: 'p-1703', name: 'Marcus Billing', station: '170 Storvreta' },
+  { id: 'p-1702', name: 'Johan Bondesson', station: '170 Storvreta' },
+  { id: 'p-1706', name: 'Tommie Burestad', station: '170 Storvreta' },
+  { id: 'p-1715', name: 'Jenny Edlund Nummelin', station: '170 Storvreta' },
+  { id: 'p-1710', name: 'Isaac Edwards', station: '170 Storvreta' },
+  { id: 'p-17BN', name: 'Bengt Eriksson', station: '170 Storvreta' },
+  { id: 'p-1722', name: 'Samuel Green', station: '170 Storvreta' },
+  { id: 'p-1713', name: 'Anders Holm', station: '170 Storvreta' },
+  { id: 'p-17TJ', name: 'Tobias Jansson', station: '170 Storvreta' },
+  { id: 'p-1705', name: 'Anders Köhler', station: '170 Storvreta' },
+  { id: 'p-1718', name: 'Samuel Larsson', station: '170 Storvreta' },
+  { id: 'p-1716', name: 'Henrik Lundberg', station: '170 Storvreta' },
+  { id: 'p-17EM', name: 'Erik Molin', station: '170 Storvreta' },
+  { id: 'p-17AN', name: 'Andreas Nord', station: '170 Storvreta' },
+  { id: 'p-1714', name: 'Ronny Nordlund', station: '170 Storvreta' },
+  { id: 'p-1712', name: 'William Pettersson', station: '170 Storvreta' },
+  { id: 'p-1719', name: 'Thomas Regnell', station: '170 Storvreta' },
+  { id: 'p-1728', name: 'Daniel Sandberg', station: '170 Storvreta' },
+  { id: 'p-17JS', name: 'Jörgen Saxborg', station: '170 Storvreta' },
+  { id: 'p-1709', name: 'Mikael Söderberg', station: '170 Storvreta' },
+  { id: 'p-1729', name: 'Kim Thorsell', station: '170 Storvreta' },
+  { id: 'p-1701', name: 'Marcus Torstensson', station: '170 Storvreta' },
+  { id: 'p-17TÄ', name: 'Jan Täcktör', station: '170 Storvreta' },
+  { id: 'p-17BV', name: 'Björn Vällfors', station: '170 Storvreta' },
+  { id: 'p-17FÅ', name: 'Fredrik Åkerfeldt', station: '170 Storvreta' },
+  { id: 'p-18TH', name: 'Tove Hagström', station: '180 Järlåsa' },
+  { id: 'p-1866', name: 'Mats Jansson', station: '180 Järlåsa' },
+  { id: 'p-18JK', name: 'Jimmy Karelius', station: '180 Järlåsa' },
+  { id: 'p-1429-180', name: 'Ken Lembie', station: '180 Järlåsa' },
+  { id: 'p-1853', name: 'Martin Litheli', station: '180 Järlåsa' },
+  { id: 'p-1859', name: 'Fredrik Persson', station: '180 Järlåsa' },
+  { id: 'p-18MP', name: 'Magnus Persson', station: '180 Järlåsa' },
+  { id: 'p-18TP', name: 'Tomas Propst', station: '180 Järlåsa' },
+  { id: 'p-18US', name: 'Ulrik Sommar', station: '180 Järlåsa' },
+  { id: 'p-1855', name: 'Thomas Stråle', station: '180 Järlåsa' },
+  { id: 'p-1856', name: 'Carolina Sydén', station: '180 Järlåsa' },
+  { id: 'p-1867', name: 'Thomas Söderlund', station: '180 Järlåsa' },
+  { id: 'p-1871', name: 'Maja Algstrand', station: '180 Järlåsa' },
+  { id: 'p-1854', name: 'Oskar Daniels', station: '180 Järlåsa' },
+  { id: 'p-1850', name: 'Magnus Eklund', station: '180 Järlåsa' },
+  { id: 'p-1857', name: 'Joel Elofsson', station: '180 Järlåsa' },
+  { id: 'p-1910', name: 'Brian Klemme', station: '190 Björklinge' },
+  { id: 'p-066', name: 'Fredrik Lundin', station: '190 Björklinge' },
+  { id: 'p-1915', name: 'Isabel Mandahl Malm', station: '190 Björklinge' },
+  { id: 'p-1908', name: 'Oscar Sahlberg', station: '190 Björklinge' },
+  { id: 'p-1911', name: 'Maria Svedin', station: '190 Björklinge' },
+  { id: 'p-14GS-190', name: 'Göran Svensson', station: '190 Björklinge' },
+  { id: 'p-1916', name: 'Henrik Tomenius', station: '190 Björklinge' },
+  { id: 'p-1903', name: 'Kim Tynell Ågren', station: '190 Björklinge' },
+  { id: 'p-1926', name: 'Tobias Wester', station: '190 Björklinge' },
+  { id: 'p-19SÅ', name: 'Sara Åkerfelt', station: '190 Björklinge' },
+  { id: 'p-1902', name: 'Sebastian Öhman', station: '190 Björklinge' },
+  { id: 'p-1912', name: 'Markus Emet', station: '190 Björklinge' },
+  { id: 'p-1920', name: 'Anton Gunnarsson', station: '190 Björklinge' },
+  { id: 'p-19HR', name: 'Robert Holmberg', station: '190 Björklinge' },
+  { id: 'p-19RH', name: 'Robert Hovberg', station: '190 Björklinge' },
+  { id: 'p-1924', name: 'Ian Isaacs', station: '190 Björklinge' },
+  { id: 'p-MJ', name: 'Mikael Jeppsson', station: '190 Björklinge' },
+  { id: 'p-1917', name: 'Rasmus Jonasson', station: '190 Björklinge' },
+  { id: 'p-1904', name: 'Patrik Jungmarker', station: '190 Björklinge' },
+  { id: 'p-1919', name: 'Mikael Karlsson', station: '190 Björklinge' },
+  { id: 'p-1909', name: 'Uno Karlsson', station: '190 Björklinge' },
+  { id: 'p-1921', name: 'Per Kihlén', station: '190 Björklinge' },
+  { id: 'p-41BA', name: 'Benny Andersson', station: '410 Öregrund' },
+  { id: 'p-41OB', name: 'Oskar Bergström', station: '410 Öregrund' },
+  { id: 'p-41DB', name: 'Daniel Brundin', station: '410 Öregrund' },
+  { id: 'p-41BD', name: 'Björn Danielsson', station: '410 Öregrund' },
+  { id: 'p-4123', name: 'Martin Eriksson', station: '410 Öregrund' },
+  { id: 'p-4122', name: 'Tony Herre', station: '410 Öregrund' },
+  { id: 'p-4129', name: 'Fredrik Jansson', station: '410 Öregrund' },
+  { id: 'p-41FL', name: 'Fredrik Lovén', station: '410 Öregrund' },
+  { id: 'p-4125', name: 'Conny Rehn', station: '410 Öregrund' },
+  { id: 'p-41KS', name: 'Kim Sundberg', station: '410 Öregrund' },
+  { id: 'p-4127', name: 'Magnus Söderquist', station: '410 Öregrund' },
+  { id: 'p-42EN', name: 'Emil Norling', station: '420 Österbybruk' },
+  { id: 'p-4205', name: 'Kevin Nyberg', station: '420 Österbybruk' },
+  { id: 'p-42RO', name: 'Robert Nyberg', station: '420 Österbybruk' },
+  { id: 'p-4208', name: 'Daniel Pettersson', station: '420 Österbybruk' },
+  { id: 'p-42MR', name: 'Mikael Rosenhoff', station: '420 Österbybruk' },
+  { id: 'p-4210', name: 'Morgan Stork', station: '420 Österbybruk' },
+  { id: 'p-4213', name: 'John Wallén Lannergren', station: '420 Österbybruk' },
+  { id: 'p-4211', name: 'Niclas Wennbom', station: '420 Österbybruk' },
+  { id: 'p-4204', name: 'Carolin Vestberg', station: '420 Österbybruk' },
+  { id: 'p-4207', name: 'Charlie Westerberg', station: '420 Österbybruk' },
+  { id: 'p-4209', name: 'Erika Åsberg', station: '420 Österbybruk' },
+  { id: 'p-42PÅ', name: 'Per Åsberg', station: '420 Österbybruk' },
+  { id: 'p-4219', name: 'Lukas Andersen', station: '420 Österbybruk' },
+  { id: 'p-4201', name: 'Guy Andersson', station: '420 Österbybruk' },
+  { id: 'p-4220', name: 'Frida Dubois', station: '420 Österbybruk' },
+  { id: 'p-4214', name: 'Stefan Forsberg', station: '420 Österbybruk' },
+  { id: 'p-4222', name: 'Sandra Frisk', station: '420 Österbybruk' },
+  { id: 'p-4203', name: 'Sebastian Harbom', station: '420 Österbybruk' },
+  { id: 'p-4218', name: 'Tove Höglund', station: '420 Österbybruk' },
+  { id: 'p-42EK', name: 'Emil Karlsson', station: '420 Österbybruk' },
+  { id: 'p-4202', name: 'Benjamin Lundqvist', station: '420 Österbybruk' },
+  { id: 'p-4221', name: 'Johan Mac Queen', station: '420 Österbybruk' },
+  { id: 'p-4215', name: 'Linus Niklasson', station: '420 Österbybruk' },
+  { id: 'p-42JN', name: 'John Norell', station: '420 Österbybruk' },
+  { id: 'p-4425', name: 'Victor Eriksson', station: '440 Gimo' },
+  { id: 'p-4421', name: 'Erik Florén', station: '440 Gimo' },
+  { id: 'p-4432', name: 'Filip Karlsson', station: '440 Gimo' },
+  { id: 'p-4441', name: 'Mikael Lind', station: '440 Gimo' },
+  { id: 'p-44BM', name: 'Björn Mattsson', station: '440 Gimo' },
+  { id: 'p-44PN', name: 'Per Norlin', station: '440 Gimo' },
+  { id: 'p-44KP', name: 'Christer Philipsson', station: '440 Gimo' },
+  { id: 'p-42MR-440', name: 'Mikael Rosenhoff', station: '440 Gimo' },
+  { id: 'p-4433', name: 'Louise Sahlén', station: '440 Gimo' },
+  { id: 'p-4430', name: 'David Wallström', station: '440 Gimo' },
+  { id: 'p-4211-440', name: 'Niclas Wennbom', station: '440 Gimo' },
+  { id: 'p-44LÅ', name: 'Lars Åhman', station: '440 Gimo' },
+  { id: 'p-4422', name: 'Niclas Ahlbom', station: '440 Gimo' },
+  { id: 'p-4434', name: 'Daniel Andersson', station: '440 Gimo' },
+  { id: 'p-44MA', name: 'Mikael Andréasson', station: '440 Gimo' },
+  { id: 'p-4426', name: 'Sebastian Björk', station: '440 Gimo' },
+  { id: 'p-4424', name: 'Robin Björn', station: '440 Gimo' },
+  { id: 'p-4436', name: 'Robert Ek', station: '440 Gimo' },
+  { id: 'p-44AE', name: 'Anders Eriksson', station: '440 Gimo' },
+  { id: 'p-4431', name: 'Anton Eriksson', station: '440 Gimo' },
+  { id: 'p-5119', name: 'Andreas Larsson', station: '500 Tierp' },
+  { id: 'p-5117', name: 'Omar Mardenlli', station: '500 Tierp' },
+  { id: 'p-5105', name: 'Omar Mardenly', station: '500 Tierp' },
+  { id: 'p-5118', name: 'Anton Norling', station: '500 Tierp' },
+  { id: 'p-5110', name: 'John Norling', station: '500 Tierp' },
+  { id: 'p-51JP', name: 'Jan-Olof Pettersson', station: '500 Tierp' },
+  { id: 'p-5114', name: 'Joel Pettersson', station: '500 Tierp' },
+  { id: 'p-5111', name: 'Sandra Stålberg', station: '500 Tierp' },
+  { id: 'p-5107', name: 'Krister Svedlund', station: '500 Tierp' },
+  { id: 'p-5115', name: 'Mathias Trässman', station: '500 Tierp' },
+  { id: 'p-5113', name: 'Kim Wallin', station: '500 Tierp' },
+  { id: 'p-5112', name: 'Stefan Westerbom', station: '500 Tierp' },
+  { id: 'p-5116', name: 'Marina Blom', station: '500 Tierp' },
+  { id: 'p-5101', name: 'Andreas Carlsson', station: '500 Tierp' },
+  { id: 'p-5104', name: 'Mats Dahlberg', station: '500 Tierp' },
+  { id: 'p-51RD', name: 'Robin Dahlberg', station: '500 Tierp' },
+  { id: 'p-5106', name: 'Fredrik Gidebo', station: '500 Tierp' },
+  { id: 'p-5102', name: 'Christopher Hellerstedt', station: '500 Tierp' },
+  { id: 'p-5103', name: 'Staffan Jansson', station: '500 Tierp' },
+  { id: 'p-51AK', name: 'Andreas Karlberg', station: '500 Tierp' },
+  { id: 'p-5416', name: 'Linus Jansson', station: '540 Söderfors' },
+  { id: 'p-5418', name: 'Jesper Jonsson', station: '540 Söderfors' },
+  { id: 'p-5421', name: 'Marcus Juneholt', station: '540 Söderfors' },
+  { id: 'p-51AK-540', name: 'Andreas Karlberg', station: '540 Söderfors' },
+  { id: 'p-5404', name: 'Johan Olsson', station: '540 Söderfors' },
+  { id: 'p-5413', name: 'Pontus Söderberg', station: '540 Söderfors' },
+  { id: 'p-5414', name: 'Andreas Sörensen', station: '540 Söderfors' },
+  { id: 'p-5406', name: 'Willy Wendel', station: '540 Söderfors' },
+  { id: 'p-5410', name: 'Martin Wåhlén', station: '540 Söderfors' },
+  { id: 'p-54PW', name: 'Per Wåhlén', station: '540 Söderfors' },
+  { id: 'p-5403', name: 'Fredrik Årne', station: '540 Söderfors' },
+  { id: 'p-5419', name: 'Sebastian Östlin', station: '540 Söderfors' },
+  { id: 'p-5409', name: 'Patrik Bergman', station: '540 Söderfors' },
+  { id: 'p-540C', name: 'Ola Cedvall', station: '540 Söderfors' },
+  { id: 'p-5401', name: 'Sebastian Chiriac', station: '540 Söderfors' },
+  { id: 'p-5412', name: 'Liam Ellström', station: '540 Söderfors' },
+  { id: 'p-54TE', name: 'Tomas Ellström', station: '540 Söderfors' },
+  { id: 'p-5420', name: 'Joakim Eriksson', station: '540 Söderfors' },
+  { id: 'p-54JE', name: 'Jonas Eshammar', station: '540 Söderfors' },
+  { id: 'p-54MG', name: 'Mikael Gustafsson', station: '540 Söderfors' },
+  { id: 'p-5417', name: 'Simon Haug Mattsson', station: '540 Söderfors' },
+  { id: 'p-55AS', name: 'Sven Almlöf', station: '550 Skärplinge' },
+  { id: 'p-5507', name: 'Jörgen Andersson', station: '550 Skärplinge' },
+  { id: 'p-5503', name: 'Karl Andersson', station: '550 Skärplinge' },
+  { id: 'p-5502', name: 'Tommy Andersson', station: '550 Skärplinge' },
+  { id: 'p-55MA', name: 'Manne Arulf', station: '550 Skärplinge' },
+  { id: 'p-5510', name: 'Johan Boussard', station: '550 Skärplinge' },
+  { id: 'p-5506', name: 'Jonas Carlsson', station: '550 Skärplinge' },
+  { id: 'p-55MC', name: 'Mikael Carlsson', station: '550 Skärplinge' },
+  { id: 'p-55ME', name: 'Mattias Eriksson', station: '550 Skärplinge' },
+  { id: 'p-5504', name: 'Jonny Helmefors', station: '550 Skärplinge' },
+  { id: 'p-5508', name: 'Jesper Löfgren', station: '550 Skärplinge' },
+  { id: 'p-5505', name: 'Jani Rautio', station: '550 Skärplinge' },
+  { id: 'p-5509', name: 'Mathias Stålberg', station: '550 Skärplinge' }
 ];
 const DEFAULT_STATIONS = [
   '110 Fyrislund',
@@ -89,6 +325,7 @@ async function bootstrap() {
   bindRefreshButton();
 
   if (page === 'admin') {
+    if (!ensureAdminAccess()) return;
     initAdminPage();
   }
 
@@ -97,6 +334,38 @@ async function bootstrap() {
   }
 
   startRemotePolling();
+}
+
+function isAdminAuthenticated() {
+  return localStorage.getItem(ADMIN_SESSION_KEY) === '1';
+}
+
+function setAdminAuthenticated(isAuthenticated) {
+  if (isAuthenticated) {
+    localStorage.setItem(ADMIN_SESSION_KEY, '1');
+    return;
+  }
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
+function requestAdminAuthentication() {
+  if (isAdminAuthenticated()) return true;
+
+  const entered = window.prompt('Ange lösenord för adminläge:');
+  if (entered === null) return false;
+  if (entered.trim() !== ADMIN_PASSWORD) {
+    window.alert('Fel lösenord.');
+    return false;
+  }
+
+  setAdminAuthenticated(true);
+  return true;
+}
+
+function ensureAdminAccess() {
+  if (requestAdminAuthentication()) return true;
+  window.location.href = 'index.html';
+  return false;
 }
 
 function getFallbackState() {
@@ -119,14 +388,25 @@ function normalizeStatePayload(payload) {
   const migratedStations = shouldMigrateStations(savedStations)
     ? [...DEFAULT_STATIONS]
     : mergeStations(savedStations, DEFAULT_STATIONS);
+  const savedPersonnel = Array.isArray(parsed.personnel) ? parsed.personnel : [];
 
   return {
     stations: migratedStations,
-    events: Array.isArray(parsed.events) ? parsed.events : [],
+    events: normalizeEvents(Array.isArray(parsed.events) ? parsed.events : []),
     organizerName: typeof parsed.organizerName === 'string' ? parsed.organizerName : '',
     organizerEmail: typeof parsed.organizerEmail === 'string' ? parsed.organizerEmail : '',
-    personnel: Array.isArray(parsed.personnel) ? parsed.personnel : [...DEFAULT_PERSONNEL]
+    personnel: mergePersonnel(savedPersonnel, DEFAULT_PERSONNEL)
   };
+}
+
+function normalizeEvents(events) {
+  return events
+    .filter((event) => event && typeof event === 'object')
+    .map((event) => ({
+      ...event,
+      eventComment: typeof event.eventComment === 'string' ? event.eventComment : '',
+      eventTags: Array.isArray(event.eventTags) ? event.eventTags : []
+    }));
 }
 
 function loadState() {
@@ -153,6 +433,31 @@ function mergeStations(savedStations, defaultStations) {
       merged.push(station);
     }
   });
+  return merged;
+}
+
+function mergePersonnel(savedPersonnel, defaultPersonnel) {
+  const merged = [];
+  const seen = new Set();
+
+  [...savedPersonnel, ...defaultPersonnel].forEach((entry) => {
+    if (!entry || typeof entry !== 'object') return;
+
+    const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+    const station = typeof entry.station === 'string' ? entry.station.trim() : '';
+    if (!name || !station) return;
+
+    const key = `${station.toLowerCase()}|${name.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    merged.push({
+      id: typeof entry.id === 'string' && entry.id ? entry.id : createId(),
+      name,
+      station
+    });
+  });
+
   return merged;
 }
 
@@ -575,6 +880,11 @@ function initAdminPage() {
     const maxParticipants = Number(document.getElementById('event-max').value);
     const organizerName = document.getElementById('organizer-name').value.trim();
     const organizerEmail = document.getElementById('organizer-email').value.trim();
+    const eventComment = document.getElementById('event-comment').value.trim();
+    const eventTags = [];
+    if (document.getElementById('tag-fika').checked) eventTags.push('Fika ingår');
+    if (document.getElementById('tag-lunch').checked) eventTags.push('Lunch ingår');
+    if (document.getElementById('tag-larmstall').checked) eventTags.push('Ta med larmställ');
     const sessions = [...runtime.selectedDates.values()]
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((entry) => ({
@@ -614,7 +924,9 @@ function initAdminPage() {
         existing.maxParticipants = maxParticipants;
         existing.organizerName = organizerName;
         existing.organizerEmail = organizerEmail;
+        existing.eventComment = eventComment;
         existing.sessions = sessions;
+          existing.eventTags = eventTags;
       }
     } else {
       state.events.unshift({
@@ -624,6 +936,8 @@ function initAdminPage() {
         maxParticipants,
         organizerName,
         organizerEmail,
+        eventComment,
+          eventTags,
         createdAt: new Date().toISOString(),
         sessions
       });
@@ -640,6 +954,10 @@ function initAdminPage() {
     document.getElementById('event-max').value = '15';
     document.getElementById('organizer-name').value = '';
     document.getElementById('organizer-email').value = '';
+    document.getElementById('event-comment').value = '';
+      document.getElementById('tag-fika').checked = false;
+      document.getElementById('tag-lunch').checked = false;
+      document.getElementById('tag-larmstall').checked = false;
     runtime.editingEventId = null;
     runtime.selectedDates = new Map();
     updateFormMode();
@@ -666,6 +984,11 @@ function initAdminPage() {
     document.getElementById('event-max').value = event.maxParticipants;
     document.getElementById('organizer-name').value = event.organizerName || '';
     document.getElementById('organizer-email').value = event.organizerEmail || '';
+    document.getElementById('event-comment').value = event.eventComment || '';
+      const tags = Array.isArray(event.eventTags) ? event.eventTags : [];
+      document.getElementById('tag-fika').checked = tags.includes('Fika ingår');
+      document.getElementById('tag-lunch').checked = tags.includes('Lunch ingår');
+      document.getElementById('tag-larmstall').checked = tags.includes('Ta med larmställ');
     if (event.sessions.length) {
       document.getElementById('event-default-start').value = event.sessions[0].startTime;
       document.getElementById('event-default-end').value = event.sessions[0].endTime;
@@ -796,24 +1119,126 @@ function initPublicPage() {
   const stationSelect = document.getElementById('signup-station');
   const eventSelect = document.getElementById('public-event-select');
   const printButton = document.getElementById('btn-print-event');
+  const adminLoginButton = document.getElementById('btn-admin-login');
   const openAdminButton = document.getElementById('btn-open-admin');
 
   document.getElementById('btn-signup-cancel').addEventListener('click', closeSignupModal);
   document.getElementById('btn-signup-save').addEventListener('click', saveSignup);
   printButton.addEventListener('click', () => {
-    window.print();
+    openPrintView();
   });
-  openAdminButton.addEventListener('click', () => {
-    const entered = window.prompt('Ange lösenord för arrangörsläge:');
-    if (entered === null) return;
-    if (entered.trim() !== ADMIN_PASSWORD) {
-      window.alert('Fel lösenord.');
+  adminLoginButton.addEventListener('click', () => {
+    if (isAdminAuthenticated()) {
+      setAdminAuthenticated(false);
+      updateAdminButtons();
+      renderPublicEvents();
       return;
     }
+
+    if (!requestAdminAuthentication()) return;
+    updateAdminButtons();
+    renderPublicEvents();
+  });
+  openAdminButton.addEventListener('click', () => {
+    if (!requestAdminAuthentication()) return;
+    updateAdminButtons();
     window.location.href = 'admin.html';
   });
 
+  updateAdminButtons();
   renderPublicEvents();
+
+  function updateAdminButtons() {
+    const isAdmin = isAdminAuthenticated();
+    openAdminButton.hidden = !isAdmin;
+    adminLoginButton.textContent = isAdmin ? 'Logga ut' : 'Admin';
+  }
+
+  function openPrintView() {
+    const printableEvent = document.querySelector('#public-events .event-card');
+    if (!printableEvent) return;
+
+    const selectedOption = eventSelect.options[eventSelect.selectedIndex];
+    const printTitle = selectedOption ? selectedOption.textContent : 'Anmalningslista';
+    const stylesheetUrl = new URL('styles.css', window.location.href).href;
+    const printWindow = window.open('', '_blank', 'width=1280,height=900');
+
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(printTitle)}</title>
+  <link rel="stylesheet" href="${stylesheetUrl}">
+  <style>
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+    }
+
+    body {
+      padding: 0;
+    }
+
+    .print-root {
+      width: 184mm;
+      margin: 0 auto;
+    }
+
+    .public-events,
+    .event-card,
+    .signup-sheet {
+      margin: 0 !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      background: #fff !important;
+    }
+
+    .event-card {
+      padding: 0 !important;
+    }
+
+    .signup-actions,
+    .no-print {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="print-root">${printableEvent.outerHTML}</div>
+  <script>
+    window.addEventListener('load', () => {
+      const runPrint = () => {
+        window.focus();
+        window.print();
+        window.setTimeout(() => window.close(), 300);
+      };
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => window.setTimeout(runPrint, 150));
+      } else {
+        window.setTimeout(runPrint, 300);
+      }
+    });
+  <\/script>
+</body>
+</html>`);
+    printWindow.document.close();
+  }
 
   function renderPublicEvents() {
     const wrap = document.getElementById('public-events');
@@ -821,39 +1246,57 @@ function initPublicPage() {
     eventSelect.innerHTML = '';
 
     const todayKey = formatDateKey(new Date());
+    const isAdmin = isAdminAuthenticated();
 
-    const upcomingEvents = [];
+    const eventCandidates = [];
     state.events.forEach((event) => {
       let nextSessionKey = null;
+      let lastSessionKey = null;
       event.sessions.forEach((session) => {
         const sessionDateKey = normalizeDateKey(session.date);
-        if (!sessionDateKey || sessionDateKey < todayKey) return;
-        if (!nextSessionKey || sessionDateKey < nextSessionKey) {
+        if (!sessionDateKey) return;
+        if (!lastSessionKey || sessionDateKey > lastSessionKey) {
+          lastSessionKey = sessionDateKey;
+        }
+        if (sessionDateKey >= todayKey && (!nextSessionKey || sessionDateKey < nextSessionKey)) {
           nextSessionKey = sessionDateKey;
         }
       });
-      if (nextSessionKey) {
-        upcomingEvents.push({ event, nextSessionKey });
+      if (nextSessionKey || (isAdmin && lastSessionKey)) {
+        eventCandidates.push({ event, nextSessionKey, lastSessionKey });
       }
     });
 
-    upcomingEvents.sort((a, b) => a.nextSessionKey.localeCompare(b.nextSessionKey));
+    eventCandidates.sort((a, b) => {
+      const aHasFuture = !!a.nextSessionKey;
+      const bHasFuture = !!b.nextSessionKey;
 
-    if (!upcomingEvents.length) {
+      if (aHasFuture && bHasFuture) {
+        return a.nextSessionKey.localeCompare(b.nextSessionKey);
+      }
+
+      if (aHasFuture !== bHasFuture) {
+        return aHasFuture ? -1 : 1;
+      }
+
+      return (b.lastSessionKey || '').localeCompare(a.lastSessionKey || '');
+    });
+
+    if (!eventCandidates.length) {
       wrap.innerHTML = '';
       printButton.hidden = true;
       return;
     }
 
-    upcomingEvents.forEach(({ event }) => {
+    eventCandidates.forEach(({ event }) => {
       const option = document.createElement('option');
       option.value = String(event.id);
       option.textContent = `${event.title} (${event.sessions.length} datum)`;
       eventSelect.appendChild(option);
     });
 
-    const hasPrevious = upcomingEvents.some(({ event }) => String(event.id) === String(previousId));
-    eventSelect.value = hasPrevious ? String(previousId) : String(upcomingEvents[0].event.id);
+    const hasPrevious = eventCandidates.some(({ event }) => String(event.id) === String(previousId));
+    eventSelect.value = hasPrevious ? String(previousId) : String(eventCandidates[0].event.id);
     renderPublicEventDetail(eventSelect.value);
     printButton.hidden = false;
 
@@ -875,19 +1318,29 @@ function initPublicPage() {
     }
 
     printButton.hidden = false;
-
     const article = document.createElement('article');
     article.className = 'event-card';
     const organizerLine = event.organizerName
       ? `<p class="event-organizer">Arrangör: ${escapeHtml(event.organizerName)}</p>`
       : '';
+    const commentLine = event.eventComment
+      ? `<p class="event-extra-info">${escapeHtml(event.eventComment)}</p>`
+      : '';
+      const tags = Array.isArray(event.eventTags) ? event.eventTags : [];
+      const tagsHtml = tags.length
+        ? `<div class="event-tag-list">${tags.map(t => `<span class="event-tag-chip">${escapeHtml(t)}</span>`).join('')}</div>`
+        : '';
+      const extraBlock = (tagsHtml || commentLine)
+        ? `<div class="event-card-comment">${tagsHtml}${commentLine}</div>`
+        : '';
     article.innerHTML = `
       <div class="event-card-header">
-        <div>
+        <div class="event-card-main">
           <h2>${escapeHtml(event.title)}</h2>
           ${organizerLine}
           <p class="event-card-copy">Min ${event.minParticipants} deltagare • Max ${event.maxParticipants} deltagare</p>
         </div>
+          ${extraBlock}
         <div class="event-badge">${event.sessions.length} datum</div>
       </div>
     `;
@@ -936,7 +1389,25 @@ function initPublicPage() {
         `;
 
         table.addEventListener('click', (e) => {
-          const btn = e.target.closest('.btn-remove-signup');
+          const clickTarget = e.target instanceof Element ? e.target : e.target && e.target.parentElement;
+          if (!clickTarget) return;
+
+          const attendanceCell = clickTarget.closest('.js-toggle-attendance');
+          if (attendanceCell) {
+            if (!isAdminAuthenticated()) {
+              if (!requestAdminAuthentication()) return;
+              updateAdminButtons();
+            }
+            const signupId = attendanceCell.dataset.signupId;
+            const signup = session.signups.find((entry) => entry.id === signupId);
+            if (!signup) return;
+            signup.present = !signup.present;
+            saveState();
+            renderPublicEventDetail(eventId);
+            return;
+          }
+
+          const btn = clickTarget.closest('.btn-remove-signup');
           if (!btn) return;
           const signupId = btn.dataset.signupId;
           const signup = session.signups.find((s) => s.id === signupId);
@@ -1192,13 +1663,17 @@ function buildSignupRows(signups, maxParticipants, minParticipants) {
     const signup = signups[index];
     const isMinMarker = index + 1 === minParticipants;
     const rowClass = isMinMarker ? ' class="min-marker-row"' : '';
+    const nameCellClass = signup && signup.present ? ' is-present' : '';
+    const nameCellAttrs = signup
+      ? ` class="signup-name-cell js-toggle-attendance${nameCellClass}" data-signup-id="${escapeAttribute(signup.id)}"`
+      : ` class="signup-name-cell${nameCellClass}"`;
     const removeBtn = signup
       ? `<button class="btn-remove-signup no-print" data-signup-id="${escapeAttribute(signup.id)}" type="button" title="Avboka">✕</button>`
       : '';
     rows.push(`
       <tr${rowClass}>
         <td>${index + 1}</td>
-        <td>${signup ? escapeHtml(signup.name) : ''}</td>
+        <td${nameCellAttrs}>${signup ? escapeHtml(signup.name) : ''}</td>
         <td>${signup ? escapeHtml(signup.station) : ''}</td>
         <td class="no-print signup-remove-cell">${removeBtn}</td>
       </tr>
