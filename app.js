@@ -378,18 +378,10 @@ function initAdminPage() {
   const organizerNameInput = document.getElementById('organizer-name');
   const organizerEmailInput = document.getElementById('organizer-email');
   if (organizerNameInput) {
-    organizerNameInput.value = state.organizerName || '';
-    organizerNameInput.addEventListener('blur', () => {
-      state.organizerName = organizerNameInput.value.trim();
-      saveState();
-    });
+    organizerNameInput.value = '';
   }
   if (organizerEmailInput) {
-    organizerEmailInput.value = state.organizerEmail || '';
-    organizerEmailInput.addEventListener('blur', () => {
-      state.organizerEmail = organizerEmailInput.value.trim();
-      saveState();
-    });
+    organizerEmailInput.value = '';
   }
 
   renderCalendar();
@@ -581,6 +573,8 @@ function initAdminPage() {
     const title = document.getElementById('event-title').value.trim();
     const minParticipants = Number(document.getElementById('event-min').value);
     const maxParticipants = Number(document.getElementById('event-max').value);
+    const organizerName = document.getElementById('organizer-name').value.trim();
+    const organizerEmail = document.getElementById('organizer-email').value.trim();
     const sessions = [...runtime.selectedDates.values()]
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((entry) => ({
@@ -618,6 +612,8 @@ function initAdminPage() {
         existing.title = title;
         existing.minParticipants = minParticipants;
         existing.maxParticipants = maxParticipants;
+        existing.organizerName = organizerName;
+        existing.organizerEmail = organizerEmail;
         existing.sessions = sessions;
       }
     } else {
@@ -626,6 +622,8 @@ function initAdminPage() {
         title,
         minParticipants,
         maxParticipants,
+        organizerName,
+        organizerEmail,
         createdAt: new Date().toISOString(),
         sessions
       });
@@ -640,6 +638,8 @@ function initAdminPage() {
     document.getElementById('event-title').value = '';
     document.getElementById('event-min').value = '6';
     document.getElementById('event-max').value = '15';
+    document.getElementById('organizer-name').value = '';
+    document.getElementById('organizer-email').value = '';
     runtime.editingEventId = null;
     runtime.selectedDates = new Map();
     updateFormMode();
@@ -664,6 +664,8 @@ function initAdminPage() {
     document.getElementById('event-title').value = event.title;
     document.getElementById('event-min').value = event.minParticipants;
     document.getElementById('event-max').value = event.maxParticipants;
+    document.getElementById('organizer-name').value = event.organizerName || '';
+    document.getElementById('organizer-email').value = event.organizerEmail || '';
     if (event.sessions.length) {
       document.getElementById('event-default-start').value = event.sessions[0].startTime;
       document.getElementById('event-default-end').value = event.sessions[0].endTime;
@@ -876,8 +878,8 @@ function initPublicPage() {
 
     const article = document.createElement('article');
     article.className = 'event-card';
-    const organizerLine = state.organizerName
-      ? `<p class="event-organizer">Arrangör: ${escapeHtml(state.organizerName)}</p>`
+    const organizerLine = event.organizerName
+      ? `<p class="event-organizer">Arrangör: ${escapeHtml(event.organizerName)}</p>`
       : '';
     article.innerHTML = `
       <div class="event-card-header">
@@ -1082,7 +1084,7 @@ function initPublicPage() {
 }
 
 async function sendOrganizerNotification(event, session, signerName, signerStation, type) {
-  const organizerEmail = state.organizerEmail || '';
+  const organizerEmail = event.organizerEmail || state.organizerEmail || '';
   if (!organizerEmail) return;
 
   try {

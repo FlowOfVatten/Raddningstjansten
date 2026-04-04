@@ -96,7 +96,8 @@ select {
 
 .public-events .event-card h2,
 .public-events .event-card .event-badge,
-.public-events .event-card .event-card-copy {
+.public-events .event-card .event-card-copy,
+.public-events .event-card .event-organizer {
   color: #fff;
 }
 
