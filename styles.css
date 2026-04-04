@@ -6,8 +6,8 @@
   --ink: #0f2334;
   --muted: #4d6070;
   --line: #bfd0de;
-  --accent-strong: #f06b22;
-  --accent-deep: #b74912;
+  --accent-strong: #1E88E5;
+  --accent-deep: #1565C0;
   --danger: #a12626;
   --shadow: 0 18px 40px rgba(13, 34, 52, 0.14);
 }
@@ -509,8 +509,8 @@ select.input {
 
 .signup-sheet-head {
   padding: 14px 16px;
-  background: linear-gradient(90deg, #ffe3cf, #ffd2b2);
-  border-bottom: 1px solid rgba(161, 80, 24, 0.2);
+  background: #A8DADC;
+  border-bottom: 1px solid rgba(0, 100, 120, 0.2);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;

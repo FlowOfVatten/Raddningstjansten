@@ -1294,7 +1294,7 @@ function formatLongDate(value) {
   return capitalize(new Intl.DateTimeFormat('sv-SE', {
     weekday: 'long',
     day: 'numeric',
-    month: 'short'
+    month: 'long'
   }).format(date));
 }
 
