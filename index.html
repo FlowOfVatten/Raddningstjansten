@@ -20,23 +20,32 @@
           >
           <div class="hero-title-text">
             <h1>Kommande övningar</h1>
+            <p id="hero-motto" class="hero-motto"></p>
             <p class="hero-copy">Varje tillfälle visar plats, tid, min/max antal och aktuell deltagarlista.</p>
           </div>
         </div>
       </div>
       <div class="hero-actions">
         <button id="btn-admin-login" class="btn btn-secondary" type="button">Admin</button>
+        <button id="btn-open-smoke-view" class="btn btn-secondary" type="button">Rökövning</button>
         <button id="btn-open-admin" class="btn btn-primary" type="button" hidden>Skapa övning</button>
       </div>
     </header>
 
     <main class="public-layout">
       <section class="panel overview-panel">
-        <div class="split-row">
-          <select id="public-event-select" class="input"></select>
-          <button id="btn-print-event" class="btn btn-secondary" type="button" hidden>Skriv ut</button>
+        <div id="public-events-view">
+          <div class="split-row">
+            <select id="public-event-select" class="input"></select>
+          </div>
+          <div id="public-events" class="public-events"></div>
         </div>
-        <div id="public-events" class="public-events"></div>
+        <div id="public-smoke-view" hidden>
+          <div class="split-row">
+            <select id="public-smoke-station-select" class="input"></select>
+          </div>
+          <div id="public-smoke-drills" class="public-events"></div>
+        </div>
       </section>
     </main>
   </div>

@@ -310,10 +310,28 @@ let remoteSyncPending = false;
 let lastRemoteUpdatedAt = null;
 let remotePollTimer = null;
 
+const MOTTOS = [
+  'Öva tills det känns självklart',
+  'Varje repetition gör dig skarpare',
+  'Övning är vägen från bra till oslagbar',
+  'Små övningar idag, stora resultat imorgon',
+  'Ju mer du övar, desto mindre behöver du hoppas på tur',
+  'Öva idag, äg imorgon',
+  'Varje repetition bygger din styrka',
+  'Övning förvandlar möda till mästerskap',
+  'Små steg i övning, stora kliv i skicklighet',
+  'Ju oftare du övar, desto naturligare blir det perfekt'
+];
+
+const SMOKE_STATIONS = ['110', '120', '130', 'Tierp'];
+
 const runtime = {
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(),
   selectedDates: new Map(),
+  smokeCalendarYear: new Date().getFullYear(),
+  smokeCalendarMonth: new Date().getMonth(),
+  smokeSelectedDates: new Map(),
   signupContext: null,
   editingEventId: null
 };
@@ -330,10 +348,19 @@ async function bootstrap() {
   }
 
   if (page === 'public') {
+    displayRandomMotto();
     initPublicPage();
   }
 
   startRemotePolling();
+}
+
+function displayRandomMotto() {
+  const mottoElement = document.getElementById('hero-motto');
+  if (mottoElement && MOTTOS.length > 0) {
+    const randomIndex = Math.floor(Math.random() * MOTTOS.length);
+    mottoElement.textContent = MOTTOS[randomIndex];
+  }
 }
 
 function isAdminAuthenticated() {
@@ -372,6 +399,7 @@ function getFallbackState() {
   return {
     stations: [...DEFAULT_STATIONS],
     events: [],
+    smokeDrills: [],
     organizerName: '',
     organizerEmail: '',
     personnel: [...DEFAULT_PERSONNEL]
@@ -393,6 +421,7 @@ function normalizeStatePayload(payload) {
   return {
     stations: migratedStations,
     events: normalizeEvents(Array.isArray(parsed.events) ? parsed.events : []),
+    smokeDrills: normalizeSmokeDrills(Array.isArray(parsed.smokeDrills) ? parsed.smokeDrills : []),
     organizerName: typeof parsed.organizerName === 'string' ? parsed.organizerName : '',
     organizerEmail: typeof parsed.organizerEmail === 'string' ? parsed.organizerEmail : '',
     personnel: mergePersonnel(savedPersonnel, DEFAULT_PERSONNEL)
@@ -407,6 +436,34 @@ function normalizeEvents(events) {
       eventComment: typeof event.eventComment === 'string' ? event.eventComment : '',
       eventTags: Array.isArray(event.eventTags) ? event.eventTags : []
     }));
+}
+
+function normalizeSmokeDrills(smokeDrills) {
+  return smokeDrills
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => {
+      const parsedGroup = Number(entry.groupNumber ?? entry.group);
+      const parsedCount = Number(entry.participantCount ?? entry.antal);
+      return {
+        id: typeof entry.id === 'string' && entry.id ? entry.id : createId(),
+        date: normalizeDateKey(entry.date) || '',
+        ownerStation: typeof entry.ownerStation === 'string' && entry.ownerStation.trim()
+          ? entry.ownerStation.trim()
+          : (typeof entry.station === 'string' ? entry.station.trim() : ''),
+        trainingStation: typeof entry.trainingStation === 'string' && entry.trainingStation.trim()
+          ? entry.trainingStation.trim()
+          : (typeof entry.station === 'string' ? entry.station.trim() : ''),
+        drillType: entry.drillType === 'kall' ? 'kall' : 'varm',
+        groupNumber: Number.isInteger(parsedGroup) && parsedGroup >= 1 && parsedGroup <= 4 ? parsedGroup : null,
+        participantCount: Number.isInteger(parsedCount) && parsedCount >= 1 && parsedCount <= 9 ? parsedCount : null,
+        leaderName: typeof entry.leaderName === 'string' && entry.leaderName.trim()
+          ? entry.leaderName.trim()
+          : (typeof entry.styrkeledare === 'string' ? entry.styrkeledare.trim() : ''),
+        createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString()
+      };
+    })
+    .filter((entry) => entry.date && entry.ownerStation && entry.trainingStation)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function loadState() {
@@ -692,7 +749,242 @@ function initAdminPage() {
   renderCalendar();
   renderSelectedDates();
   renderAdminEvents();
+  initAdminModeSwitch();
+  initSmokeDrillSection();
   initPersonnelSection();
+
+  function initAdminModeSwitch() {
+    const btnEvents = document.getElementById('btn-admin-mode-events');
+    const btnSmoke = document.getElementById('btn-admin-mode-smoke');
+    const modeNodes = document.querySelectorAll('[data-admin-mode]');
+    let adminMode = 'events';
+
+    const setMode = (mode) => {
+      adminMode = mode;
+      modeNodes.forEach((node) => {
+        node.hidden = node.dataset.adminMode !== adminMode;
+      });
+
+      if (btnEvents) {
+        btnEvents.classList.toggle('btn-primary', adminMode === 'events');
+        btnEvents.classList.toggle('btn-secondary', adminMode !== 'events');
+      }
+      if (btnSmoke) {
+        btnSmoke.classList.toggle('btn-primary', adminMode === 'smoke');
+        btnSmoke.classList.toggle('btn-secondary', adminMode !== 'smoke');
+      }
+    };
+
+    if (btnEvents) {
+      btnEvents.addEventListener('click', () => setMode('events'));
+    }
+    if (btnSmoke) {
+      btnSmoke.addEventListener('click', () => setMode('smoke'));
+    }
+
+    setMode('events');
+  }
+
+  function initSmokeDrillSection() {
+    const smokeCalendarTitle = document.getElementById('smoke-calendar-title');
+    const smokeCalendarGrid = document.getElementById('smoke-calendar-grid');
+    const smokePrevMonthButton = document.getElementById('btn-smoke-prev-month');
+    const smokeNextMonthButton = document.getElementById('btn-smoke-next-month');
+    const ownerStationSelect = document.getElementById('smoke-owner-station');
+    const typeSelect = document.getElementById('smoke-type');
+    const createButton = document.getElementById('btn-create-smoke');
+    if (!smokeCalendarTitle || !smokeCalendarGrid || !smokePrevMonthButton || !smokeNextMonthButton || !ownerStationSelect || !typeSelect || !createButton) return;
+
+    smokePrevMonthButton.addEventListener('click', () => {
+      runtime.smokeCalendarMonth -= 1;
+      if (runtime.smokeCalendarMonth < 0) {
+        runtime.smokeCalendarMonth = 11;
+        runtime.smokeCalendarYear -= 1;
+      }
+      renderSmokeCalendar();
+    });
+    smokeNextMonthButton.addEventListener('click', () => {
+      runtime.smokeCalendarMonth += 1;
+      if (runtime.smokeCalendarMonth > 11) {
+        runtime.smokeCalendarMonth = 0;
+        runtime.smokeCalendarYear += 1;
+      }
+      renderSmokeCalendar();
+    });
+
+    createButton.addEventListener('click', () => {
+      const ownerStation = ownerStationSelect.value;
+      const drillType = typeSelect.value === 'kall' ? 'kall' : 'varm';
+      const selectedDates = [...runtime.smokeSelectedDates.entries()]
+        .map(([date, trainingStation]) => ({ date, trainingStation: String(trainingStation || '').trim() }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      if (!ownerStation) {
+        window.alert('Välj ägarstation.');
+        return;
+      }
+
+      if (!selectedDates.length) {
+        window.alert('Lägg till minst ett datum för rökövningen.');
+        return;
+      }
+
+      const missingTrainingStation = selectedDates.some((entry) => !entry.trainingStation);
+      if (missingTrainingStation) {
+        window.alert('Välj vilken station som ska öva för varje datum.');
+        return;
+      }
+
+      const duplicate = selectedDates.some((selectedEntry) =>
+        (state.smokeDrills || []).some((existingEntry) =>
+          normalizeDateKey(existingEntry.date) === selectedEntry.date
+          && String(existingEntry.ownerStation || existingEntry.station) === ownerStation
+          && String(existingEntry.trainingStation || existingEntry.station) === selectedEntry.trainingStation
+        )
+      );
+      if (duplicate) {
+        window.alert('Minst ett valt datum finns redan för denna kombination av stationer.');
+        return;
+      }
+
+      if (!state.smokeDrills) state.smokeDrills = [];
+      selectedDates.forEach((entry) => {
+        state.smokeDrills.push({
+          id: createId(),
+          date: entry.date,
+          ownerStation,
+          trainingStation: entry.trainingStation,
+          drillType,
+          createdAt: new Date().toISOString()
+        });
+      });
+      state.smokeDrills = normalizeSmokeDrills(state.smokeDrills);
+      saveState();
+
+      runtime.smokeSelectedDates = new Map();
+      ownerStationSelect.value = '';
+      typeSelect.value = 'varm';
+      renderSmokeCalendar();
+      renderSelectedSmokeDates();
+      renderAdminSmokeDrills();
+    });
+
+    renderSmokeCalendar();
+    renderSelectedSmokeDates();
+    renderAdminSmokeDrills();
+
+    function renderSmokeCalendar() {
+      const monthLabel = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' })
+        .format(new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth, 1));
+      smokeCalendarTitle.textContent = capitalize(monthLabel);
+      smokeCalendarGrid.innerHTML = '';
+
+      const firstDay = new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth, 1);
+      const lastDay = new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth + 1, 0);
+      const leadingOffset = (firstDay.getDay() + 6) % 7;
+      const totalCells = Math.ceil((leadingOffset + lastDay.getDate()) / 7) * 7;
+
+      for (let index = 0; index < totalCells; index += 1) {
+        const dayNumber = index - leadingOffset + 1;
+        const date = new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth, dayNumber);
+        const inMonth = dayNumber >= 1 && dayNumber <= lastDay.getDate();
+        const key = formatDateKey(date);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `calendar-day${inMonth ? '' : ' muted'}${runtime.smokeSelectedDates.has(key) ? ' selected' : ''}`;
+        button.innerHTML = `
+          <span class="calendar-day-number">${date.getDate()}</span>
+          <span class="calendar-day-note">${runtime.smokeSelectedDates.has(key) ? 'Vald' : ''}</span>
+        `;
+        button.disabled = !inMonth;
+        if (inMonth) {
+          button.addEventListener('click', () => {
+            if (runtime.smokeSelectedDates.has(key)) {
+              runtime.smokeSelectedDates.delete(key);
+            } else {
+              runtime.smokeSelectedDates.set(key, '');
+            }
+            renderSmokeCalendar();
+            renderSelectedSmokeDates();
+          });
+        }
+        smokeCalendarGrid.appendChild(button);
+      }
+    }
+
+    function renderSelectedSmokeDates() {
+      const wrap = document.getElementById('smoke-selected-dates-list');
+      if (!wrap) return;
+
+      const dateEntries = [...runtime.smokeSelectedDates.entries()]
+        .map(([date, trainingStation]) => ({ date, trainingStation: String(trainingStation || '') }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      if (!dateEntries.length) {
+        wrap.innerHTML = '<div class="empty-state">Inga rökövningsdatum valda ännu.</div>';
+        return;
+      }
+
+      wrap.innerHTML = dateEntries.map((entry) => `
+        <div class="smoke-drill-row">
+          <div>
+            <div class="selected-date-title">${formatLongDate(entry.date)}</div>
+            <div class="selected-date-meta">Välj station som ska öva detta datum.</div>
+          </div>
+          <select class="input js-smoke-training-station" data-date="${escapeAttribute(entry.date)}">${buildStationOptions(entry.trainingStation, true)}</select>
+          <button class="btn btn-danger btn-sm js-remove-smoke-date" type="button" data-date="${escapeAttribute(entry.date)}">Ta bort</button>
+        </div>
+      `).join('');
+
+      wrap.querySelectorAll('.js-smoke-training-station').forEach((select) => {
+        select.addEventListener('change', (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLSelectElement)) return;
+          const dateKey = target.dataset.date || '';
+          if (!runtime.smokeSelectedDates.has(dateKey)) return;
+          runtime.smokeSelectedDates.set(dateKey, target.value);
+        });
+      });
+
+      wrap.querySelectorAll('.js-remove-smoke-date').forEach((button) => {
+        button.addEventListener('click', () => {
+          runtime.smokeSelectedDates.delete(button.dataset.date || '');
+          renderSmokeCalendar();
+          renderSelectedSmokeDates();
+        });
+      });
+    }
+  }
+
+  function renderAdminSmokeDrills() {
+    const wrap = document.getElementById('admin-smoke-list');
+    if (!wrap) return;
+
+    const drills = normalizeSmokeDrills(state.smokeDrills || []);
+    if (!drills.length) {
+      wrap.innerHTML = '<div class="empty-state">Inga rökövningar skapade ännu.</div>';
+      return;
+    }
+
+    wrap.innerHTML = drills
+      .map((drill) => `
+        <div class="smoke-drill-row">
+          <div>
+            <div class="selected-date-title">${formatLongDate(drill.date)}</div>
+            <div class="selected-date-meta">Ägare ${escapeHtml(drill.ownerStation)} • Övar ${escapeHtml(drill.trainingStation)} • ${escapeHtml(capitalize(drill.drillType))}</div>
+          </div>
+          <button class="btn btn-danger btn-sm js-delete-smoke" type="button" data-id="${escapeAttribute(drill.id)}">Ta bort</button>
+        </div>
+      `)
+      .join('');
+
+    wrap.querySelectorAll('.js-delete-smoke').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.smokeDrills = (state.smokeDrills || []).filter((entry) => entry.id !== button.dataset.id);
+        saveState();
+        renderAdminSmokeDrills();
+      });
+    });
+  }
 
   function initPersonnelSection() {
     const stationSel = document.getElementById('personnel-station');
@@ -881,6 +1173,17 @@ function initAdminPage() {
     const organizerName = document.getElementById('organizer-name').value.trim();
     const organizerEmail = document.getElementById('organizer-email').value.trim();
     const eventComment = document.getElementById('event-comment').value.trim();
+    const educationMaterials = [];
+    for (let row = 1; row <= 3; row += 1) {
+      const name = document.getElementById(`event-education-name-${row}`).value.trim();
+      const url = document.getElementById(`event-education-link-${row}`).value.trim();
+      if (!name && !url) continue;
+      if (!name || !url) {
+        window.alert(`Utbildningsmaterial rad ${row} maste ha bade namn och lank.`);
+        return;
+      }
+      educationMaterials.push({ name, url });
+    }
     const eventTags = [];
     if (document.getElementById('tag-fika').checked) eventTags.push('Fika ingår');
     if (document.getElementById('tag-lunch').checked) eventTags.push('Lunch ingår');
@@ -925,6 +1228,7 @@ function initAdminPage() {
         existing.organizerName = organizerName;
         existing.organizerEmail = organizerEmail;
         existing.eventComment = eventComment;
+        existing.educationMaterials = educationMaterials;
         existing.sessions = sessions;
           existing.eventTags = eventTags;
       }
@@ -937,6 +1241,7 @@ function initAdminPage() {
         organizerName,
         organizerEmail,
         eventComment,
+        educationMaterials,
           eventTags,
         createdAt: new Date().toISOString(),
         sessions
@@ -955,6 +1260,10 @@ function initAdminPage() {
     document.getElementById('organizer-name').value = '';
     document.getElementById('organizer-email').value = '';
     document.getElementById('event-comment').value = '';
+    for (let row = 1; row <= 3; row += 1) {
+      document.getElementById(`event-education-name-${row}`).value = '';
+      document.getElementById(`event-education-link-${row}`).value = '';
+    }
       document.getElementById('tag-fika').checked = false;
       document.getElementById('tag-lunch').checked = false;
       document.getElementById('tag-larmstall').checked = false;
@@ -985,6 +1294,29 @@ function initAdminPage() {
     document.getElementById('organizer-name').value = event.organizerName || '';
     document.getElementById('organizer-email').value = event.organizerEmail || '';
     document.getElementById('event-comment').value = event.eventComment || '';
+    const materials = Array.isArray(event.educationMaterials) ? event.educationMaterials : [];
+    const normalizedMaterials = materials
+      .map((material) => {
+        if (typeof material === 'string') {
+          const value = material.trim();
+          if (!value) return null;
+          return { name: value, url: value };
+        }
+        if (material && typeof material === 'object') {
+          const name = String(material.name || '').trim();
+          const url = String(material.url || '').trim();
+          if (!name && !url) return null;
+          return { name: name || url, url };
+        }
+        return null;
+      })
+      .filter((material) => material && material.url)
+      .slice(0, 3);
+    for (let row = 1; row <= 3; row += 1) {
+      const material = normalizedMaterials[row - 1];
+      document.getElementById(`event-education-name-${row}`).value = material ? material.name : '';
+      document.getElementById(`event-education-link-${row}`).value = material ? material.url : '';
+    }
       const tags = Array.isArray(event.eventTags) ? event.eventTags : [];
       document.getElementById('tag-fika').checked = tags.includes('Fika ingår');
       document.getElementById('tag-lunch').checked = tags.includes('Lunch ingår');
@@ -1118,15 +1450,17 @@ function initPublicPage() {
   const modal = document.getElementById('signup-modal');
   const stationSelect = document.getElementById('signup-station');
   const eventSelect = document.getElementById('public-event-select');
-  const printButton = document.getElementById('btn-print-event');
+  const smokeToggleButton = document.getElementById('btn-open-smoke-view');
+  const eventsView = document.getElementById('public-events-view');
+  const smokeView = document.getElementById('public-smoke-view');
+  const smokeStationSelect = document.getElementById('public-smoke-station-select');
+  const smokeListWrap = document.getElementById('public-smoke-drills');
   const adminLoginButton = document.getElementById('btn-admin-login');
   const openAdminButton = document.getElementById('btn-open-admin');
+  let publicMode = 'events';
 
   document.getElementById('btn-signup-cancel').addEventListener('click', closeSignupModal);
   document.getElementById('btn-signup-save').addEventListener('click', saveSignup);
-  printButton.addEventListener('click', () => {
-    openPrintView();
-  });
   adminLoginButton.addEventListener('click', () => {
     if (isAdminAuthenticated()) {
       setAdminAuthenticated(false);
@@ -1144,14 +1478,202 @@ function initPublicPage() {
     updateAdminButtons();
     window.location.href = 'admin.html';
   });
+  if (smokeToggleButton) {
+    smokeToggleButton.addEventListener('click', () => {
+      publicMode = publicMode === 'events' ? 'smoke' : 'events';
+      setPublicViewMode();
+      if (publicMode === 'smoke') {
+        renderPublicSmokeDrills();
+      }
+    });
+  }
+  if (smokeStationSelect) {
+    smokeStationSelect.innerHTML = [
+      '<option value="">Välj station för rökövning</option>',
+      ...state.stations.map((station) => `<option value="${escapeAttribute(station)}">${escapeHtml(station)}</option>`)
+    ].join('');
+    smokeStationSelect.addEventListener('change', renderPublicSmokeDrills);
+  }
 
   updateAdminButtons();
   renderPublicEvents();
+  setPublicViewMode();
 
   function updateAdminButtons() {
     const isAdmin = isAdminAuthenticated();
     openAdminButton.hidden = !isAdmin;
     adminLoginButton.textContent = isAdmin ? 'Logga ut' : 'Admin';
+  }
+
+  function setPublicViewMode() {
+    const showSmoke = publicMode === 'smoke';
+    if (eventsView) eventsView.hidden = showSmoke;
+    if (smokeView) smokeView.hidden = !showSmoke;
+    if (smokeToggleButton) {
+      smokeToggleButton.textContent = showSmoke ? 'Tillbaka till övningar' : 'Rökövning';
+    }
+  }
+
+  function renderPublicSmokeDrills() {
+    if (!smokeListWrap || !smokeStationSelect) return;
+
+    const station = smokeStationSelect.value;
+    if (!station) {
+      smokeListWrap.innerHTML = '<div class="empty-state">Välj station för att se rökövningsdagar.</div>';
+      return;
+    }
+
+    const drills = normalizeSmokeDrills(state.smokeDrills || []).filter((entry) => entry.trainingStation === station);
+    if (!drills.length) {
+      smokeListWrap.innerHTML = `<div class="empty-state">Inga rökövningar planerade för station ${escapeHtml(station)}.</div>`;
+      return;
+    }
+
+    const drillsByWeek = new Map();
+    drills.forEach((drill) => {
+      const weekInfo = getIsoWeekInfo(drill.date);
+      const weekKey = `${weekInfo.year}-W${String(weekInfo.week).padStart(2, '0')}`;
+      if (!drillsByWeek.has(weekKey)) {
+        drillsByWeek.set(weekKey, {
+          year: weekInfo.year,
+          week: weekInfo.week,
+          drills: []
+        });
+      }
+      drillsByWeek.get(weekKey).drills.push(drill);
+    });
+
+    const weeklySectionsHtml = [...drillsByWeek.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([, group]) => `
+        <section class="smoke-week-group">
+          <h3 class="smoke-week-title">Vecka ${group.week} (${group.year})</h3>
+          <div class="event-session-list smoke-week-list">
+            ${group.drills.map((drill) => `
+              <section class="signup-sheet smoke-signup-sheet">
+                <div class="signup-sheet-head smoke-signup-sheet-head">
+                  <div>
+                    <div class="signup-sheet-title">${formatLongDate(drill.date)}</div>
+                    <div class="signup-sheet-location">Ägarstation ${escapeHtml(drill.ownerStation)}</div>
+                    <div class="signup-sheet-subtitle">${escapeHtml(capitalize(drill.drillType))} rökövning</div>
+                    <div class="smoke-card-meta" data-smoke-meta-id="${escapeAttribute(drill.id)}">${drill.groupNumber ? `Grupp ${drill.groupNumber}` : 'Grupp ej satt'} • ${drill.participantCount ? `Antal ${drill.participantCount}` : 'Antal ej satt'}<br>${drill.leaderName ? `Styrkeledare ${escapeHtml(drill.leaderName)}` : 'Styrkeledare ej satt'}</div>
+                  </div>
+                  <div class="smoke-card-actions">
+                    <button class="btn btn-secondary btn-sm js-edit-smoke-card" type="button" data-smoke-id="${escapeAttribute(drill.id)}">Redigera</button>
+                  </div>
+                </div>
+                <div class="smoke-card-editor" data-smoke-editor-id="${escapeAttribute(drill.id)}" hidden>
+                  <select class="input js-smoke-group" data-smoke-id="${escapeAttribute(drill.id)}">
+                    <option value="">Grupp</option>
+                    ${[1, 2, 3, 4].map((n) => `<option value="${n}"${drill.groupNumber === n ? ' selected' : ''}>Grupp ${n}</option>`).join('')}
+                  </select>
+                  <select class="input js-smoke-count" data-smoke-id="${escapeAttribute(drill.id)}">
+                    <option value="">Antal</option>
+                    ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}"${drill.participantCount === n ? ' selected' : ''}>Antal ${n}</option>`).join('')}
+                  </select>
+                  <select class="input js-smoke-leader" data-smoke-id="${escapeAttribute(drill.id)}">
+                    ${buildSmokeLeaderOptions(drill.trainingStation, drill.leaderName)}
+                  </select>
+                  <button class="btn btn-primary btn-sm js-save-smoke-card" type="button" data-smoke-id="${escapeAttribute(drill.id)}">Spara</button>
+                  <button class="btn btn-secondary btn-sm js-cancel-smoke-card" type="button" data-smoke-id="${escapeAttribute(drill.id)}">Avbryt</button>
+                </div>
+              </section>
+            `).join('')}
+          </div>
+        </section>
+      `)
+      .join('');
+
+    smokeListWrap.innerHTML = `
+      <article class="event-card">
+        <div class="event-card-header">
+          <div class="event-card-main">
+            <h2>Rökövningar för ${escapeHtml(station)}</h2>
+            <p class="event-card-copy">Visar planerade dagar och typ av rökövning, grupperat per vecka.</p>
+          </div>
+        </div>
+        ${weeklySectionsHtml}
+      </article>
+    `;
+
+    function buildSmokeLeaderOptions(trainingStation, selectedLeader) {
+      const leaders = (state.personnel || [])
+        .filter((person) => person.station === trainingStation)
+        .map((person) => person.name)
+        .sort((a, b) => a.localeCompare(b, 'sv'));
+      const seen = new Set();
+      const uniqueLeaders = leaders.filter((name) => {
+        const key = name.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (selectedLeader && !uniqueLeaders.some((name) => name.toLowerCase() === selectedLeader.toLowerCase())) {
+        uniqueLeaders.unshift(selectedLeader);
+      }
+
+      const baseOption = '<option value="">Styrkeledare</option>';
+      if (!uniqueLeaders.length) {
+        return `${baseOption}<option value="" disabled>Ingen personal på stationen</option>`;
+      }
+      return `${baseOption}${uniqueLeaders
+        .map((name) => `<option value="${escapeAttribute(name)}"${name === selectedLeader ? ' selected' : ''}>${escapeHtml(name)}</option>`)
+        .join('')}`;
+    }
+
+    smokeListWrap.querySelectorAll('.js-edit-smoke-card').forEach((button) => {
+      button.addEventListener('click', () => {
+        const smokeId = button.dataset.smokeId;
+        if (!smokeId) return;
+        const editor = smokeListWrap.querySelector(`[data-smoke-editor-id="${smokeId}"]`);
+        if (editor) editor.hidden = false;
+      });
+    });
+
+    smokeListWrap.querySelectorAll('.js-cancel-smoke-card').forEach((button) => {
+      button.addEventListener('click', () => {
+        const smokeId = button.dataset.smokeId;
+        if (!smokeId) return;
+        const editor = smokeListWrap.querySelector(`[data-smoke-editor-id="${smokeId}"]`);
+        if (editor) editor.hidden = true;
+      });
+    });
+
+    smokeListWrap.querySelectorAll('.js-save-smoke-card').forEach((button) => {
+      button.addEventListener('click', () => {
+        const smokeId = button.dataset.smokeId;
+        if (!smokeId) return;
+
+        const groupSelect = smokeListWrap.querySelector(`.js-smoke-group[data-smoke-id="${smokeId}"]`);
+        const countSelect = smokeListWrap.querySelector(`.js-smoke-count[data-smoke-id="${smokeId}"]`);
+        const leaderSelect = smokeListWrap.querySelector(`.js-smoke-leader[data-smoke-id="${smokeId}"]`);
+        if (!(groupSelect instanceof HTMLSelectElement) || !(countSelect instanceof HTMLSelectElement) || !(leaderSelect instanceof HTMLSelectElement)) return;
+
+        const groupNumber = Number(groupSelect.value);
+        const participantCount = Number(countSelect.value);
+        const leaderName = leaderSelect.value.trim();
+        if (!Number.isInteger(groupNumber) || groupNumber < 1 || groupNumber > 4) {
+          window.alert('Välj grupp 1-4.');
+          return;
+        }
+        if (!Number.isInteger(participantCount) || participantCount < 1 || participantCount > 9) {
+          window.alert('Välj antal 1-9.');
+          return;
+        }
+        if (!leaderName) {
+          window.alert('Välj styrkeledare.');
+          return;
+        }
+
+        const smokeDrill = (state.smokeDrills || []).find((entry) => String(entry.id) === String(smokeId));
+        if (!smokeDrill) return;
+        smokeDrill.groupNumber = groupNumber;
+        smokeDrill.participantCount = participantCount;
+        smokeDrill.leaderName = leaderName;
+        saveState();
+        renderPublicSmokeDrills();
+      });
+    });
   }
 
   function openPrintView() {
@@ -1284,7 +1806,6 @@ function initPublicPage() {
 
     if (!eventCandidates.length) {
       wrap.innerHTML = '';
-      printButton.hidden = true;
       return;
     }
 
@@ -1298,7 +1819,6 @@ function initPublicPage() {
     const hasPrevious = eventCandidates.some(({ event }) => String(event.id) === String(previousId));
     eventSelect.value = hasPrevious ? String(previousId) : String(eventCandidates[0].event.id);
     renderPublicEventDetail(eventSelect.value);
-    printButton.hidden = false;
 
     eventSelect.onchange = () => renderPublicEventDetail(eventSelect.value);
   }
@@ -1307,19 +1827,35 @@ function initPublicPage() {
     const wrap = document.getElementById('public-events');
     wrap.innerHTML = '';
     if (!eventId) {
-      printButton.hidden = true;
       return;
     }
 
     const event = state.events.find((item) => String(item.id) === String(eventId));
     if (!event) {
-      printButton.hidden = true;
       return;
     }
 
-    printButton.hidden = false;
     const article = document.createElement('article');
     article.className = 'event-card';
+    const todayKey = formatDateKey(new Date());
+    let openSessions = 0;
+    let fullSessions = 0;
+    let pastSessions = 0;
+    event.sessions.forEach((session) => {
+      const sessionDateKey = normalizeDateKey(session.date);
+      if (!sessionDateKey || sessionDateKey < todayKey) {
+        pastSessions += 1;
+        return;
+      }
+
+      const signups = Array.isArray(session.signups) ? session.signups : [];
+      if (signups.length >= event.maxParticipants) {
+        fullSessions += 1;
+      } else {
+        openSessions += 1;
+      }
+    });
+    const sessionStatusHtml = `<div class="event-session-status"><span>${openSessions} oppna</span><span>${fullSessions} fullbokade</span><span>${pastSessions} passerade</span></div>`;
     const organizerLine = event.organizerName
       ? `<p class="event-organizer">Arrangör: ${escapeHtml(event.organizerName)}</p>`
       : '';
@@ -1330,8 +1866,29 @@ function initPublicPage() {
       const tagsHtml = tags.length
         ? `<div class="event-tag-list">${tags.map(t => `<span class="event-tag-chip">${escapeHtml(t)}</span>`).join('')}</div>`
         : '';
-      const extraBlock = (tagsHtml || commentLine)
-        ? `<div class="event-card-comment">${tagsHtml}${commentLine}</div>`
+      const materials = Array.isArray(event.educationMaterials)
+        ? event.educationMaterials
+            .map((material) => {
+              if (typeof material === 'string') {
+                const value = material.trim();
+                if (!value) return null;
+                return { name: value, url: value };
+              }
+              if (material && typeof material === 'object') {
+                const name = String(material.name || '').trim();
+                const url = String(material.url || '').trim();
+                if (!url) return null;
+                return { name: name || url, url };
+              }
+              return null;
+            })
+            .filter(Boolean)
+        : [];
+      const materialsHtml = materials.length
+        ? `<div class="event-materials"><div class="event-materials-title">Utbildningsmaterial:</div><div class="event-material-links">${materials.map((m) => `<a href="${escapeAttribute(m.url)}" target="_blank" rel="noopener noreferrer" class="event-material-link">${escapeHtml(m.name)}</a>`).join('')}</div></div>`
+        : '';
+      const extraBlock = (tagsHtml || commentLine || materialsHtml)
+        ? `<div class="event-card-comment">${tagsHtml}${commentLine}${materialsHtml}</div>`
         : '';
     article.innerHTML = `
       <div class="event-card-header">
@@ -1341,7 +1898,11 @@ function initPublicPage() {
           <p class="event-card-copy">Min ${event.minParticipants} deltagare • Max ${event.maxParticipants} deltagare</p>
         </div>
           ${extraBlock}
-        <div class="event-badge">${event.sessions.length} datum</div>
+        <div class="event-badge-row">
+          <div class="event-badge">${event.sessions.length} datum</div>
+          ${sessionStatusHtml}
+          <button id="btn-print-event" class="btn btn-secondary" type="button">Skriv ut</button>
+        </div>
       </div>
     `;
 
@@ -1448,6 +2009,12 @@ function initPublicPage() {
 
     article.appendChild(sessionList);
     wrap.appendChild(article);
+    const printBtn = article.querySelector('#btn-print-event');
+    if (printBtn) {
+      printBtn.addEventListener('click', () => {
+        openPrintView();
+      });
+    }
   }
 
   function openSignupModal(eventId, sessionId) {
@@ -1541,6 +2108,19 @@ function initPublicPage() {
       station,
       createdAt: new Date().toISOString()
     });
+    
+    // Lägg automatiskt till personen i personalregistret för stationen om de inte redan finns
+    const existingPersonnel = state.personnel.find(
+      (p) => p.name.toLowerCase() === name.toLowerCase() && p.station === station
+    );
+    if (!existingPersonnel) {
+      state.personnel.push({
+        id: createId(),
+        name,
+        station
+      });
+    }
+    
     saveState();
     sendOrganizerNotification(event, session, name, station, 'anmäld');
 
@@ -1555,7 +2135,7 @@ function initPublicPage() {
 }
 
 async function sendOrganizerNotification(event, session, signerName, signerStation, type) {
-  const organizerEmail = event.organizerEmail || state.organizerEmail || '';
+  const organizerEmail = (event.organizerEmail || '').trim();
   if (!organizerEmail) return;
 
   try {
@@ -1771,6 +2351,19 @@ function formatLongDate(value) {
     day: 'numeric',
     month: 'long'
   }).format(date));
+}
+
+function getIsoWeekInfo(value) {
+  const date = typeof value === 'string' ? new Date(`${value}T12:00:00`) : new Date(value);
+  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = utcDate.getUTCDay() || 7;
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((utcDate - yearStart) / 86400000) + 1) / 7);
+  return {
+    year: utcDate.getUTCFullYear(),
+    week
+  };
 }
 
 function capitalize(value) {

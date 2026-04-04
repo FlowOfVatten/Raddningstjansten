@@ -30,7 +30,12 @@
           <p>Välj först grunddata, markera sedan ett eller flera datum i kalendern och fyll i ort/tid per datum.</p>
         </div>
 
-        <div class="editor-grid editor-grid--wide">
+        <div class="actions-bar admin-mode-switch">
+          <button id="btn-admin-mode-events" class="btn btn-primary" type="button">Vanliga event</button>
+          <button id="btn-admin-mode-smoke" class="btn btn-secondary" type="button">Rökövning</button>
+        </div>
+
+        <div class="editor-grid editor-grid--wide" data-admin-mode="events">
           <div class="card">
             <h3>Grunddata</h3>
             <div class="stack gap-sm">
@@ -63,7 +68,7 @@
                 <input id="organizer-name" class="input" type="text" placeholder="Till exempel Erik Johansson">
               </div>
               <div class="stack gap-xs">
-                <label class="field-label" for="organizer-email">E-post för anmälningsnotiser</label>
+                <label class="field-label" for="organizer-email">E-post för anmälningsnotiser (valfritt - fyll i endast om du vill ha notiser)</label>
                 <input id="organizer-email" class="input" type="email" placeholder="erik@example.com">
               </div>
               <div class="stack gap-xs">
@@ -74,6 +79,23 @@
                   <label class="event-tag-check"><input type="checkbox" id="tag-larmstall"> Ta med larmställ</label>
                 </div>
                 <textarea id="event-comment" class="input" rows="2" placeholder="Övrig kommentar (valfritt)"></textarea>
+              </div>
+              <div class="stack gap-xs">
+                <label class="field-label" for="event-education-name-1">Utbildningsmaterial (valfritt)</label>
+                <div class="stack gap-xs">
+                  <div class="form-grid-2">
+                    <input id="event-education-name-1" class="input" type="text" placeholder="Namn (rad 1)">
+                    <input id="event-education-link-1" class="input" type="url" placeholder="Lank (rad 1)">
+                  </div>
+                  <div class="form-grid-2">
+                    <input id="event-education-name-2" class="input" type="text" placeholder="Namn (rad 2)">
+                    <input id="event-education-link-2" class="input" type="url" placeholder="Lank (rad 2)">
+                  </div>
+                  <div class="form-grid-2">
+                    <input id="event-education-name-3" class="input" type="text" placeholder="Namn (rad 3)">
+                    <input id="event-education-link-3" class="input" type="url" placeholder="Lank (rad 3)">
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -103,7 +125,7 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" data-admin-mode="events">
           <div class="overview-header">
             <div>
               <h3>Valda datum</h3>
@@ -117,7 +139,63 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" data-admin-mode="smoke" hidden>
+          <div class="overview-header">
+            <div>
+              <h3>Skapa rökövning</h3>
+              <p>Välj ägarstation, flera datum, station som ska öva och om övningen är varm eller kall.</p>
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="stack gap-xs">
+              <label class="field-label" for="smoke-owner-station">Ägarstation</label>
+              <select id="smoke-owner-station" class="input">
+                <option value="">Välj ägarstation</option>
+                <option value="110">110</option>
+                <option value="120">120</option>
+                <option value="130">130</option>
+                <option value="Tierp">Tierp</option>
+              </select>
+            </div>
+            <div class="stack gap-xs">
+              <label class="field-label" for="smoke-type">Typ</label>
+              <select id="smoke-type" class="input">
+                <option value="varm">Varm</option>
+                <option value="kall">Kall</option>
+              </select>
+            </div>
+          </div>
+          <div class="card">
+            <div class="calendar-header">
+              <div>
+                <h3>Välj rökövningsdatum</h3>
+                <p>Klicka på flera datum i kalendern.</p>
+              </div>
+              <div class="calendar-nav">
+                <button id="btn-smoke-prev-month" class="btn btn-secondary" type="button">Föregående</button>
+                <strong id="smoke-calendar-title"></strong>
+                <button id="btn-smoke-next-month" class="btn btn-secondary" type="button">Nästa</button>
+              </div>
+            </div>
+            <div class="calendar-weekdays">
+              <span>Mån</span>
+              <span>Tis</span>
+              <span>Ons</span>
+              <span>Tors</span>
+              <span>Fre</span>
+              <span>Lör</span>
+              <span>Sön</span>
+            </div>
+            <div id="smoke-calendar-grid" class="calendar-grid"></div>
+          </div>
+          <div id="smoke-selected-dates-list" class="selected-dates-list"></div>
+          <div class="actions-bar">
+            <button id="btn-create-smoke" class="btn btn-primary" type="button">Skapa rökövningar</button>
+          </div>
+          <div id="admin-smoke-list" class="admin-events-list"></div>
+        </div>
+
+        <div class="card" data-admin-mode="events">
           <div class="overview-header">
             <div>
               <h3>Sparade event</h3>
@@ -130,7 +208,7 @@
           <div id="admin-events-list" class="admin-events-list"></div>
         </div>
 
-        <div class="card">
+        <div class="card" data-admin-mode="events">
           <div class="overview-header">
             <div>
               <h3>Personalregister</h3>

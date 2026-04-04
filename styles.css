@@ -120,6 +120,11 @@ select {
   color: rgba(255, 255, 255, 0.92);
 }
 
+.public-hero .hero-actions {
+  flex-direction: column;
+  align-items: flex-end;
+}
+
 .hero-title-with-logo {
   display: flex;
   align-items: flex-start;
@@ -192,6 +197,14 @@ h3 {
   line-height: 1.55;
 }
 
+.hero-motto {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+}
+
 .event-organizer {
   margin: -2px 0 4px;
   font-size: 14px;
@@ -210,6 +223,10 @@ h3 {
   flex-wrap: wrap;
 }
 
+.admin-mode-switch {
+  margin-top: -6px;
+}
+
 .layout {
   display: block;
 }
@@ -220,7 +237,17 @@ h3 {
   gap: 16px;
 }
 
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .form-grid-2 > * {
+  min-width: 0;
+}
+
+.form-grid-3 > * {
   min-width: 0;
 }
 
@@ -450,6 +477,19 @@ select.input {
   background: #f8fbff;
 }
 
+.smoke-drill-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  margin-top: 8px;
+}
+
 .selected-date-title {
   font-weight: 700;
 }
@@ -492,6 +532,28 @@ select.input {
   flex-shrink: 0;
 }
 
+.event-badge-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.event-session-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.9);
+  text-align: right;
+}
+
+.event-session-status span {
+  white-space: nowrap;
+}
+
 .event-extra-info {
   margin: 0;
   font-size: 13px;
@@ -531,6 +593,38 @@ select.input {
   font-weight: 700;
 }
 
+.event-materials {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+}
+
+.event-materials-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  margin-bottom: 4px;
+}
+
+.event-material-links {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.event-material-link {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #63b3ed;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.event-material-link:hover {
+  text-decoration: underline;
+}
+
 .event-badge {
   display: inline-flex;
   align-items: center;
@@ -556,6 +650,75 @@ select.input {
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   margin-top: 16px;
+}
+
+.event-session-list--single {
+  grid-template-columns: 1fr;
+}
+
+.smoke-week-group {
+  margin-top: 14px;
+}
+
+.smoke-week-title {
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.smoke-week-list {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.smoke-signup-sheet {
+  background: #A8DADC;
+  border: 1px solid rgba(0, 100, 120, 0.2);
+}
+
+.smoke-signup-sheet-head {
+  min-height: 104px;
+  padding: 12px 14px;
+  border-bottom: none;
+}
+
+.smoke-signup-sheet .signup-sheet-title {
+  font-size: 15px;
+}
+
+.smoke-signup-sheet .signup-sheet-location {
+  font-size: 14px;
+}
+
+.smoke-signup-sheet .signup-sheet-subtitle {
+  font-size: 13px;
+}
+
+.smoke-card-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.smoke-card-actions {
+  align-self: start;
+}
+
+.smoke-card-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.smoke-card-editor .input {
+  min-height: 38px;
 }
 
 .signup-sheet {
@@ -728,7 +891,8 @@ select.input {
   .editor-grid,
   .editor-grid--wide,
   .form-grid,
-  .form-grid-2 {
+  .form-grid-2,
+  .form-grid-3 {
     grid-template-columns: 1fr;
   }
 
@@ -759,9 +923,21 @@ select.input {
     flex-wrap: wrap;
   }
 
+  .event-badge-row {
+    align-items: flex-start;
+  }
+
+  .event-session-status {
+    text-align: left;
+  }
+
   .event-session-list {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .smoke-week-list {
+    grid-template-columns: 1fr;
   }
 
   .event-extra-info {
@@ -817,6 +993,7 @@ select.input {
   #btn-print-event,
   .modal-overlay,
   .signup-actions,
+  .hero-motto,
   .no-print {
     display: none !important;
   }
