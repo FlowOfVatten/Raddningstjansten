@@ -399,11 +399,14 @@ function initAdminPage() {
 
   function initPersonnelSection() {
     const stationSel = document.getElementById('personnel-station');
+    const filterSel = document.getElementById('personnel-filter-station');
     const nameInput = document.getElementById('personnel-name');
     const addBtn = document.getElementById('btn-add-personnel');
-    if (!stationSel || !nameInput || !addBtn) return;
+    if (!stationSel || !filterSel || !nameInput || !addBtn) return;
 
     stationSel.innerHTML = buildStationOptions('', false);
+    filterSel.innerHTML = `<option value="">Välj station...</option>${buildStationOptions('', false)}`;
+    filterSel.addEventListener('change', renderPersonnelList);
 
     addBtn.addEventListener('click', () => {
       const name = nameInput.value.trim();
@@ -421,6 +424,9 @@ function initAdminPage() {
       state.personnel.sort((a, b) => a.station.localeCompare(b.station, 'sv') || a.name.localeCompare(b.name, 'sv'));
       saveState();
       nameInput.value = '';
+      if (!filterSel.value) {
+        filterSel.value = station;
+      }
       renderPersonnelList();
     });
 
@@ -429,10 +435,18 @@ function initAdminPage() {
 
   function renderPersonnelList() {
     const wrap = document.getElementById('personnel-list');
-    if (!wrap) return;
-    const personnel = state.personnel || [];
+    const filterSel = document.getElementById('personnel-filter-station');
+    if (!wrap || !filterSel) return;
+
+    const selectedStation = filterSel.value;
+    if (!selectedStation) {
+      wrap.innerHTML = '<div class="empty-state">Välj en station för att visa personal.</div>';
+      return;
+    }
+
+    const personnel = (state.personnel || []).filter((p) => p.station === selectedStation);
     if (!personnel.length) {
-      wrap.innerHTML = '<div class="empty-state">Ingen personal tillagd \u00e4nnu.</div>';
+      wrap.innerHTML = '<div class="empty-state">Ingen personal tillagd för vald station ännu.</div>';
       return;
     }
 
