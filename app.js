@@ -254,7 +254,7 @@ const DEFAULT_PERSONNEL = [
   { id: 'p-5509', name: 'Mathias Stålberg', station: '550 Skärplinge' }
 ];
 const DEFAULT_STATIONS = [
-  '110 Fyrislund',
+  'Fyrislund',
   '140 Skyttorp',
   '150 Knutby',
   '160 Almunge',
@@ -336,7 +336,7 @@ const SMOKE_OWNER_FIELDS = [
     ownerStations: ['Tierp']
   }
 ];
-const EXCLUDED_TRAINING_STATIONS = new Set(['110 Fyrislund']);
+const EXCLUDED_TRAINING_STATIONS = new Set(['Fyrislund']);
 
 const runtime = {
   calendarYear: new Date().getFullYear(),
@@ -425,9 +425,10 @@ function normalizeStatePayload(payload) {
   const fallback = getFallbackState();
   const parsed = payload && typeof payload === 'object' ? payload : fallback;
 
-  const savedStations = Array.isArray(parsed.stations) && parsed.stations.length
+  const rawStations = Array.isArray(parsed.stations) && parsed.stations.length
     ? parsed.stations
     : [...DEFAULT_STATIONS];
+  const savedStations = rawStations.map((s) => (s === '110 Fyrislund' ? 'Fyrislund' : s));
   const migratedStations = shouldMigrateStations(savedStations)
     ? [...DEFAULT_STATIONS]
     : mergeStations(savedStations, DEFAULT_STATIONS);
@@ -1277,7 +1278,7 @@ function initAdminPage() {
         </div>
         <div class="stack gap-xs">
           <label class="field-label">Ort</label>
-          <select class="input js-location-select">${buildStationOptions(entry.location, true, { excludeTrainingStations: true })}</select>
+          <select class="input js-location-select">${buildStationOptions(entry.location, true)}</select>
         </div>
         <button class="btn btn-danger js-remove-date" type="button">Ta bort</button>
       `;
