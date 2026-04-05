@@ -19,7 +19,8 @@
       </div>
       <div class="hero-actions">
         <a href="index.html" class="btn btn-secondary">Öppna deltagarsidan</a>
-        <button id="btn-reset" class="btn btn-danger" type="button">Rensa allt</button>
+        <button id="btn-reset-events" class="btn btn-danger" type="button">Rensa vanliga övningar</button>
+        <button id="btn-reset-smoke" class="btn btn-danger" type="button">Rensa rökövningar</button>
       </div>
     </header>
 
@@ -155,6 +156,7 @@
                 <option value="120">120</option>
                 <option value="130">130</option>
                 <option value="Tierp">Tierp</option>
+                <option value="Utbildning">Utbildning</option>
               </select>
             </div>
             <div class="stack gap-xs">
@@ -165,11 +167,15 @@
               </select>
             </div>
           </div>
+          <label class="event-tag-check smoke-mode-toggle" for="smoke-week-mode">
+            <input type="checkbox" id="smoke-week-mode">
+            Veckoläge för heldags-/helvecksplanering
+          </label>
           <div class="card">
             <div class="calendar-header">
               <div>
-                <h3>Välj rökövningsdatum</h3>
-                <p>Klicka på flera datum i kalendern.</p>
+                <h3 id="smoke-calendar-heading">Välj rökövningsdatum</h3>
+                <p id="smoke-calendar-copy">Klicka på flera datum i kalendern.</p>
               </div>
               <div class="calendar-nav">
                 <button id="btn-smoke-prev-month" class="btn btn-secondary" type="button">Föregående</button>
@@ -177,7 +183,7 @@
                 <button id="btn-smoke-next-month" class="btn btn-secondary" type="button">Nästa</button>
               </div>
             </div>
-            <div class="calendar-weekdays">
+            <div id="smoke-calendar-weekdays" class="calendar-weekdays">
               <span>Mån</span>
               <span>Tis</span>
               <span>Ons</span>

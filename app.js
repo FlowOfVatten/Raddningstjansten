@@ -324,6 +324,19 @@ const MOTTOS = [
 ];
 
 const SMOKE_STATIONS = ['110', '120', '130', 'Tierp'];
+const SMOKE_OWNER_FIELDS = [
+  {
+    value: '__owner-field-fyrislund__',
+    label: 'Övningsfält Fyrislund',
+    ownerStations: ['110', '120', '130']
+  },
+  {
+    value: '__owner-field-tierp__',
+    label: 'Övningsfält Tierp',
+    ownerStations: ['Tierp']
+  }
+];
+const EXCLUDED_TRAINING_STATIONS = new Set(['110 Fyrislund']);
 
 const runtime = {
   calendarYear: new Date().getFullYear(),
@@ -331,7 +344,9 @@ const runtime = {
   selectedDates: new Map(),
   smokeCalendarYear: new Date().getFullYear(),
   smokeCalendarMonth: new Date().getMonth(),
+  smokeSelectionMode: 'date',
   smokeSelectedDates: new Map(),
+  smokeSelectedWeeks: new Map(),
   signupContext: null,
   editingEventId: null
 };
@@ -444,9 +459,16 @@ function normalizeSmokeDrills(smokeDrills) {
     .map((entry) => {
       const parsedGroup = Number(entry.groupNumber ?? entry.group);
       const parsedCount = Number(entry.participantCount ?? entry.antal);
+      const scheduleType = entry.scheduleType === 'week' ? 'week' : 'date';
+      const normalizedDate = normalizeDateKey(entry.date) || '';
+      const normalizedWeekKey = typeof entry.weekKey === 'string' && entry.weekKey.trim()
+        ? entry.weekKey.trim()
+        : (scheduleType === 'week' && normalizedDate ? formatWeekKey(getIsoWeekInfo(normalizedDate)) : '');
       return {
         id: typeof entry.id === 'string' && entry.id ? entry.id : createId(),
-        date: normalizeDateKey(entry.date) || '',
+        date: normalizedDate,
+        scheduleType,
+        weekKey: normalizedWeekKey,
         ownerStation: typeof entry.ownerStation === 'string' && entry.ownerStation.trim()
           ? entry.ownerStation.trim()
           : (typeof entry.station === 'string' ? entry.station.trim() : ''),
@@ -714,6 +736,8 @@ function bindRefreshButton() {
 
 function initAdminPage() {
   const calendarTitle = document.getElementById('calendar-title');
+  let rerenderSmokeCalendar = () => {};
+  let rerenderSelectedSmokeDates = () => {};
 
   document.getElementById('btn-prev-month').addEventListener('click', () => {
     runtime.calendarMonth -= 1;
@@ -735,7 +759,8 @@ function initAdminPage() {
 
   document.getElementById('btn-create-event').addEventListener('click', createEvent);
   document.getElementById('btn-cancel-edit').addEventListener('click', clearEventForm);
-  document.getElementById('btn-reset').addEventListener('click', resetAllData);
+  document.getElementById('btn-reset-events').addEventListener('click', resetEventsData);
+  document.getElementById('btn-reset-smoke').addEventListener('click', resetSmokeData);
 
   const organizerNameInput = document.getElementById('organizer-name');
   const organizerEmailInput = document.getElementById('organizer-email');
@@ -787,13 +812,27 @@ function initAdminPage() {
 
   function initSmokeDrillSection() {
     const smokeCalendarTitle = document.getElementById('smoke-calendar-title');
+    const smokeCalendarHeading = document.getElementById('smoke-calendar-heading');
+    const smokeCalendarCopy = document.getElementById('smoke-calendar-copy');
+    const smokeCalendarWeekdays = document.getElementById('smoke-calendar-weekdays');
     const smokeCalendarGrid = document.getElementById('smoke-calendar-grid');
     const smokePrevMonthButton = document.getElementById('btn-smoke-prev-month');
     const smokeNextMonthButton = document.getElementById('btn-smoke-next-month');
     const ownerStationSelect = document.getElementById('smoke-owner-station');
     const typeSelect = document.getElementById('smoke-type');
+    const weekModeToggle = document.getElementById('smoke-week-mode');
     const createButton = document.getElementById('btn-create-smoke');
-    if (!smokeCalendarTitle || !smokeCalendarGrid || !smokePrevMonthButton || !smokeNextMonthButton || !ownerStationSelect || !typeSelect || !createButton) return;
+    if (!smokeCalendarTitle || !smokeCalendarGrid || !smokePrevMonthButton || !smokeNextMonthButton || !ownerStationSelect || !typeSelect || !createButton || !weekModeToggle || !smokeCalendarHeading || !smokeCalendarCopy || !smokeCalendarWeekdays) return;
+
+    weekModeToggle.checked = runtime.smokeSelectionMode === 'week';
+
+    weekModeToggle.addEventListener('change', () => {
+      runtime.smokeSelectionMode = weekModeToggle.checked ? 'week' : 'date';
+      runtime.smokeSelectedDates = new Map();
+      runtime.smokeSelectedWeeks = new Map();
+      renderSmokeCalendar();
+      renderSelectedSmokeDates();
+    });
 
     smokePrevMonthButton.addEventListener('click', () => {
       runtime.smokeCalendarMonth -= 1;
@@ -815,43 +854,49 @@ function initAdminPage() {
     createButton.addEventListener('click', () => {
       const ownerStation = ownerStationSelect.value;
       const drillType = typeSelect.value === 'kall' ? 'kall' : 'varm';
-      const selectedDates = [...runtime.smokeSelectedDates.entries()]
-        .map(([date, trainingStation]) => ({ date, trainingStation: String(trainingStation || '').trim() }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+      const selectedEntries = getSelectedSmokeEntries();
 
       if (!ownerStation) {
         window.alert('Välj ägarstation.');
         return;
       }
 
-      if (!selectedDates.length) {
-        window.alert('Lägg till minst ett datum för rökövningen.');
+      if (!selectedEntries.length) {
+        window.alert(runtime.smokeSelectionMode === 'week'
+          ? 'Lägg till minst en vecka för rökövningen.'
+          : 'Lägg till minst ett datum för rökövningen.');
         return;
       }
 
-      const missingTrainingStation = selectedDates.some((entry) => !entry.trainingStation);
+      const missingTrainingStation = selectedEntries.some((entry) => !entry.trainingStation);
       if (missingTrainingStation) {
-        window.alert('Välj vilken station som ska öva för varje datum.');
+        window.alert(runtime.smokeSelectionMode === 'week'
+          ? 'Välj vilken station som ska öva för varje vecka.'
+          : 'Välj vilken station som ska öva för varje datum.');
         return;
       }
 
-      const duplicate = selectedDates.some((selectedEntry) =>
+      const duplicate = selectedEntries.some((selectedEntry) =>
         (state.smokeDrills || []).some((existingEntry) =>
-          normalizeDateKey(existingEntry.date) === selectedEntry.date
+          getSmokeDrillPeriodKey(existingEntry) === getSmokeDrillPeriodKey(selectedEntry)
           && String(existingEntry.ownerStation || existingEntry.station) === ownerStation
           && String(existingEntry.trainingStation || existingEntry.station) === selectedEntry.trainingStation
         )
       );
       if (duplicate) {
-        window.alert('Minst ett valt datum finns redan för denna kombination av stationer.');
+        window.alert(runtime.smokeSelectionMode === 'week'
+          ? 'Minst en vald vecka finns redan för denna kombination av stationer.'
+          : 'Minst ett valt datum finns redan för denna kombination av stationer.');
         return;
       }
 
       if (!state.smokeDrills) state.smokeDrills = [];
-      selectedDates.forEach((entry) => {
+      selectedEntries.forEach((entry) => {
         state.smokeDrills.push({
           id: createId(),
           date: entry.date,
+          weekKey: entry.weekKey || '',
+          scheduleType: entry.scheduleType || 'date',
           ownerStation,
           trainingStation: entry.trainingStation,
           drillType,
@@ -862,6 +907,7 @@ function initAdminPage() {
       saveState();
 
       runtime.smokeSelectedDates = new Map();
+      runtime.smokeSelectedWeeks = new Map();
       ownerStationSelect.value = '';
       typeSelect.value = 'varm';
       renderSmokeCalendar();
@@ -869,15 +915,61 @@ function initAdminPage() {
       renderAdminSmokeDrills();
     });
 
+    rerenderSmokeCalendar = renderSmokeCalendar;
+    rerenderSelectedSmokeDates = renderSelectedSmokeDates;
+
     renderSmokeCalendar();
     renderSelectedSmokeDates();
     renderAdminSmokeDrills();
 
     function renderSmokeCalendar() {
+      const isWeekMode = runtime.smokeSelectionMode === 'week';
       const monthLabel = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' })
         .format(new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth, 1));
       smokeCalendarTitle.textContent = capitalize(monthLabel);
+      smokeCalendarHeading.textContent = isWeekMode ? 'Välj rökövningsveckor' : 'Välj rökövningsdatum';
+      smokeCalendarCopy.textContent = isWeekMode
+        ? 'Klicka på de veckor som ska bokas och välj station per vecka nedan.'
+        : 'Klicka på flera datum i kalendern.';
+      smokeCalendarWeekdays.hidden = isWeekMode;
+      smokeCalendarGrid.classList.toggle('week-grid', isWeekMode);
       smokeCalendarGrid.innerHTML = '';
+
+      if (isWeekMode) {
+        const firstDay = new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth, 1);
+        const lastDay = new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth + 1, 0);
+        let currentWeekStart = getStartOfIsoWeek(firstDay);
+        const lastWeekStart = getStartOfIsoWeek(lastDay);
+
+        while (currentWeekStart <= lastWeekStart) {
+          const weekStart = new Date(currentWeekStart);
+          const weekInfo = getIsoWeekInfo(currentWeekStart);
+          const weekKey = formatWeekKey(weekInfo);
+          const isSelected = runtime.smokeSelectedWeeks.has(weekKey);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `calendar-day week-calendar-day${isSelected ? ' selected' : ''}`;
+          button.innerHTML = `
+            <span class="calendar-day-number">Vecka ${weekInfo.week}</span>
+            <span class="calendar-day-note">${formatWeekRange(weekStart)}</span>
+          `;
+          button.addEventListener('click', () => {
+            if (runtime.smokeSelectedWeeks.has(weekKey)) {
+              runtime.smokeSelectedWeeks.delete(weekKey);
+            } else {
+              runtime.smokeSelectedWeeks.set(weekKey, {
+                date: formatDateKey(weekStart),
+                trainingStation: ''
+              });
+            }
+            renderSmokeCalendar();
+            renderSelectedSmokeDates();
+          });
+          smokeCalendarGrid.appendChild(button);
+          currentWeekStart = addDays(currentWeekStart, 7);
+        }
+        return;
+      }
 
       const firstDay = new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth, 1);
       const lastDay = new Date(runtime.smokeCalendarYear, runtime.smokeCalendarMonth + 1, 0);
@@ -916,22 +1008,22 @@ function initAdminPage() {
       const wrap = document.getElementById('smoke-selected-dates-list');
       if (!wrap) return;
 
-      const dateEntries = [...runtime.smokeSelectedDates.entries()]
-        .map(([date, trainingStation]) => ({ date, trainingStation: String(trainingStation || '') }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-      if (!dateEntries.length) {
-        wrap.innerHTML = '<div class="empty-state">Inga rökövningsdatum valda ännu.</div>';
+      const entries = getSelectedSmokeEntries();
+      if (!entries.length) {
+        wrap.innerHTML = runtime.smokeSelectionMode === 'week'
+          ? '<div class="empty-state">Inga rökövningsveckor valda ännu.</div>'
+          : '<div class="empty-state">Inga rökövningsdatum valda ännu.</div>';
         return;
       }
 
-      wrap.innerHTML = dateEntries.map((entry) => `
+      wrap.innerHTML = entries.map((entry) => `
         <div class="smoke-drill-row">
           <div>
-            <div class="selected-date-title">${formatLongDate(entry.date)}</div>
-            <div class="selected-date-meta">Välj station som ska öva detta datum.</div>
+            <div class="selected-date-title">${formatSmokeDrillScheduleLabel(entry)}</div>
+            <div class="selected-date-meta">${runtime.smokeSelectionMode === 'week' ? 'Välj station som ska öva denna vecka.' : 'Välj station som ska öva detta datum.'}</div>
           </div>
-          <select class="input js-smoke-training-station" data-date="${escapeAttribute(entry.date)}">${buildStationOptions(entry.trainingStation, true)}</select>
-          <button class="btn btn-danger btn-sm js-remove-smoke-date" type="button" data-date="${escapeAttribute(entry.date)}">Ta bort</button>
+          <select class="input js-smoke-training-station" data-period-key="${escapeAttribute(getSmokeDrillPeriodKey(entry))}">${buildStationOptions(entry.trainingStation, true, { excludeTrainingStations: true })}</select>
+          <button class="btn btn-danger btn-sm js-remove-smoke-date" type="button" data-period-key="${escapeAttribute(getSmokeDrillPeriodKey(entry))}">Ta bort</button>
         </div>
       `).join('');
 
@@ -939,19 +1031,62 @@ function initAdminPage() {
         select.addEventListener('change', (event) => {
           const target = event.target;
           if (!(target instanceof HTMLSelectElement)) return;
-          const dateKey = target.dataset.date || '';
-          if (!runtime.smokeSelectedDates.has(dateKey)) return;
-          runtime.smokeSelectedDates.set(dateKey, target.value);
+          const periodKey = target.dataset.periodKey || '';
+          updateSmokeSelectionTrainingStation(periodKey, target.value);
         });
       });
 
       wrap.querySelectorAll('.js-remove-smoke-date').forEach((button) => {
         button.addEventListener('click', () => {
-          runtime.smokeSelectedDates.delete(button.dataset.date || '');
+          removeSmokeSelection(button.dataset.periodKey || '');
           renderSmokeCalendar();
           renderSelectedSmokeDates();
         });
       });
+    }
+
+    function getSelectedSmokeEntries() {
+      if (runtime.smokeSelectionMode === 'week') {
+        return [...runtime.smokeSelectedWeeks.entries()]
+          .map(([weekKey, entry]) => ({
+            date: entry.date,
+            weekKey,
+            scheduleType: 'week',
+            trainingStation: String(entry.trainingStation || '').trim()
+          }))
+          .sort((a, b) => a.weekKey.localeCompare(b.weekKey));
+      }
+
+      return [...runtime.smokeSelectedDates.entries()]
+        .map(([date, trainingStation]) => ({
+          date,
+          weekKey: '',
+          scheduleType: 'date',
+          trainingStation: String(trainingStation || '').trim()
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function updateSmokeSelectionTrainingStation(periodKey, trainingStation) {
+      if (periodKey.startsWith('week:')) {
+        const weekKey = periodKey.slice(5);
+        const current = runtime.smokeSelectedWeeks.get(weekKey);
+        if (!current) return;
+        runtime.smokeSelectedWeeks.set(weekKey, { ...current, trainingStation });
+        return;
+      }
+
+      const dateKey = periodKey.startsWith('date:') ? periodKey.slice(5) : periodKey;
+      if (!runtime.smokeSelectedDates.has(dateKey)) return;
+      runtime.smokeSelectedDates.set(dateKey, trainingStation);
+    }
+
+    function removeSmokeSelection(periodKey) {
+      if (periodKey.startsWith('week:')) {
+        runtime.smokeSelectedWeeks.delete(periodKey.slice(5));
+        return;
+      }
+      runtime.smokeSelectedDates.delete(periodKey.startsWith('date:') ? periodKey.slice(5) : periodKey);
     }
   }
 
@@ -969,7 +1104,7 @@ function initAdminPage() {
       .map((drill) => `
         <div class="smoke-drill-row">
           <div>
-            <div class="selected-date-title">${formatLongDate(drill.date)}</div>
+            <div class="selected-date-title">${formatSmokeDrillScheduleLabel(drill)}</div>
             <div class="selected-date-meta">Ägare ${escapeHtml(drill.ownerStation)} • Övar ${escapeHtml(drill.trainingStation)} • ${escapeHtml(capitalize(drill.drillType))}</div>
           </div>
           <button class="btn btn-danger btn-sm js-delete-smoke" type="button" data-id="${escapeAttribute(drill.id)}">Ta bort</button>
@@ -993,8 +1128,8 @@ function initAdminPage() {
     const addBtn = document.getElementById('btn-add-personnel');
     if (!stationSel || !filterSel || !nameInput || !addBtn) return;
 
-    stationSel.innerHTML = buildStationOptions('', false);
-    filterSel.innerHTML = `<option value="">Välj station...</option>${buildStationOptions('', false)}`;
+    stationSel.innerHTML = buildStationOptions('', false, { excludeTrainingStations: true });
+    filterSel.innerHTML = `<option value="">Välj station...</option>${buildStationOptions('', false, { excludeTrainingStations: true })}`;
     filterSel.addEventListener('change', renderPersonnelList);
 
     addBtn.addEventListener('click', () => {
@@ -1142,7 +1277,7 @@ function initAdminPage() {
         </div>
         <div class="stack gap-xs">
           <label class="field-label">Ort</label>
-          <select class="input js-location-select">${buildStationOptions(entry.location, true)}</select>
+          <select class="input js-location-select">${buildStationOptions(entry.location, true, { excludeTrainingStations: true })}</select>
         </div>
         <button class="btn btn-danger js-remove-date" type="button">Ta bort</button>
       `;
@@ -1409,7 +1544,7 @@ function initAdminPage() {
         <div class="signup-sheet-head">
           <div>
             <div class="signup-sheet-title">${formatLongDate(session.date)}</div>
-            <div class="signup-sheet-location">${escapeHtml(session.location)}</div>
+            <div class="signup-sheet-location">Plats: ${escapeHtml(session.location)}</div>
             <div class="signup-sheet-subtitle">${session.startTime}-${session.endTime}</div>
           </div>
           <div class="signup-capacity">${session.signups.length}/${event.maxParticipants} anmälda</div>
@@ -1433,16 +1568,29 @@ function initAdminPage() {
     wrap.appendChild(card);
   }
 
-  function resetAllData() {
-    const confirmed = window.confirm('Vill du verkligen rensa alla event och alla anmalningar?');
+  function resetEventsData() {
+    const confirmed = window.confirm('Vill du verkligen rensa alla vanliga event och alla anmälningar?');
     if (!confirmed) return;
     const confirmedAgain = window.confirm('Detta går inte att ångra. Är du helt säker?');
     if (!confirmedAgain) return;
-    localStorage.removeItem(STORAGE_KEY);
-    Object.assign(state, loadState());
+    state.events = [];
     saveState();
     clearEventForm();
     renderAdminEvents();
+  }
+
+  function resetSmokeData() {
+    const confirmed = window.confirm('Vill du verkligen rensa alla rökövningar?');
+    if (!confirmed) return;
+    const confirmedAgain = window.confirm('Detta går inte att ångra. Är du helt säker?');
+    if (!confirmedAgain) return;
+    state.smokeDrills = [];
+    runtime.smokeSelectedDates = new Map();
+    runtime.smokeSelectedWeeks = new Map();
+    saveState();
+    renderAdminSmokeDrills();
+    rerenderSmokeCalendar();
+    rerenderSelectedSmokeDates();
   }
 }
 
@@ -1488,9 +1636,10 @@ function initPublicPage() {
     });
   }
   if (smokeStationSelect) {
+    const smokeStationOptions = getSmokeStationFilterOptions();
     smokeStationSelect.innerHTML = [
       '<option value="">Välj station för rökövning</option>',
-      ...state.stations.map((station) => `<option value="${escapeAttribute(station)}">${escapeHtml(station)}</option>`)
+      ...smokeStationOptions.map((option) => `<option value="${escapeAttribute(option.value)}">${escapeHtml(option.label)}</option>`)
     ].join('');
     smokeStationSelect.addEventListener('change', renderPublicSmokeDrills);
   }
@@ -1517,15 +1666,25 @@ function initPublicPage() {
   function renderPublicSmokeDrills() {
     if (!smokeListWrap || !smokeStationSelect) return;
 
-    const station = smokeStationSelect.value;
-    if (!station) {
+    const selectedFilter = smokeStationSelect.value;
+    if (!selectedFilter) {
       smokeListWrap.innerHTML = '<div class="empty-state">Välj station för att se rökövningsdagar.</div>';
       return;
     }
 
-    const drills = normalizeSmokeDrills(state.smokeDrills || []).filter((entry) => entry.trainingStation === station);
+    const selectedOwnerField = getSmokeOwnerFieldByValue(selectedFilter);
+    const selectedLabel = selectedOwnerField
+      ? selectedOwnerField.label
+      : (smokeStationSelect.options[smokeStationSelect.selectedIndex]?.textContent || selectedFilter);
+
+    const drills = normalizeSmokeDrills(state.smokeDrills || []).filter((entry) => {
+      if (selectedOwnerField) {
+        return selectedOwnerField.ownerStations.includes(String(entry.ownerStation || '').trim());
+      }
+      return String(entry.trainingStation || '').trim() === selectedFilter;
+    });
     if (!drills.length) {
-      smokeListWrap.innerHTML = `<div class="empty-state">Inga rökövningar planerade för station ${escapeHtml(station)}.</div>`;
+      smokeListWrap.innerHTML = `<div class="empty-state">Inga rökövningar planerade för ${escapeHtml(selectedLabel)}.</div>`;
       return;
     }
 
@@ -1550,16 +1709,20 @@ function initPublicPage() {
           <h3 class="smoke-week-title">Vecka ${group.week} (${group.year})</h3>
           <div class="event-session-list smoke-week-list">
             ${group.drills.map((drill) => `
-              <section class="signup-sheet smoke-signup-sheet">
-                <div class="signup-sheet-head smoke-signup-sheet-head">
+              <section class="signup-sheet smoke-signup-sheet smoke-signup-sheet--${drill.drillType === 'kall' ? 'kall' : 'varm'}">
+                <div class="signup-sheet-head smoke-signup-sheet-head smoke-signup-sheet-head--${drill.drillType === 'kall' ? 'kall' : 'varm'}">
                   <div>
-                    <div class="signup-sheet-title">${formatLongDate(drill.date)}</div>
-                    <div class="signup-sheet-location">Ägarstation ${escapeHtml(drill.ownerStation)}</div>
+                    <div class="signup-sheet-title">${formatSmokeDrillScheduleLabel(drill)}</div>
+                    <div class="signup-sheet-location">Ägarstation ${escapeHtml(drill.ownerStation)} • Övar ${escapeHtml(drill.trainingStation)}</div>
                     <div class="signup-sheet-subtitle">${escapeHtml(capitalize(drill.drillType))} rökövning</div>
-                    <div class="smoke-card-meta" data-smoke-meta-id="${escapeAttribute(drill.id)}">${drill.groupNumber ? `Grupp ${drill.groupNumber}` : 'Grupp ej satt'} • ${drill.participantCount ? `Antal ${drill.participantCount}` : 'Antal ej satt'}<br>${drill.leaderName ? `Styrkeledare ${escapeHtml(drill.leaderName)}` : 'Styrkeledare ej satt'}</div>
+                    ${drill.drillType === 'kall'
+                      ? ''
+                      : `<div class="smoke-card-meta" data-smoke-meta-id="${escapeAttribute(drill.id)}">${drill.groupNumber ? `Grupp ${drill.groupNumber}` : 'Grupp ej satt'} • ${drill.participantCount ? `Antal ${drill.participantCount}` : 'Antal ej satt'}<br>${drill.leaderName ? `Styrkeledare ${escapeHtml(drill.leaderName)}` : 'Styrkeledare ej satt'}</div>`}
                   </div>
                   <div class="smoke-card-actions">
-                    <button class="btn btn-secondary btn-sm js-edit-smoke-card" type="button" data-smoke-id="${escapeAttribute(drill.id)}">Redigera</button>
+                    ${drill.drillType === 'kall'
+                      ? ''
+                      : `<button class="btn btn-secondary btn-sm js-edit-smoke-card" type="button" data-smoke-id="${escapeAttribute(drill.id)}">Redigera</button>`}
                   </div>
                 </div>
                 <div class="smoke-card-editor" data-smoke-editor-id="${escapeAttribute(drill.id)}" hidden>
@@ -1588,8 +1751,10 @@ function initPublicPage() {
       <article class="event-card">
         <div class="event-card-header">
           <div class="event-card-main">
-            <h2>Rökövningar för ${escapeHtml(station)}</h2>
-            <p class="event-card-copy">Visar planerade dagar och typ av rökövning, grupperat per vecka.</p>
+            <h2>Rökövningar för ${escapeHtml(selectedLabel)}</h2>
+            <p class="event-card-copy">${selectedOwnerField
+              ? 'Visar alla veckor för ägarstationerna i valt övningsfält, grupperat per vecka.'
+              : 'Visar planerade dagar och typ av rökövning, grupperat per vecka.'}</p>
           </div>
         </div>
         ${weeklySectionsHtml}
@@ -1926,7 +2091,7 @@ function initPublicPage() {
           <div class="signup-sheet-head">
             <div>
               <div class="signup-sheet-title">${formatLongDate(session.date)}</div>
-              <div class="signup-sheet-location">${escapeHtml(session.location)}</div>
+              <div class="signup-sheet-location">Plats: ${escapeHtml(session.location)}</div>
               <div class="signup-sheet-subtitle">${session.startTime}-${session.endTime}</div>
             </div>
             <div class="signup-capacity">${signups.length}/${event.maxParticipants} anmälda</div>
@@ -2027,7 +2192,7 @@ function initPublicPage() {
     document.getElementById('signup-modal-subtitle').textContent = `${formatLongDate(session.date)} \u2022 ${session.location} \u2022 ${session.startTime}-${session.endTime}`;
     const savedStation = localStorage.getItem('raddningstjansten-my-station') || '';
     const savedName = localStorage.getItem('raddningstjansten-my-name') || '';
-    stationSelect.innerHTML = buildStationOptions(savedStation);
+    stationSelect.innerHTML = buildStationOptions(savedStation, true, { excludeTrainingStations: true });
     updateNameFieldForStation(savedStation, savedName);
     stationSelect.onchange = () => updateNameFieldForStation(stationSelect.value, '');
     modal.hidden = false;
@@ -2262,14 +2427,100 @@ function buildSignupRows(signups, maxParticipants, minParticipants) {
   return rows.join('');
 }
 
-function buildStationOptions(selectedValue = '', includeBlank = true) {
+function buildStationOptions(selectedValue = '', includeBlank = true, config = {}) {
+  return buildStationOptionsWithConfig(selectedValue, includeBlank, config);
+}
+
+function buildStationOptionsWithConfig(selectedValue = '', includeBlank = true, config = {}) {
   const options = includeBlank ? ['<option value="">Välj station</option>'] : [];
+  const stations = config.excludeTrainingStations
+    ? getTrainingStations()
+    : state.stations;
   return options
-    .concat(state.stations.map((station) => {
+    .concat(stations.map((station) => {
       const selected = station === selectedValue ? ' selected' : '';
       return `<option value="${escapeAttribute(station)}"${selected}>${escapeHtml(station)}</option>`;
     }))
     .join('');
+}
+
+function getTrainingStations() {
+  return state.stations.filter((station) => !EXCLUDED_TRAINING_STATIONS.has(station));
+}
+
+function getSmokeStationFilterOptions() {
+  const ownerStations = SMOKE_OWNER_FIELDS.map((field) => ({
+    value: field.value,
+    label: field.label
+  }));
+  const nonOwnerStations = getTrainingStations()
+    .filter((station) => !SMOKE_STATIONS.includes(station))
+    .sort((a, b) => a.localeCompare(b, 'sv'))
+    .map((station) => ({ value: station, label: station }));
+  return [...ownerStations, ...nonOwnerStations];
+}
+
+function getSmokeOwnerFieldByValue(value) {
+  return SMOKE_OWNER_FIELDS.find((field) => field.value === value) || null;
+}
+
+function getSmokeDrillPeriodKey(entry) {
+  const scheduleType = entry && entry.scheduleType === 'week' ? 'week' : 'date';
+  if (scheduleType === 'week') {
+    const weekKey = typeof entry.weekKey === 'string' && entry.weekKey.trim()
+      ? entry.weekKey.trim()
+      : formatWeekKey(getIsoWeekInfo(entry.date));
+    return `week:${weekKey}`;
+  }
+
+  return `date:${normalizeDateKey(entry.date) || ''}`;
+}
+
+function formatSmokeDrillScheduleLabel(entry) {
+  if (entry && entry.scheduleType === 'week') {
+    const weekInfo = entry.weekKey ? parseWeekKey(entry.weekKey) : getIsoWeekInfo(entry.date);
+    if (weekInfo) {
+      return `Vecka ${weekInfo.week} (${weekInfo.year})`;
+    }
+  }
+  return formatLongDate(entry.date);
+}
+
+function formatWeekKey(weekInfo) {
+  return `${weekInfo.year}-W${String(weekInfo.week).padStart(2, '0')}`;
+}
+
+function parseWeekKey(weekKey) {
+  const match = String(weekKey || '').match(/^(\d{4})-W(\d{2})$/);
+  if (!match) return null;
+  return {
+    year: Number(match[1]),
+    week: Number(match[2])
+  };
+}
+
+function getStartOfIsoWeek(value) {
+  const date = typeof value === 'string' ? new Date(`${value}T12:00:00`) : new Date(value);
+  const day = date.getDay() || 7;
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() - day + 1);
+  return date;
+}
+
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function formatWeekRange(weekStart) {
+  const weekEnd = addDays(weekStart, 6);
+  const sameMonth = weekStart.getMonth() === weekEnd.getMonth();
+  const startLabel = new Intl.DateTimeFormat('sv-SE', sameMonth
+    ? { day: 'numeric' }
+    : { day: 'numeric', month: 'short' }).format(weekStart);
+  const endLabel = new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(weekEnd);
+  return `${capitalize(startLabel)} - ${capitalize(endLabel)}`;
 }
 
 function formatDateKey(date) {

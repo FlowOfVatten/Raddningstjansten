@@ -125,6 +125,34 @@ select {
   align-items: flex-end;
 }
 
+@media (min-width: 761px) {
+  .public-hero {
+    position: relative;
+    padding-bottom: 98px;
+  }
+
+  .public-hero .hero-actions {
+    position: absolute;
+    right: 28px;
+    bottom: 28px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .public-hero #btn-open-smoke-view {
+    order: 1;
+  }
+
+  .public-hero #btn-open-admin {
+    order: 2;
+  }
+
+  .public-hero #btn-admin-login {
+    order: 3;
+  }
+}
+
 .hero-title-with-logo {
   display: flex;
   align-items: flex-start;
@@ -421,6 +449,18 @@ select.input {
   color: var(--muted);
 }
 
+.week-grid {
+  grid-template-columns: 1fr;
+}
+
+.week-calendar-day {
+  min-height: 72px;
+}
+
+.smoke-mode-toggle {
+  margin: 10px 0 4px;
+}
+
 .selected-dates-list,
 .admin-events-list,
 .public-events {
@@ -676,14 +716,33 @@ select.input {
 }
 
 .smoke-signup-sheet {
-  background: #A8DADC;
   border: 1px solid rgba(0, 100, 120, 0.2);
+}
+
+.smoke-signup-sheet--kall {
+  background: #a8dadc;
+  border-color: rgba(0, 100, 120, 0.2);
+}
+
+.smoke-signup-sheet--varm {
+  background: #ffe6cf;
+  border-color: rgba(145, 68, 9, 0.25);
 }
 
 .smoke-signup-sheet-head {
   min-height: 104px;
   padding: 12px 14px;
   border-bottom: none;
+}
+
+.smoke-signup-sheet-head--kall {
+  background: #a8dadc;
+  border-bottom: 1px solid rgba(0, 100, 120, 0.2);
+}
+
+.smoke-signup-sheet-head--varm {
+  background: #ffc99b;
+  border-bottom: 1px solid rgba(145, 68, 9, 0.25);
 }
 
 .smoke-signup-sheet .signup-sheet-title {
@@ -702,6 +761,10 @@ select.input {
   margin-top: 6px;
   font-size: 12px;
   font-weight: 700;
+  color: rgba(28, 23, 16, 0.9);
+}
+
+.smoke-signup-sheet--kall .smoke-card-meta {
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -750,6 +813,16 @@ select.input {
 
 .signup-sheet-subtitle {
   color: var(--muted);
+}
+
+.smoke-signup-sheet--kall .signup-sheet-head {
+  background: #a8dadc;
+  border-bottom: 1px solid rgba(0, 100, 120, 0.2);
+}
+
+.smoke-signup-sheet--varm .signup-sheet-head {
+  background: #ffc99b;
+  border-bottom: 1px solid rgba(145, 68, 9, 0.25);
 }
 
 .signup-sheet-table {
@@ -967,6 +1040,21 @@ select.input {
   .hero-logo {
     width: 66px;
     height: 66px;
+  }
+
+  .public-hero .hero-actions {
+    width: 100%;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 10px;
+  }
+
+  .public-hero .hero-actions .btn,
+  .public-hero .hero-actions a.btn {
+    flex: 1 1 0;
+    width: 100%;
+    min-width: 0;
   }
 }
 
