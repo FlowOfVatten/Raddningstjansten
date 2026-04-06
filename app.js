@@ -309,6 +309,7 @@ let remoteSyncInFlight = false;
 let remoteSyncPending = false;
 let lastRemoteUpdatedAt = null;
 let remotePollTimer = null;
+let remoteSyncPromise = Promise.resolve(true);
 
 const MOTTOS = [
   'Öva tills det känns självklart',
@@ -546,9 +547,18 @@ function arraysEqual(left, right) {
   return left.every((value, index) => value === right[index]);
 }
 
-function saveState() {
+function persistStateLocally() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function saveState() {
+  persistStateLocally();
   queueRemoteSync();
+}
+
+async function saveStateAndWaitForRemote() {
+  persistStateLocally();
+  return queueRemoteSync();
 }
 
 function isRemoteEnabled() {
@@ -611,23 +621,24 @@ async function pullStateFromRemote() {
 }
 
 function queueRemoteSync() {
-  if (!isRemoteEnabled()) return;
+  if (!isRemoteEnabled()) return Promise.resolve(true);
   if (remoteSyncInFlight) {
     remoteSyncPending = true;
-    return;
+    return remoteSyncPromise;
   }
   remoteSyncInFlight = true;
-  void pushStateToRemote().finally(() => {
+  remoteSyncPromise = pushStateToRemote().finally(() => {
     remoteSyncInFlight = false;
     if (remoteSyncPending) {
       remoteSyncPending = false;
-      queueRemoteSync();
+      remoteSyncPromise = queueRemoteSync();
     }
   });
+  return remoteSyncPromise;
 }
 
 async function pushStateToRemote() {
-  if (!isRemoteEnabled()) return;
+  if (!isRemoteEnabled()) return true;
 
   const timestamp = new Date().toISOString();
 
@@ -638,10 +649,11 @@ async function pushStateToRemote() {
 
   if (!result.ok) {
     console.error('Could not sync shared state to remote.', result.error);
-    return;
+    return false;
   }
 
   lastRemoteUpdatedAt = timestamp;
+  return true;
 }
 
 function startRemotePolling() {
@@ -2209,7 +2221,8 @@ function initPublicPage() {
     }
   }
 
-  function saveSignup() {
+  async function saveSignup() {
+    const saveButton = document.getElementById('btn-signup-save');
     const nameEl = document.getElementById('signup-name');
     const name = nameEl ? nameEl.value.trim() : '';
     const station = stationSelect.value;
@@ -2259,16 +2272,32 @@ function initPublicPage() {
         station
       });
     }
-    
-    saveState();
 
-    const shouldCreateReminder = window.confirm('Vill du lägga till en kalenderpåminnelse för denna övning?');
-    if (shouldCreateReminder) {
-      downloadCalendarReminder(event, session, name);
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent = 'Sparar...';
     }
 
-    closeSignupModal();
-    renderPublicEvents();
+    try {
+      const remoteSaved = await saveStateAndWaitForRemote();
+      if (!remoteSaved) {
+        window.alert('Anmälan sparades lokalt men kunde inte bekräftas i databasen just nu. Vänta kvar på sidan och kontrollera att du syns i listan innan du stänger den.');
+        return;
+      }
+
+      closeSignupModal();
+      renderPublicEvents();
+
+      const shouldCreateReminder = window.confirm(`Du är nu anmäld till ${event.title} den ${formatLongDate(session.date)}.\n\nVill du också lägga till en kalenderpåminnelse?`);
+      if (shouldCreateReminder) {
+        downloadCalendarReminder(event, session, name);
+      }
+    } finally {
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Spara anmälan';
+      }
+    }
   }
 }
 
