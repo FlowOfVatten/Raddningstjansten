@@ -2,9 +2,22 @@ const sql = require('mssql');
 
 let poolPromise = null;
 
+function resolveConnectionString() {
+  return (
+    process.env.SQL_CONNECTION_STRING ||
+    process.env.SQLAZURECONNSTR_SQL_CONNECTION_STRING ||
+    process.env.SQLCONNSTR_SQL_CONNECTION_STRING ||
+    ''
+  ).trim();
+}
+
 function getPool() {
   if (!poolPromise) {
-    poolPromise = sql.connect(process.env.SQL_CONNECTION_STRING);
+    const connectionString = resolveConnectionString();
+    if (!connectionString) {
+      throw new Error('Missing SQL connection string. Set SQL_CONNECTION_STRING in Static Web App application settings.');
+    }
+    poolPromise = sql.connect(connectionString);
   }
   return poolPromise;
 }
