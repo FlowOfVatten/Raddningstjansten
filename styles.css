@@ -75,6 +75,7 @@ select {
   justify-content: space-between;
   gap: 24px;
   align-items: flex-start;
+  position: relative;
 }
 
 .public-hero {
@@ -504,6 +505,17 @@ select.input {
 .btn-sm {
   padding: 3px 10px;
   font-size: 12px;
+  min-height: auto;
+}
+
+.refresh-btn {
+  position: absolute;
+  top: 28px;
+  right: 28px;
+  min-height: 36px !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  white-space: nowrap;
 }
 
 .selected-date-row {
@@ -1040,6 +1052,13 @@ select.input {
   .hero-logo {
     width: 66px;
     height: 66px;
+  }
+
+  .refresh-btn {
+    position: static !important;
+    margin-top: 12px;
+    width: 100%;
+    min-height: 36px !important;
   }
 
   .public-hero .hero-actions {

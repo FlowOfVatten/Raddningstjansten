@@ -676,7 +676,7 @@ function startRemotePolling() {
     } catch {
       // Ignore polling errors and keep local app usable.
     }
-  }, 20000);
+  }, 60000);
 }
 
 function isRemoteTimestampNewer(left, right) {
