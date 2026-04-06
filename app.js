@@ -2117,7 +2117,6 @@ function initPublicPage() {
           if (!confirmed) return;
           session.signups = session.signups.filter((s) => s.id !== signupId);
           saveState();
-          sendOrganizerNotification(event, session, signup.name, signup.station, 'avbokad');
           renderPublicEvents();
         });
 
@@ -2262,7 +2261,6 @@ function initPublicPage() {
     }
     
     saveState();
-    sendOrganizerNotification(event, session, name, station, 'anmäld');
 
     const shouldCreateReminder = window.confirm('Vill du lägga till en kalenderpåminnelse för denna övning?');
     if (shouldCreateReminder) {
@@ -2271,30 +2269,6 @@ function initPublicPage() {
 
     closeSignupModal();
     renderPublicEvents();
-  }
-}
-
-async function sendOrganizerNotification(event, session, signerName, signerStation, type) {
-  const organizerEmail = (event.organizerEmail || '').trim();
-  if (!organizerEmail) return;
-
-  try {
-    await fetch('/.netlify/functions/send-mail', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        organizerEmail,
-        signerName,
-        signerStation,
-        type: type || 'anmäld',
-        eventTitle: event.title,
-        sessionDate: formatLongDate(session.date),
-        sessionLocation: session.location,
-        sessionTime: `${session.startTime}\u2013${session.endTime}`
-      })
-    });
-  } catch {
-    // Non-critical
   }
 }
 
