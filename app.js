@@ -551,37 +551,21 @@ function saveState() {
   queueRemoteSync();
 }
 
-function hasRemoteConfig() {
-  return !!(appConfig.supabaseUrl && appConfig.supabaseAnonKey);
-}
-
 function isRemoteEnabled() {
-  return hasRemoteConfig();
+  // Azure Functions API är alltid tillgängligt när appen körs via SWA
+  return true;
 }
 
-async function supabaseRequest(pathWithQuery, options = {}) {
-  if (!isRemoteEnabled()) {
-    return { ok: false, status: 0, error: 'Remote config missing' };
-  }
-
-  const headers = Object.assign({
-    apikey: appConfig.supabaseAnonKey,
-    Authorization: `Bearer ${appConfig.supabaseAnonKey}`
-  }, options.headers || {});
-
-  const response = await fetch(`${appConfig.supabaseUrl}/rest/v1/${pathWithQuery}`, {
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`/api/${path}`, {
     method: options.method || 'GET',
-    headers,
+    headers: Object.assign({ 'Content-Type': 'application/json' }, options.headers || {}),
     body: options.body
   });
 
   if (!response.ok) {
     let details = '';
-    try {
-      details = await response.text();
-    } catch {
-      details = '';
-    }
+    try { details = await response.text(); } catch { details = ''; }
     return { ok: false, status: response.status, error: details || response.statusText };
   }
 
@@ -608,9 +592,9 @@ async function initializeSharedPersistence() {
 }
 
 async function pullStateFromRemote() {
-  const result = await supabaseRequest(`app_state?select=payload,updated_at&id=eq.${encodeURIComponent(REMOTE_STATE_ID)}`);
+  const result = await apiRequest(`state?id=${encodeURIComponent(REMOTE_STATE_ID)}`);
   if (!result.ok) {
-    console.error('Could not read shared state from Supabase.', result.error);
+    console.error('Could not read shared state from remote.', result.error);
     return null;
   }
 
@@ -647,21 +631,13 @@ async function pushStateToRemote() {
 
   const timestamp = new Date().toISOString();
 
-  const result = await supabaseRequest('app_state?on_conflict=id', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=minimal'
-    },
-    body: JSON.stringify([{
-      id: REMOTE_STATE_ID,
-      payload: state,
-      updated_at: timestamp
-    }])
+  const result = await apiRequest('state', {
+    method: 'PUT',
+    body: JSON.stringify({ id: REMOTE_STATE_ID, payload: state, updated_at: timestamp })
   });
 
   if (!result.ok) {
-    console.error('Could not sync shared state to Supabase.', result.error);
+    console.error('Could not sync shared state to remote.', result.error);
     return;
   }
 
@@ -676,7 +652,7 @@ function startRemotePolling() {
     if (page === 'admin' && runtime.editingEventId) return;
 
     try {
-      const result = await supabaseRequest(`app_state?select=updated_at&id=eq.${encodeURIComponent(REMOTE_STATE_ID)}`);
+      const result = await apiRequest(`state?id=${encodeURIComponent(REMOTE_STATE_ID)}`);
       if (!result.ok || !Array.isArray(result.data) || !result.data.length) return;
 
       const data = result.data[0];
@@ -714,10 +690,7 @@ function bindRefreshButton() {
     try {
       if (!isRemoteEnabled()) {
         const reasons = [];
-        if (!appConfig.supabaseUrl) reasons.push('supabaseUrl saknas');
-        if (!appConfig.supabaseAnonKey) reasons.push('supabaseAnonKey saknas');
-        const detail = reasons.length ? `\n\nOrsak: ${reasons.join(', ')}` : '';
-        window.alert(`Supabase är inte aktivt ännu.${detail}`);
+        window.alert('Remote är inte tillgängligt just nu.');
         return;
       }
 
@@ -1106,7 +1079,7 @@ function initAdminPage() {
         <div class="smoke-drill-row">
           <div>
             <div class="selected-date-title">${formatSmokeDrillScheduleLabel(drill)}</div>
-            <div class="selected-date-meta">Ägare ${escapeHtml(drill.ownerStation)} • Övar ${escapeHtml(drill.trainingStation)} • ${escapeHtml(capitalize(drill.drillType))}</div>
+            <div class="selected-date-meta">${escapeHtml(formatSmokeOwnerStationLabel(drill.ownerStation))} • Övar ${escapeHtml(drill.trainingStation)} • ${escapeHtml(capitalize(drill.drillType))}</div>
           </div>
           <button class="btn btn-danger btn-sm js-delete-smoke" type="button" data-id="${escapeAttribute(drill.id)}">Ta bort</button>
         </div>
@@ -1714,7 +1687,7 @@ function initPublicPage() {
                 <div class="signup-sheet-head smoke-signup-sheet-head smoke-signup-sheet-head--${drill.drillType === 'kall' ? 'kall' : 'varm'}">
                   <div>
                     <div class="signup-sheet-title">${formatSmokeDrillScheduleLabel(drill)}</div>
-                    <div class="signup-sheet-location">Ägarstation ${escapeHtml(drill.ownerStation)} • Övar ${escapeHtml(drill.trainingStation)}</div>
+                    <div class="signup-sheet-location">${escapeHtml(formatSmokeOwnerStationLabel(drill.ownerStation))} • Övar ${escapeHtml(drill.trainingStation)}</div>
                     <div class="signup-sheet-subtitle">${escapeHtml(capitalize(drill.drillType))} rökövning</div>
                     ${drill.drillType === 'kall'
                       ? ''
@@ -2136,7 +2109,8 @@ function initPublicPage() {
 
           const btn = clickTarget.closest('.btn-remove-signup');
           if (!btn) return;
-          const signupId = btn.dataset.signupId;
+            if (isPastSession) return;
+            const signupId = btn.dataset.signupId;
           const signup = session.signups.find((s) => s.id === signupId);
           if (!signup) return;
           const confirmed = window.confirm(`Avboka ${signup.name} från ${escapeHtml(event.title)} – ${formatLongDate(session.date)}?`);
@@ -2463,6 +2437,19 @@ function getSmokeStationFilterOptions() {
 
 function getSmokeOwnerFieldByValue(value) {
   return SMOKE_OWNER_FIELDS.find((field) => field.value === value) || null;
+}
+
+function formatSmokeOwnerStationLabel(ownerStation) {
+  const owner = String(ownerStation || '').trim();
+  if (!owner) {
+    return 'Ägarstation';
+  }
+
+  if (owner.toLowerCase() === 'utbildning') {
+    return 'Utbildning';
+  }
+
+  return `Ägarstation ${owner}`;
 }
 
 function getSmokeDrillPeriodKey(entry) {
