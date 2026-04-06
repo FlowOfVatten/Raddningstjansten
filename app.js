@@ -355,7 +355,6 @@ const runtime = {
 bootstrap();
 
 async function bootstrap() {
-  await initializeSharedPersistence();
   bindRefreshButton();
 
   if (page === 'admin') {
@@ -369,6 +368,11 @@ async function bootstrap() {
   }
 
   startRemotePolling();
+  
+  // Hämta gemensam state i bakgrunden utan att blockera sidan
+  initializeSharedPersistence().catch(error => {
+    console.error('Background state initialization failed:', error);
+  });
 }
 
 function displayRandomMotto() {
