@@ -1,6 +1,7 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+  command = "echo \"window.APP_CONFIG = { supabaseUrl: '$SUPABASE_URL', supabaseAnonKey: '$SUPABASE_ANON_KEY' };\" > config.js"
 
 [functions]
   node_bundler = "esbuild"
