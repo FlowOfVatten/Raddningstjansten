@@ -6,7 +6,7 @@ let lessons = [];
 
 // === Calendar state ===
 let calViewDate = new Date();
-let selectedDate = null;
+let selectedDate = toAdminIsoDate(new Date());
 
 function toAdminIsoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -172,6 +172,47 @@ async function addLesson() {
   await saveSchedule();
 }
 
+function addMinutesToTime(time, minutesToAdd) {
+  const [h, m] = time.split(":").map(Number);
+  const date = new Date(2000, 0, 1, h, m + minutesToAdd);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+async function addBreak() {
+  const startTime = document.getElementById("startTime").value;
+  const endTimeInput = document.getElementById("endTime").value;
+
+  if (!selectedDate) {
+    showMessage("Välj ett datum i kalendern", "error");
+    return;
+  }
+
+  if (!startTime) {
+    showMessage("Fyll i minst starttid för rast", "error");
+    return;
+  }
+
+  const endTime = endTimeInput || addMinutesToTime(startTime, 15);
+
+  const breakLesson = {
+    id: lessons.length > 0 ? Math.max(...lessons.map((lesson) => lesson.id)) + 1 : 1,
+    date: selectedDate,
+    start: startTime,
+    end: endTime,
+    title: "Rast",
+    type: "Rast",
+    location: "",
+    instructor: "",
+    focus: "",
+    equipment: []
+  };
+
+  lessons.push(breakLesson);
+  renderLessonsList();
+  clearForm();
+  await saveSchedule();
+}
+
 function clearForm() {
   document.getElementById("title").value = "";
   document.getElementById("instructor").value = "";
@@ -183,7 +224,6 @@ function clearForm() {
   document.getElementById("equip-larmstall").checked = false;
   document.getElementById("equip-civila").checked = false;
   document.getElementById("equip-understall").checked = false;
-  selectedDate = null;
   renderCalendar();
 }
 
