@@ -538,4 +538,66 @@ async function importScheduleFile() {
   }
 }
 
+function downloadTemplate() {
+  const templateRows = [
+    {
+      Datum: toAdminIsoDate(new Date()),
+      Starttid: "08:00",
+      Sluttid: "09:30",
+      Lektionsnamn: "Rokdykning - grundteknik",
+      "Instruktör": "Anna Berg",
+      Plats: "Övningsfält A",
+      Typ: "Praktik",
+      Info: "Fokus på sökmönster och kommunikation.",
+      "Larmställ": "X",
+      "Civila kläder": "",
+      "Underställ": "X"
+    }
+  ];
+
+  try {
+    if (typeof XLSX !== "undefined") {
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(templateRows, {
+        header: [
+          "Datum",
+          "Starttid",
+          "Sluttid",
+          "Lektionsnamn",
+          "Instruktör",
+          "Plats",
+          "Typ",
+          "Info",
+          "Larmställ",
+          "Civila kläder",
+          "Underställ"
+        ]
+      });
+      XLSX.utils.book_append_sheet(workbook, worksheet, "SchemaMall");
+      XLSX.writeFile(workbook, "brandresa-schema-mall.xlsx");
+      showMessage("Excel-mall nedladdad", "success");
+      return;
+    }
+
+    const csv = [
+      "Datum,Starttid,Sluttid,Lektionsnamn,Instruktör,Plats,Typ,Info,Larmställ,Civila kläder,Underställ",
+      `${templateRows[0].Datum},08:00,09:30,Rokdykning - grundteknik,Anna Berg,Övningsfält A,Praktik,Fokus på sökmönster och kommunikation.,X,,X`
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "brandresa-schema-mall.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showMessage("CSV-mall nedladdad", "success");
+  } catch (error) {
+    console.error("Template download failed:", error);
+    showMessage(`Kunde inte skapa mall: ${error.message}`, "error");
+  }
+}
+
 loadSchedule().then(() => renderCalendar());
