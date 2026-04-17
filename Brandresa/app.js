@@ -85,14 +85,20 @@ function renderSchedule() {
   scheduleList.innerHTML = "";
 
   const dayLessons = lessons.filter((l) => !l.date || l.date === viewDate);
-  countBadge.textContent = `${dayLessons.length} pass`;
+  const sortedDayLessons = [...dayLessons].sort((a, b) => {
+    const aStart = String(a.start || "");
+    const bStart = String(b.start || "");
+    return aStart.localeCompare(bStart);
+  });
 
-  if (dayLessons.length === 0) {
+  countBadge.textContent = `${sortedDayLessons.length} pass`;
+
+  if (sortedDayLessons.length === 0) {
     scheduleList.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:20px 0;">Inga lektioner planerade för detta datum.</p>';
     return;
   }
 
-  dayLessons.forEach((lesson) => {
+  sortedDayLessons.forEach((lesson) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "lesson";
