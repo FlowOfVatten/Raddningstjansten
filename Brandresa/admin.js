@@ -330,4 +330,212 @@ async function saveSchedule() {
   }
 }
 
+function normalizeHeader(input) {
+  return String(input || "")
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "")
+    .replace(/å/g, "a")
+    .replace(/ä/g, "a")
+    .replace(/ö/g, "o");
+}
+
+function pickValue(row, aliases) {
+  for (const key of Object.keys(row)) {
+    const normalized = normalizeHeader(key);
+    if (aliases.includes(normalized)) {
+      return row[key];
+    }
+  }
+  return "";
+}
+
+function parseYesNo(value) {
+  const v = String(value || "").trim().toLowerCase();
+  return ["ja", "yes", "true", "1", "x"].includes(v);
+}
+
+function parseImportedDate(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const base = new Date(Date.UTC(1899, 11, 30));
+    base.setUTCDate(base.getUTCDate() + Math.floor(value));
+    return `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, "0")}-${String(base.getUTCDate()).padStart(2, "0")}`;
+  }
+
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const slash = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (slash) {
+    const dd = String(Number(slash[1])).padStart(2, "0");
+    const mm = String(Number(slash[2])).padStart(2, "0");
+    const yyyy = slash[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  const d = new Date(raw);
+  if (!Number.isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  return "";
+}
+
+function parseImportedTime(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const minutes = Math.round(value * 24 * 60);
+    const hh = String(Math.floor(minutes / 60) % 24).padStart(2, "0");
+    const mm = String(minutes % 60).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const dotMatch = raw.match(/^(\d{1,2})[.:](\d{2})$/);
+  if (dotMatch) {
+    return `${String(Number(dotMatch[1])).padStart(2, "0")}:${dotMatch[2]}`;
+  }
+
+  return raw;
+}
+
+function parseCsvLineAdmin(line, delimiter) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === delimiter && !inQuotes) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+function rowsToLessons(rows) {
+  const imported = [];
+
+  rows.forEach((row) => {
+    const date = parseImportedDate(pickValue(row, ["datum", "date"]));
+    const start = parseImportedTime(pickValue(row, ["starttid", "start", "from", "fran"]));
+    const end = parseImportedTime(pickValue(row, ["sluttid", "slut", "end", "to", "till"]));
+    const title = String(pickValue(row, ["lektionsnamn", "lektion", "title", "namn"])).trim();
+
+    if (!date || !start || !end || !title) {
+      return;
+    }
+
+    const equipment = [];
+    if (parseYesNo(pickValue(row, ["larmstall"]))) equipment.push("Larmställ");
+    if (parseYesNo(pickValue(row, ["civilaklader", "civila"]))) equipment.push("Civila kläder");
+    if (parseYesNo(pickValue(row, ["understall"]))) equipment.push("Underställ");
+
+    imported.push({
+      id: imported.length + 1,
+      date,
+      start,
+      end,
+      title,
+      instructor: String(pickValue(row, ["instruktor", "instructor", "larare"])).trim(),
+      location: String(pickValue(row, ["plats", "location"])).trim(),
+      type: String(pickValue(row, ["typ", "type"])).trim() || "Workshop",
+      focus: String(pickValue(row, ["info", "fokus", "focus", "beskrivning"])).trim(),
+      equipment
+    });
+  });
+
+  return imported;
+}
+
+function parseCsvTextToRows(csvText) {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) return [];
+
+  const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ";" : ",";
+  const headers = parseCsvLineAdmin(lines[0], delimiter);
+
+  return lines.slice(1).map((line) => {
+    const cols = parseCsvLineAdmin(line, delimiter);
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = cols[index] || "";
+    });
+    return row;
+  });
+}
+
+async function importScheduleFile() {
+  const input = document.getElementById("importFile");
+  const file = input.files?.[0];
+
+  if (!file) {
+    showMessage("Välj en fil först", "error");
+    return;
+  }
+
+  try {
+    let rows = [];
+    const name = file.name.toLowerCase();
+
+    if (name.endsWith(".csv")) {
+      const csvText = await file.text();
+      rows = parseCsvTextToRows(csvText);
+    } else {
+      if (typeof XLSX === "undefined") {
+        throw new Error("Excel-bibliotek kunde inte laddas.");
+      }
+
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+      rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    }
+
+    const importedLessons = rowsToLessons(rows);
+
+    if (importedLessons.length === 0) {
+      showMessage("Inga giltiga rader hittades. Kontrollera att mallen innehåller minst Datum, Starttid, Sluttid och Lektionsnamn.", "error");
+      return;
+    }
+
+    if (!confirm(`Importera ${importedLessons.length} pass och ersätta nuvarande schema?`)) {
+      return;
+    }
+
+    lessons = importedLessons;
+    selectedDate = importedLessons[0].date;
+    calViewDate = new Date(selectedDate + "T00:00:00");
+    renderCalendar();
+    renderLessonsList();
+    await saveSchedule();
+
+    input.value = "";
+    showMessage(`Import klar: ${importedLessons.length} pass sparades`, "success");
+  } catch (error) {
+    console.error("Import failed:", error);
+    showMessage(`Import misslyckades: ${error.message}`, "error");
+  }
+}
+
 loadSchedule().then(() => renderCalendar());
