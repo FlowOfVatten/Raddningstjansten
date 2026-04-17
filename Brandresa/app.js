@@ -2,6 +2,7 @@ const API_BASE_URL = (window.BRANDRESAN_API_BASE_URL || "").replace(/\/$/, "");
 const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
 const SCHEDULE_ENDPOINT = `${STATE_ENDPOINT}?id=brandresan-schedule`;
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+const DAY_ROLLOVER_CHECK_MS = 60 * 1000;
 
 let lessons = [];
 let selectedId = null;
@@ -11,6 +12,7 @@ function toIsoDate(d) {
 }
 
 let viewDate = toIsoDate(new Date());
+let lastKnownToday = viewDate;
 const countBadge = document.getElementById("countBadge");
 const scheduleList = document.getElementById("scheduleList");
 const emptyState = document.getElementById("emptyState");
@@ -309,11 +311,31 @@ async function loadSchedule() {
   renderDetail();
 }
 
+async function handleDayRollover() {
+  const today = toIsoDate(new Date());
+
+  if (today === lastKnownToday) {
+    return;
+  }
+
+  // Only auto-advance when the board is currently following "today".
+  if (viewDate === lastKnownToday) {
+    lastKnownToday = today;
+    viewDate = today;
+    selectedId = null;
+    await loadSchedule();
+    return;
+  }
+
+  lastKnownToday = today;
+}
+
 renderHeader();
 renderSchedule();
 renderDetail();
 loadSchedule();
 setInterval(loadSchedule, REFRESH_INTERVAL_MS);
+setInterval(handleDayRollover, DAY_ROLLOVER_CHECK_MS);
 
 document.getElementById("prevDay").addEventListener("click", () => {
   const d = new Date(viewDate + "T00:00:00");
