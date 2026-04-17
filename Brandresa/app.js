@@ -153,6 +153,11 @@ async function renderDetail() {
 
   if (isBreak) {
     detailLocation.classList.add("hidden");
+    detailInstructorName.textContent = "";
+    detailInstructorSignature.textContent = "";
+    detailInstructorSignature.classList.add("hidden");
+    detailInstructorPhoto.src = "";
+    detailInstructorPhoto.classList.add("hidden");
     detailInstructorSection.classList.add("hidden");
     equipmentSection.classList.add("hidden");
     focusSection.classList.add("hidden");
@@ -186,6 +191,11 @@ async function renderDetail() {
     }
     detailInstructorSection.classList.remove("hidden");
   } else {
+    detailInstructorName.textContent = "";
+    detailInstructorSignature.textContent = "";
+    detailInstructorSignature.classList.add("hidden");
+    detailInstructorPhoto.src = "";
+    detailInstructorPhoto.classList.add("hidden");
     detailInstructorSection.classList.add("hidden");
   }
 

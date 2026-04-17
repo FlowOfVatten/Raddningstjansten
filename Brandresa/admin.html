@@ -195,6 +195,57 @@
       align-items: center;
       flex-wrap: wrap;
     }
+
+    .instructor-manager {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      margin: 0 0 18px;
+    }
+
+    .instructor-list {
+      margin-top: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .instructor-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #f9f9f9;
+    }
+
+    .instructor-item-info {
+      min-width: 0;
+    }
+
+    .instructor-item-name {
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .instructor-item-meta {
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+      margin-top: 2px;
+    }
+
+    .instructor-item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-small {
+      padding: 8px 10px;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
@@ -305,6 +356,12 @@
       </div>
     </div>
 
+    <section class="instructor-manager">
+      <h2>Hantera instruktörer</h2>
+      <p class="import-copy">Redigera eller ta bort befintliga instruktörer.</p>
+      <div id="instructorsList" class="instructor-list"></div>
+    </section>
+
     <div>
       <h2>Befintliga lektioner</h2>
       <div id="lessonsList"></div>
@@ -313,7 +370,7 @@
     <!-- Instruktör Modal -->
     <div id="addInstructorModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
       <div style="background: white; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
-        <h2 style="margin-top: 0; margin-bottom: 20px;">Lägg till ny instruktör</h2>
+        <h2 id="instructorModalTitle" style="margin-top: 0; margin-bottom: 20px;">Lägg till ny instruktör</h2>
         
         <div class="form-group">
           <label for="newInstructorName">Namn <span style="color:var(--accent)">*</span></label>
@@ -328,12 +385,15 @@
         <div class="form-group">
           <label for="newInstructorPhoto">Foto</label>
           <input type="file" id="newInstructorPhoto" accept="image/*" onchange="handleInstructorPhotoUpload(this)">
+          <div style="margin-top: 8px;">
+            <button id="removeInstructorPhotoBtn" type="button" class="btn-secondary btn-small" onclick="removeInstructorPhoto()">Ta bort foto</button>
+          </div>
           <div id="photoPreview" style="display: none; margin-top: 10px;"></div>
         </div>
         
         <div style="display: flex; gap: 10px; margin-top: 25px; justify-content: flex-end;">
           <button type="button" class="btn-secondary" onclick="closeAddInstructorModal()">Avbryt</button>
-          <button type="button" class="btn-primary" onclick="addNewInstructor()">Lägg till</button>
+          <button id="saveInstructorBtn" type="button" class="btn-primary" onclick="addNewInstructor()">Lägg till</button>
         </div>
       </div>
     </div>

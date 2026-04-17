@@ -5,6 +5,8 @@ const INSTRUCTORS_URL = `${STATE_ENDPOINT}?id=brandresan-instructors`;
 
 let lessons = [];
 let instructors = [];
+let editingInstructorId = null;
+let removeInstructorPhotoRequested = false;
 
 // === Calendar state ===
 let calViewDate = new Date();
@@ -171,20 +173,53 @@ async function saveInstructors() {
 function renderInstructorDropdown() {
   const select = document.getElementById("instructorSelect");
   if (!select) return;
-  
+
   select.innerHTML = '<option value="">-- Välj instruktör --</option>';
-  
+
   instructors.forEach(instructor => {
     const option = document.createElement("option");
     option.value = instructor.id;
     option.textContent = `${instructor.name}${instructor.signature ? " (" + instructor.signature + ")" : ""}`;
     select.appendChild(option);
   });
+
+  renderInstructorsList();
+}
+
+function renderInstructorsList() {
+  const container = document.getElementById("instructorsList");
+  if (!container) return;
+
+  if (!Array.isArray(instructors) || instructors.length === 0) {
+    container.innerHTML = '<p style="color: var(--ink-soft); margin: 0;">Inga instruktörer tillagda än.</p>';
+    return;
+  }
+
+  const sorted = [...instructors].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "sv"));
+  container.innerHTML = sorted.map((instructor) => {
+    const signature = String(instructor.signature || "").trim();
+    return `
+      <div class="instructor-item">
+        <div class="instructor-item-info">
+          <div class="instructor-item-name">${instructor.name}</div>
+          <div class="instructor-item-meta">${signature ? "Signatur: " + signature : "Ingen signatur"}</div>
+        </div>
+        <div class="instructor-item-actions">
+          <button class="btn-secondary btn-small" type="button" onclick="startEditInstructor(${instructor.id})">Redigera</button>
+          <button class="btn-danger btn-small" type="button" onclick="deleteInstructor(${instructor.id})">Ta bort</button>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function openAddInstructorModal() {
   const modal = document.getElementById("addInstructorModal");
   if (modal) {
+    editingInstructorId = null;
+    removeInstructorPhotoRequested = false;
+    document.getElementById("instructorModalTitle").textContent = "Lägg till ny instruktör";
+    document.getElementById("saveInstructorBtn").textContent = "Lägg till";
     modal.style.display = "flex";
     document.getElementById("newInstructorName").focus();
   }
@@ -194,12 +229,88 @@ function closeAddInstructorModal() {
   const modal = document.getElementById("addInstructorModal");
   if (modal) {
     modal.style.display = "none";
+    editingInstructorId = null;
+    removeInstructorPhotoRequested = false;
+    document.getElementById("instructorModalTitle").textContent = "Lägg till ny instruktör";
+    document.getElementById("saveInstructorBtn").textContent = "Lägg till";
     document.getElementById("newInstructorName").value = "";
     document.getElementById("newInstructorSignature").value = "";
     document.getElementById("newInstructorPhoto").value = "";
     document.getElementById("photoPreview").innerHTML = "";
     document.getElementById("photoPreview").style.display = "none";
   }
+}
+
+function startEditInstructor(id) {
+  const instructor = instructors.find((item) => String(item.id) === String(id));
+  if (!instructor) {
+    showMessage("Instruktören hittades inte", "error");
+    return;
+  }
+
+  editingInstructorId = instructor.id;
+  removeInstructorPhotoRequested = false;
+  document.getElementById("instructorModalTitle").textContent = "Redigera instruktör";
+  document.getElementById("saveInstructorBtn").textContent = "Spara";
+  document.getElementById("newInstructorName").value = instructor.name || "";
+  document.getElementById("newInstructorSignature").value = instructor.signature || "";
+
+  const preview = document.getElementById("photoPreview");
+  if (instructor.photo) {
+    preview.innerHTML = `<img src="${instructor.photo}" alt="Förhandsvisning" style="max-width:150px; max-height:150px; object-fit:cover; border-radius:8px;">`;
+    preview.style.display = "block";
+  } else {
+    preview.innerHTML = "";
+    preview.style.display = "none";
+  }
+
+  document.getElementById("newInstructorPhoto").value = "";
+  document.getElementById("addInstructorModal").style.display = "flex";
+  document.getElementById("newInstructorName").focus();
+}
+
+function removeInstructorPhoto() {
+  const preview = document.getElementById("photoPreview");
+  document.getElementById("newInstructorPhoto").value = "";
+  preview.innerHTML = "";
+  preview.style.display = "none";
+
+  // In edit mode this marks existing photo for deletion when user clicks Save.
+  removeInstructorPhotoRequested = true;
+}
+
+async function deleteInstructor(id) {
+  const instructor = instructors.find((item) => String(item.id) === String(id));
+  if (!instructor) {
+    showMessage("Instruktören hittades inte", "error");
+    return;
+  }
+
+  const linkedLessons = lessons.filter((lesson) => lesson.instructor === instructor.name).length;
+  const warning = linkedLessons > 0
+    ? `\n\n${linkedLessons} lektion(er) använder denna instruktör och kommer att få tom instruktör.`
+    : "";
+
+  if (!confirm(`Ta bort instruktör ${instructor.name}?${warning}`)) {
+    return;
+  }
+
+  instructors = instructors.filter((item) => String(item.id) !== String(id));
+
+  if (linkedLessons > 0) {
+    lessons = lessons.map((lesson) => {
+      if (lesson.instructor === instructor.name) {
+        return { ...lesson, instructor: "" };
+      }
+      return lesson;
+    });
+    renderLessonsList();
+    await saveSchedule();
+  }
+
+  await saveInstructors();
+  renderInstructorDropdown();
+  showMessage(`Instruktör ${instructor.name} borttagen`, "success");
 }
 
 async function addNewInstructor() {
@@ -212,7 +323,64 @@ async function addNewInstructor() {
     return;
   }
 
+  const duplicate = instructors.find((item) => {
+    if (editingInstructorId !== null && String(item.id) === String(editingInstructorId)) return false;
+    return String(item.name || "").trim().toLowerCase() === name.toLowerCase();
+  });
+
+  if (duplicate) {
+    showMessage("Det finns redan en instruktör med det namnet", "error");
+    return;
+  }
+
   let photoBase64 = "";
+
+  if (editingInstructorId !== null) {
+    const existing = instructors.find((item) => String(item.id) === String(editingInstructorId));
+    if (!existing) {
+      showMessage("Instruktören hittades inte", "error");
+      return;
+    }
+
+    photoBase64 = removeInstructorPhotoRequested ? "" : (existing.photo || "");
+    if (photoFile) {
+      try {
+        photoBase64 = await fileToBase64(photoFile);
+      } catch (error) {
+        showMessage("Kunde inte läsa fotofilen: " + error.message, "error");
+        return;
+      }
+    }
+
+    const oldName = existing.name;
+    instructors = instructors.map((item) => {
+      if (String(item.id) !== String(editingInstructorId)) return item;
+      return {
+        ...item,
+        name,
+        signature,
+        photo: photoBase64
+      };
+    });
+
+    if (oldName !== name) {
+      lessons = lessons.map((lesson) => {
+        if (lesson.instructor === oldName) {
+          return { ...lesson, instructor: name };
+        }
+        return lesson;
+      });
+      renderLessonsList();
+      await saveSchedule();
+    }
+
+    await saveInstructors();
+    renderInstructorDropdown();
+    closeAddInstructorModal();
+    showMessage(`Instruktör ${name} uppdaterad`, "success");
+    return;
+  }
+
   if (photoFile) {
     try {
       photoBase64 = await fileToBase64(photoFile);
