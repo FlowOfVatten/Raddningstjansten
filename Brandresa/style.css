@@ -208,6 +208,28 @@ ul {
   margin: 8px 0 0;
 }
 
+.break-card {
+  margin-top: 14px;
+  border: 1px dashed #c8d3e2;
+  border-radius: 12px;
+  padding: 14px;
+  background: linear-gradient(180deg, #fff 0%, #f9fbfd 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.break-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.break-text {
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
 /* === Date Navigator (public page) === */
 .date-nav {
   background: linear-gradient(100deg, #ffffff 0%, #f6f9fc 100%);

@@ -22,6 +22,15 @@ const detailLocation = document.getElementById("detailLocation");
 const detailInstructor = document.getElementById("detailInstructor");
 const equipmentList = document.getElementById("equipmentList");
 const detailFocus = document.getElementById("detailFocus");
+const equipmentSection = document.getElementById("equipmentSection");
+const focusSection = document.getElementById("focusSection");
+const breakSection = document.getElementById("breakSection");
+
+function isBreakLesson(lesson) {
+  const type = String(lesson.type || "").trim().toLowerCase();
+  const title = String(lesson.title || "").trim().toLowerCase();
+  return type === "rast" || title === "rast";
+}
 
 function parseTime(input) {
   const [hours, minutes] = input.split(":").map(Number);
@@ -83,10 +92,12 @@ function renderSchedule() {
       button.classList.add("current");
     }
 
+    const metaParts = [lesson.type, lesson.location].filter((value) => String(value || "").trim().length > 0);
+
     button.innerHTML = `
       <p class="lesson-time">${lesson.start} - ${lesson.end}</p>
       <p class="lesson-title">${lesson.title}</p>
-      <p class="lesson-meta">${lesson.type} | ${lesson.location}</p>
+      <p class="lesson-meta">${metaParts.join(" | ")}</p>
     `;
 
     button.addEventListener("click", () => {
@@ -114,16 +125,54 @@ function renderDetail() {
   detailTime.textContent = `${lesson.start} - ${lesson.end}`;
   detailType.textContent = lesson.type;
   detailTitle.textContent = lesson.title;
-  detailLocation.textContent = `Plats: ${lesson.location}`;
-  detailInstructor.textContent = `Instruktor: ${lesson.instructor}`;
-  detailFocus.textContent = lesson.focus;
+  const isBreak = isBreakLesson(lesson);
+
+  if (isBreak) {
+    detailLocation.classList.add("hidden");
+    detailInstructor.classList.add("hidden");
+    equipmentSection.classList.add("hidden");
+    focusSection.classList.add("hidden");
+    breakSection.classList.remove("hidden");
+    return;
+  }
+
+  breakSection.classList.add("hidden");
+
+  if (String(lesson.location || "").trim()) {
+    detailLocation.textContent = `Plats: ${lesson.location}`;
+    detailLocation.classList.remove("hidden");
+  } else {
+    detailLocation.classList.add("hidden");
+  }
+
+  if (String(lesson.instructor || "").trim()) {
+    detailInstructor.textContent = `Instruktör: ${lesson.instructor}`;
+    detailInstructor.classList.remove("hidden");
+  } else {
+    detailInstructor.classList.add("hidden");
+  }
 
   equipmentList.innerHTML = "";
-  lesson.equipment.forEach((item) => {
-    const listItem = document.createElement("li");
-    listItem.textContent = item;
-    equipmentList.appendChild(listItem);
-  });
+  const equipment = Array.isArray(lesson.equipment) ? lesson.equipment.filter((item) => String(item || "").trim()) : [];
+  if (equipment.length > 0) {
+    equipment.forEach((item) => {
+      const listItem = document.createElement("li");
+      listItem.textContent = item;
+      equipmentList.appendChild(listItem);
+    });
+    equipmentSection.classList.remove("hidden");
+  } else {
+    equipmentSection.classList.add("hidden");
+  }
+
+  const focus = String(lesson.focus || "").trim();
+  if (focus) {
+    detailFocus.textContent = focus;
+    focusSection.classList.remove("hidden");
+  } else {
+    detailFocus.textContent = "";
+    focusSection.classList.add("hidden");
+  }
 }
 
 async function readJson(response) {
