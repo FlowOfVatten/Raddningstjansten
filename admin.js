@@ -50,7 +50,10 @@ async function loadSchedule() {
     renderLessonsList();
   } catch (error) {
     console.error("Failed to load schedule:", error);
-    showMessage(`Kunde inte hämta schemauppgifter: ${error.message}`, "error");
+    showMessage(
+      `Kunde inte hämta schemauppgifter: ${error.message}. För GitHub Preview behöver du sätta BRANDRESAN_API_BASE_URL i config.js till din deployade backend-URL.`,
+      "error"
+    );
     renderLessonsList();
   }
 }
@@ -175,7 +178,10 @@ async function saveSchedule() {
     showMessage("Schemat sparades", "success");
   } catch (error) {
     console.error("Failed to save schedule:", error);
-    showMessage(`Kunde inte spara schemat: ${error.message}`, "error");
+    showMessage(
+      `Kunde inte spara schemat: ${error.message}. Kontrollera config.js och att backend-API är deployat.`,
+      "error"
+    );
   }
 }
 

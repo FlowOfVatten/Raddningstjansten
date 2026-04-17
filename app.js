@@ -116,6 +116,86 @@ async function readJson(response) {
   }
 }
 
+function parseCsvLine(line) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+function parseCsvSchedule(csvText) {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) {
+    return [];
+  }
+
+  const headers = parseCsvLine(lines[0]);
+  const rows = lines.slice(1).map((line) => {
+    const cols = parseCsvLine(line);
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = cols[index] || "";
+    });
+    return row;
+  });
+
+  return rows.map((row, index) => {
+    const [start = "", end = ""] = (row.Tid || "").split("-").map((time) => time.trim());
+    const equipment = [];
+
+    if ((row["Larmställ"] || "").toUpperCase() === "JA") equipment.push("Larmställ");
+    if ((row["Civila kläder"] || "").toUpperCase() === "JA") equipment.push("Civila kläder");
+    if ((row["Underställ"] || "").toUpperCase() === "JA") equipment.push("Underställ");
+
+    return {
+      id: index + 1,
+      start,
+      end,
+      title: row.Lektionsnamn || "",
+      type: row.Typ || "Workshop",
+      location: row.Plats || "",
+      instructor: row["Instruktör"] || "",
+      focus: row.Info || "",
+      equipment
+    };
+  });
+}
+
+async function loadScheduleFromCsvFallback() {
+  const response = await fetch("schedule.csv");
+  if (!response.ok) {
+    throw new Error(`CSV fallback error: ${response.status}`);
+  }
+
+  const csvText = await response.text();
+  lessons = parseCsvSchedule(csvText);
+  selectedId = lessons[0]?.id ?? null;
+}
+
 async function loadSchedule() {
   try {
     const response = await fetch(SCHEDULE_ENDPOINT);
@@ -130,12 +210,21 @@ async function loadSchedule() {
       selectedId = null;
     }
   } catch (error) {
-    lessons = [];
-    selectedId = null;
-    emptyState.innerHTML = `
-      <h2>Kunde inte läsa schema</h2>
-      <p>${error.message}</p>
-    `;
+    try {
+      await loadScheduleFromCsvFallback();
+      emptyState.innerHTML = `
+        <h2>Visar lokal fallback-data</h2>
+        <p>API var inte tillgängligt (${error.message}). Data visas från schedule.csv.</p>
+      `;
+    } catch (fallbackError) {
+      lessons = [];
+      selectedId = null;
+      emptyState.innerHTML = `
+        <h2>Kunde inte läsa schema</h2>
+        <p>API-fel: ${error.message}</p>
+        <p>Fallback-fel: ${fallbackError.message}</p>
+      `;
+    }
   }
 
   renderHeader();
