@@ -71,6 +71,43 @@ h1 {
   font-size: clamp(1.7rem, 3vw, 2.3rem);
 }
 
+.topbar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.topbar-link,
+.topbar-map-btn {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.topbar-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.topbar-link:hover {
+  text-decoration: underline;
+}
+
+.topbar-map-btn {
+  border: 1px solid #d1dbe8;
+  background: #fff;
+  color: var(--accent-2);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.topbar-map-btn:hover {
+  background: #f3f7fc;
+}
+
 .today {
   margin: 0;
   color: var(--ink-soft);
@@ -276,6 +313,91 @@ ul {
 .date-full-label {
   font: 700 1.15rem/1.2 "Saira Condensed", sans-serif;
   color: var(--ink);
+}
+
+/* === Map modal === */
+.map-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(7, 17, 29, 0.62);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.map-modal.hidden {
+  display: none;
+}
+
+.map-modal-content {
+  width: min(960px, 96vw);
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 27, 45, 0.18);
+  box-shadow: 0 20px 50px rgba(7, 17, 30, 0.35);
+  padding: 14px;
+  overflow: auto;
+}
+
+.map-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.map-modal-copy {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+}
+
+.map-close-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.map-frame {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #ccd8e6;
+}
+
+.map-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font: 700 0.85rem/28px "Work Sans", sans-serif;
+  text-align: center;
+  box-shadow: 0 6px 16px rgba(214, 63, 43, 0.45);
+}
+
+.map-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 9px solid var(--accent);
 }
 
 /* === Admin calendar widget === */

@@ -17,7 +17,10 @@
         <p class="kicker">Raddningstjansten</p>
         <h1>Brandresan — Schema</h1>
       </div>
-      <a href="/Brandresa/admin.html" style="font-size: 0.85rem; color: var(--accent); text-decoration: none; font-weight: 700; white-space: nowrap;">⚙ Admin</a>
+      <div class="topbar-actions">
+        <a href="/Brandresa/admin.html" class="topbar-link">⚙ Admin</a>
+        <button id="openMapBtn" class="topbar-map-btn" type="button">🗺 Karta</button>
+      </div>
     </header>
 
     <div class="date-nav">
@@ -72,6 +75,23 @@
       </section>
     </section>
   </main>
+
+  <div id="mapModal" class="map-modal hidden" role="dialog" aria-modal="true" aria-labelledby="mapModalTitle">
+    <div class="map-modal-content">
+      <div class="map-modal-header">
+        <h2 id="mapModalTitle">Karta över platser</h2>
+        <button id="closeMapBtn" class="map-close-btn" type="button" aria-label="Stäng karta">✕</button>
+      </div>
+      <p class="map-modal-copy">Tillfällig karta. Du kan byta bild senare till den riktiga kartan.</p>
+      <div class="map-frame" aria-label="Tillfällig platskarta">
+        <img src="https://placehold.co/1200x700/e8eef5/1f3f5e?text=Tillfallig+karta+-+byt+ut+senare" alt="Tillfällig karta" />
+        <span class="map-pin" style="left: 24%; top: 38%;">A</span>
+        <span class="map-pin" style="left: 43%; top: 52%;">B</span>
+        <span class="map-pin" style="left: 62%; top: 34%;">C</span>
+        <span class="map-pin" style="left: 78%; top: 64%;">D</span>
+      </div>
+    </div>
+  </div>
 
   <script src="/Brandresa/config.js"></script>
   <script src="/Brandresa/app.js"></script>

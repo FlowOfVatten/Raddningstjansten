@@ -27,11 +27,22 @@ const detailFocus = document.getElementById("detailFocus");
 const equipmentSection = document.getElementById("equipmentSection");
 const focusSection = document.getElementById("focusSection");
 const breakSection = document.getElementById("breakSection");
+const mapModal = document.getElementById("mapModal");
+const openMapBtn = document.getElementById("openMapBtn");
+const closeMapBtn = document.getElementById("closeMapBtn");
 
 function isBreakLesson(lesson) {
   const type = String(lesson.type || "").trim().toLowerCase();
   const title = String(lesson.title || "").trim().toLowerCase();
   return type === "rast" || title === "rast";
+}
+
+function openMapModal() {
+  mapModal.classList.remove("hidden");
+}
+
+function closeMapModal() {
+  mapModal.classList.add("hidden");
 }
 
 function parseTime(input) {
@@ -355,4 +366,19 @@ document.getElementById("nextDay").addEventListener("click", () => {
   renderDateNav();
   renderSchedule();
   renderDetail();
+});
+
+openMapBtn.addEventListener("click", openMapModal);
+closeMapBtn.addEventListener("click", closeMapModal);
+
+mapModal.addEventListener("click", (event) => {
+  if (event.target === mapModal) {
+    closeMapModal();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !mapModal.classList.contains("hidden")) {
+    closeMapModal();
+  }
 });
