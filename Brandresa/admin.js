@@ -4,6 +4,77 @@ const API_URL = `${STATE_ENDPOINT}?id=brandresan-schedule`;
 
 let lessons = [];
 
+// === Calendar state ===
+let calViewDate = new Date();
+let selectedDate = null;
+
+function toAdminIsoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function calPrev() {
+  calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() - 1, 1);
+  renderCalendar();
+}
+
+function calNext() {
+  calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() + 1, 1);
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const year = calViewDate.getFullYear();
+  const month = calViewDate.getMonth();
+
+  const monthLabel = new Intl.DateTimeFormat("sv-SE", { month: "long", year: "numeric" }).format(calViewDate);
+  document.getElementById("cal-title").textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+  const grid = document.getElementById("cal-grid");
+  grid.innerHTML = "";
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  let startDow = firstDay.getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1;
+
+  for (let i = 0; i < startDow; i++) {
+    const empty = document.createElement("div");
+    empty.className = "cal-w-day is-empty";
+    grid.appendChild(empty);
+  }
+
+  const todayIso = toAdminIsoDate(new Date());
+
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cal-w-day";
+    cell.textContent = day;
+
+    if (iso === todayIso) cell.classList.add("is-today");
+    if (iso === selectedDate) cell.classList.add("is-selected");
+
+    cell.addEventListener("click", () => {
+      selectedDate = iso;
+      renderCalendar();
+    });
+
+    grid.appendChild(cell);
+  }
+
+  const label = document.getElementById("cal-label");
+  if (selectedDate) {
+    const d = new Date(selectedDate + "T00:00:00");
+    let text = new Intl.DateTimeFormat("sv-SE", { weekday: "long", day: "numeric", month: "long" }).format(d);
+    label.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+    label.style.color = "var(--accent-2)";
+  } else {
+    label.textContent = "Inget datum valt";
+    label.style.color = "";
+  }
+}
+
 function showMessage(text, type = "info") {
   const container = document.getElementById("message");
   container.className = `message ${type}`;
@@ -72,6 +143,11 @@ async function addLesson() {
     return;
   }
 
+  if (!selectedDate) {
+    showMessage("Välj ett datum i kalendern", "error");
+    return;
+  }
+
   const equipment = [];
   if (document.getElementById("equip-larmstall").checked) equipment.push("Larmställ");
   if (document.getElementById("equip-civila").checked) equipment.push("Civila kläder");
@@ -79,6 +155,7 @@ async function addLesson() {
 
   const newLesson = {
     id: lessons.length > 0 ? Math.max(...lessons.map((lesson) => lesson.id)) + 1 : 1,
+    date: selectedDate,
     start: startTime,
     end: endTime,
     title,
@@ -106,6 +183,8 @@ function clearForm() {
   document.getElementById("equip-larmstall").checked = false;
   document.getElementById("equip-civila").checked = false;
   document.getElementById("equip-understall").checked = false;
+  selectedDate = null;
+  renderCalendar();
 }
 
 function editLesson(id) {
@@ -124,6 +203,12 @@ function editLesson(id) {
   document.getElementById("equip-larmstall").checked = lesson.equipment.includes("Larmställ");
   document.getElementById("equip-civila").checked = lesson.equipment.includes("Civila kläder");
   document.getElementById("equip-understall").checked = lesson.equipment.includes("Underställ");
+
+  selectedDate = lesson.date || null;
+  if (lesson.date) {
+    calViewDate = new Date(lesson.date + "T00:00:00");
+  }
+  renderCalendar();
 
   lessons = lessons.filter((item) => item.id !== id);
   renderLessonsList();
@@ -149,11 +234,27 @@ function renderLessonsList() {
     return;
   }
 
-  container.innerHTML = lessons.map((lesson) => `
+  const sorted = [...lessons].sort((a, b) => {
+    const da = a.date || "9999-99-99";
+    const db = b.date || "9999-99-99";
+    if (da !== db) return da.localeCompare(db);
+    return (a.start || "").localeCompare(b.start || "");
+  });
+
+  container.innerHTML = sorted.map((lesson) => {
+    let dateBadge = "";
+    if (lesson.date) {
+      const d = new Date(lesson.date + "T00:00:00");
+      const dateStr = new Intl.DateTimeFormat("sv-SE", { weekday: "short", day: "numeric", month: "short" }).format(d);
+      dateBadge = `<span style="background:#e8f0fa;color:#1a3a6e;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:700;margin-left:8px;">${dateStr}</span>`;
+    } else {
+      dateBadge = `<span style="background:#fff0ea;color:#9b3e2a;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:700;margin-left:8px;">Odaterad</span>`;
+    }
+    return `
     <div class="lesson-item">
       <div class="lesson-info">
-        <div class="lesson-title">${lesson.title}</div>
-        <div class="lesson-meta">${lesson.start} - ${lesson.end} | ${lesson.location} | ${lesson.instructor}</div>
+        <div class="lesson-title">${lesson.title} ${dateBadge}</div>
+        <div class="lesson-meta">${lesson.start} – ${lesson.end} | ${lesson.location} | ${lesson.instructor}</div>
         <div class="lesson-meta">${lesson.type}${lesson.equipment.length ? ` | ${lesson.equipment.join(", ")}` : ""}</div>
       </div>
       <div class="lesson-actions">
@@ -161,7 +262,8 @@ function renderLessonsList() {
         <button class="btn-danger" onclick="deleteLesson(${lesson.id})">Ta bort</button>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 
 async function saveSchedule() {
@@ -188,4 +290,4 @@ async function saveSchedule() {
   }
 }
 
-loadSchedule();
+loadSchedule().then(() => renderCalendar());

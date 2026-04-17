@@ -5,7 +5,11 @@ const SCHEDULE_ENDPOINT = `${STATE_ENDPOINT}?id=brandresan-schedule`;
 let lessons = [];
 let selectedId = null;
 
-const todayLabel = document.getElementById("todayLabel");
+function toIsoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+let viewDate = toIsoDate(new Date());
 const countBadge = document.getElementById("countBadge");
 const scheduleList = document.getElementById("scheduleList");
 const emptyState = document.getElementById("emptyState");
@@ -29,21 +33,43 @@ function nowMinutes() {
 }
 
 function renderHeader() {
-  const text = new Intl.DateTimeFormat("sv-SE", {
+  renderDateNav();
+}
+
+function renderDateNav() {
+  const d = new Date(viewDate + "T00:00:00");
+  const todayStr = toIsoDate(new Date());
+  const tomorrowStr = toIsoDate(new Date(new Date().setDate(new Date().getDate() + 1)));
+  const yestStr = toIsoDate(new Date(new Date().setDate(new Date().getDate() - 1)));
+
+  let relLabel = "";
+  if (viewDate === todayStr) relLabel = "Idag";
+  else if (viewDate === tomorrowStr) relLabel = "Imorgon";
+  else if (viewDate === yestStr) relLabel = "Igår";
+
+  const fullLabel = new Intl.DateTimeFormat("sv-SE", {
     weekday: "long",
     day: "numeric",
     month: "long"
-  }).format(new Date());
+  }).format(d);
 
-  todayLabel.textContent = text.charAt(0).toUpperCase() + text.slice(1);
-  countBadge.textContent = `${lessons.length} pass`;
+  document.getElementById("dateRelLabel").textContent = relLabel;
+  document.getElementById("dateFullLabel").textContent = fullLabel.charAt(0).toUpperCase() + fullLabel.slice(1);
 }
 
 function renderSchedule() {
   const now = nowMinutes();
   scheduleList.innerHTML = "";
 
-  lessons.forEach((lesson) => {
+  const dayLessons = lessons.filter((l) => !l.date || l.date === viewDate);
+  countBadge.textContent = `${dayLessons.length} pass`;
+
+  if (dayLessons.length === 0) {
+    scheduleList.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:20px 0;">Inga lektioner planerade för detta datum.</p>';
+    return;
+  }
+
+  dayLessons.forEach((lesson) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "lesson";
@@ -237,3 +263,23 @@ renderHeader();
 renderSchedule();
 renderDetail();
 loadSchedule();
+
+document.getElementById("prevDay").addEventListener("click", () => {
+  const d = new Date(viewDate + "T00:00:00");
+  d.setDate(d.getDate() - 1);
+  viewDate = toIsoDate(d);
+  selectedId = null;
+  renderDateNav();
+  renderSchedule();
+  renderDetail();
+});
+
+document.getElementById("nextDay").addEventListener("click", () => {
+  const d = new Date(viewDate + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  viewDate = toIsoDate(d);
+  selectedId = null;
+  renderDateNav();
+  renderSchedule();
+  renderDetail();
+});

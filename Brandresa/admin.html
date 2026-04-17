@@ -188,7 +188,23 @@
 
     <div class="admin-form">
       <h2>Lägg till ny lektion</h2>
-      
+
+      <div class="form-group">
+        <label>Datum <span style="color:var(--accent)">*</span></label>
+        <div class="cal-widget">
+          <div class="cal-w-header">
+            <button type="button" class="cal-w-nav" onclick="calPrev()">&#9664; Föreg</button>
+            <strong id="cal-title" class="cal-w-title"></strong>
+            <button type="button" class="cal-w-nav" onclick="calNext()">Nästa &#9654;</button>
+          </div>
+          <div class="cal-w-weekdays">
+            <span>Mån</span><span>Tis</span><span>Ons</span><span>Tors</span><span>Fre</span><span>Lör</span><span>Sön</span>
+          </div>
+          <div id="cal-grid" class="cal-w-grid"></div>
+          <p id="cal-label" class="cal-w-label">Inget datum valt</p>
+        </div>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label for="title">Lektionsnamn</label>
@@ -254,7 +270,7 @@
     <div>
       <h2>Befintliga lektioner</h2>
       <div id="lessonsList"></div>
-      <button class="btn-primary" onclick="saveSchedule()" style="margin-top: 20px;">💾 Spara ändringar</button>
+
     </div>
   </div>
 
