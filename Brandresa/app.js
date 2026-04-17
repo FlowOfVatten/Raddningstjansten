@@ -1,10 +1,12 @@
 const API_BASE_URL = (window.BRANDRESAN_API_BASE_URL || "").replace(/\/$/, "");
 const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
 const SCHEDULE_ENDPOINT = `${STATE_ENDPOINT}?id=brandresan-schedule`;
+const INSTRUCTORS_ENDPOINT = `${STATE_ENDPOINT}?id=brandresan-instructors`;
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const DAY_ROLLOVER_CHECK_MS = 60 * 1000;
 
 let lessons = [];
+let instructors = [];
 let selectedId = null;
 
 function toIsoDate(d) {
@@ -21,7 +23,9 @@ const detailTime = document.getElementById("detailTime");
 const detailType = document.getElementById("detailType");
 const detailTitle = document.getElementById("detailTitle");
 const detailLocation = document.getElementById("detailLocation");
-const detailInstructor = document.getElementById("detailInstructor");
+  const detailInstructorSection = document.getElementById("detailInstructorSection");
+  const detailInstructorName = document.getElementById("detailInstructorName");
+  const detailInstructorPhoto = document.getElementById("detailInstructorPhoto");
 const equipmentList = document.getElementById("equipmentList");
 const detailFocus = document.getElementById("detailFocus");
 const equipmentSection = document.getElementById("equipmentSection");
@@ -129,7 +133,7 @@ function renderSchedule() {
   });
 }
 
-function renderDetail() {
+async function renderDetail() {
   const lesson = lessons.find((item) => item.id === selectedId);
 
   if (!lesson) {
@@ -148,7 +152,7 @@ function renderDetail() {
 
   if (isBreak) {
     detailLocation.classList.add("hidden");
-    detailInstructor.classList.add("hidden");
+    detailInstructorSection.classList.add("hidden");
     equipmentSection.classList.add("hidden");
     focusSection.classList.add("hidden");
     breakSection.classList.remove("hidden");
@@ -165,10 +169,17 @@ function renderDetail() {
   }
 
   if (String(lesson.instructor || "").trim()) {
-    detailInstructor.textContent = `Instruktör: ${lesson.instructor}`;
-    detailInstructor.classList.remove("hidden");
+    const instructor = instructors.find(i => i.name === lesson.instructor);
+    detailInstructorName.textContent = lesson.instructor;
+    if (instructor && instructor.photo) {
+      detailInstructorPhoto.src = instructor.photo;
+      detailInstructorPhoto.classList.remove("hidden");
+    } else {
+      detailInstructorPhoto.classList.add("hidden");
+    }
+    detailInstructorSection.classList.remove("hidden");
   } else {
-    detailInstructor.classList.add("hidden");
+    detailInstructorSection.classList.add("hidden");
   }
 
   equipmentList.innerHTML = "";
@@ -292,6 +303,23 @@ async function loadScheduleFromCsvFallback() {
   selectedId = lessons[0]?.id ?? null;
 }
 
+async function loadInstructors() {
+  try {
+    const response = await fetch(INSTRUCTORS_ENDPOINT);
+    const data = await readJson(response);
+
+    if (Array.isArray(data) && data.length > 0) {
+      const payload = data[0].payload;
+      instructors = Array.isArray(payload) ? payload : [];
+    } else {
+      instructors = [];
+    }
+  } catch (error) {
+    console.error("Failed to load instructors:", error);
+    instructors = [];
+  }
+}
+
 async function loadSchedule() {
   try {
     const response = await fetch(SCHEDULE_ENDPOINT);
@@ -353,6 +381,8 @@ renderDetail();
 loadSchedule();
 setInterval(loadSchedule, REFRESH_INTERVAL_MS);
 setInterval(handleDayRollover, DAY_ROLLOVER_CHECK_MS);
+
+loadInstructors();
 
 document.getElementById("prevDay").addEventListener("click", () => {
   const d = new Date(viewDate + "T00:00:00");
