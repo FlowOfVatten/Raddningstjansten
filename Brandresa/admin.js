@@ -538,6 +538,91 @@ async function importScheduleFile() {
   }
 }
 
+function lessonsToExportRows(sourceLessons) {
+  return sourceLessons.map((lesson) => {
+    const equipment = Array.isArray(lesson.equipment) ? lesson.equipment : [];
+    return {
+      Datum: lesson.date || "",
+      Starttid: lesson.start || "",
+      Sluttid: lesson.end || "",
+      Lektionsnamn: lesson.title || "",
+      "Instruktör": lesson.instructor || "",
+      Plats: lesson.location || "",
+      Typ: lesson.type || "",
+      Info: lesson.focus || "",
+      "Larmställ": equipment.includes("Larmställ") ? "X" : "",
+      "Civila kläder": equipment.includes("Civila kläder") ? "X" : "",
+      "Underställ": equipment.includes("Underställ") ? "X" : ""
+    };
+  });
+}
+
+function downloadCsv(filename, csvText) {
+  const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportScheduleFile() {
+  if (!Array.isArray(lessons) || lessons.length === 0) {
+    showMessage("Det finns inga lektioner att exportera", "error");
+    return;
+  }
+
+  const sorted = [...lessons].sort((a, b) => {
+    const da = String(a.date || "");
+    const db = String(b.date || "");
+    if (da !== db) return da.localeCompare(db);
+    return String(a.start || "").localeCompare(String(b.start || ""));
+  });
+
+  const rows = lessonsToExportRows(sorted);
+  const header = [
+    "Datum",
+    "Starttid",
+    "Sluttid",
+    "Lektionsnamn",
+    "Instruktör",
+    "Plats",
+    "Typ",
+    "Info",
+    "Larmställ",
+    "Civila kläder",
+    "Underställ"
+  ];
+
+  try {
+    if (typeof XLSX !== "undefined") {
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(rows, { header });
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Schema");
+      XLSX.writeFile(workbook, `brandresa-schema-export-${toAdminIsoDate(new Date())}.xlsx`);
+      showMessage(`Export klar: ${rows.length} pass`, "success");
+      return;
+    }
+
+    const csvRows = rows.map((row) => header.map((key) => {
+      const value = String(row[key] || "");
+      return `"${value.replace(/"/g, '""')}"`;
+    }).join(","));
+
+    downloadCsv(
+      `brandresa-schema-export-${toAdminIsoDate(new Date())}.csv`,
+      [header.join(","), ...csvRows].join("\n")
+    );
+    showMessage(`CSV-export klar: ${rows.length} pass`, "success");
+  } catch (error) {
+    console.error("Export failed:", error);
+    showMessage(`Kunde inte exportera fil: ${error.message}`, "error");
+  }
+}
+
 function downloadTemplate() {
   const templateRows = [
     {
@@ -584,15 +669,7 @@ function downloadTemplate() {
       `${templateRows[0].Datum},08:00,09:30,Rokdykning - grundteknik,Anna Berg,Övningsfält A,Praktik,Fokus på sökmönster och kommunikation.,X,,X`
     ].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "brandresa-schema-mall.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv("brandresa-schema-mall.csv", csv);
     showMessage("CSV-mall nedladdad", "success");
   } catch (error) {
     console.error("Template download failed:", error);
