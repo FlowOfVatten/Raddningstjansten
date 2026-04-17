@@ -1,5 +1,6 @@
 const API_BASE_URL = (window.BRANDRESAN_API_BASE_URL || "").replace(/\/$/, "");
-const SCHEDULE_ENDPOINT = `${API_BASE_URL}/api/brandresan-schedule`;
+const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
+const SCHEDULE_ENDPOINT = `${STATE_ENDPOINT}?id=brandresan-schedule`;
 
 let lessons = [];
 let selectedId = null;

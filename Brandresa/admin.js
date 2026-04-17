@@ -1,6 +1,6 @@
 const API_BASE_URL = (window.BRANDRESAN_API_BASE_URL || "").replace(/\/$/, "");
-const API_URL = `${API_BASE_URL}/api/brandresan-schedule`;
-const ADMIN_API_URL = `${API_BASE_URL}/api/brandresan-schedule-admin`;
+const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
+const API_URL = `${STATE_ENDPOINT}?id=brandresan-schedule`;
 
 let lessons = [];
 
@@ -166,12 +166,15 @@ function renderLessonsList() {
 
 async function saveSchedule() {
   try {
-    const response = await fetch(ADMIN_API_URL, {
+    const response = await fetch(STATE_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ lessons })
+      body: JSON.stringify({
+        id: "brandresan-schedule",
+        payload: lessons
+      })
     });
 
     await readJson(response);
