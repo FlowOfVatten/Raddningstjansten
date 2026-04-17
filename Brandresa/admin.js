@@ -58,7 +58,7 @@ async function loadSchedule() {
   }
 }
 
-function addLesson() {
+async function addLesson() {
   const title = document.getElementById("title").value.trim();
   const instructor = document.getElementById("instructor").value.trim();
   const startTime = document.getElementById("startTime").value;
@@ -92,7 +92,7 @@ function addLesson() {
   lessons.push(newLesson);
   renderLessonsList();
   clearForm();
-  showMessage("Lektion tillagd", "success");
+  await saveSchedule();
 }
 
 function clearForm() {
@@ -131,14 +131,14 @@ function editLesson(id) {
   showMessage("Redigerar lektion. Lägg till igen för att spara ändringen.", "success");
 }
 
-function deleteLesson(id) {
+async function deleteLesson(id) {
   if (!confirm("Är du säker på att du vill ta bort denna lektion?")) {
     return;
   }
 
   lessons = lessons.filter((lesson) => lesson.id !== id);
   renderLessonsList();
-  showMessage("Lektion borttagen", "success");
+  await saveSchedule();
 }
 
 function renderLessonsList() {
