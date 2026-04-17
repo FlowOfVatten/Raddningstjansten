@@ -1,8 +1,10 @@
 const API_BASE_URL = (window.BRANDRESAN_API_BASE_URL || "").replace(/\/$/, "");
 const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
 const API_URL = `${STATE_ENDPOINT}?id=brandresan-schedule`;
+const INSTRUCTORS_URL = `${STATE_ENDPOINT}?id=brandresan-instructors`;
 
 let lessons = [];
+let instructors = [];
 
 // === Calendar state ===
 let calViewDate = new Date();
@@ -129,9 +131,141 @@ async function loadSchedule() {
   }
 }
 
+async function loadInstructors() {
+  try {
+    const response = await fetch(INSTRUCTORS_URL);
+    const data = await readJson(response);
+
+    if (Array.isArray(data) && data.length > 0) {
+      const payload = data[0].payload;
+      instructors = Array.isArray(payload) ? payload : [];
+    } else {
+      instructors = [];
+    }
+
+    renderInstructorDropdown();
+  } catch (error) {
+    console.error("Failed to load instructors:", error);
+    instructors = [];
+    renderInstructorDropdown();
+  }
+}
+
+async function saveInstructors() {
+  try {
+    const response = await fetch(STATE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: "brandresan-instructors",
+        payload: instructors
+      })
+    });
+
+    await readJson(response);
+  } catch (error) {
+    console.error("Failed to save instructors:", error);
+  }
+}
+
+function renderInstructorDropdown() {
+  const select = document.getElementById("instructorSelect");
+  if (!select) return;
+  
+  select.innerHTML = '<option value="">-- Välj instruktör --</option>';
+  
+  instructors.forEach(instructor => {
+    const option = document.createElement("option");
+    option.value = instructor.id;
+    option.textContent = `${instructor.name}${instructor.signature ? " (" + instructor.signature + ")" : ""}`;
+    select.appendChild(option);
+  });
+}
+
+function openAddInstructorModal() {
+  const modal = document.getElementById("addInstructorModal");
+  if (modal) {
+    modal.style.display = "flex";
+    document.getElementById("newInstructorName").focus();
+  }
+}
+
+function closeAddInstructorModal() {
+  const modal = document.getElementById("addInstructorModal");
+  if (modal) {
+    modal.style.display = "none";
+    document.getElementById("newInstructorName").value = "";
+    document.getElementById("newInstructorSignature").value = "";
+    document.getElementById("newInstructorPhoto").value = "";
+    document.getElementById("photoPreview").innerHTML = "";
+    document.getElementById("photoPreview").style.display = "none";
+  }
+}
+
+async function addNewInstructor() {
+  const name = document.getElementById("newInstructorName").value.trim();
+  const signature = document.getElementById("newInstructorSignature").value.trim();
+  const photoFile = document.getElementById("newInstructorPhoto").files[0];
+
+  if (!name) {
+    showMessage("Fyll i instruktörens namn", "error");
+    return;
+  }
+
+  let photoBase64 = "";
+  if (photoFile) {
+    try {
+      photoBase64 = await fileToBase64(photoFile);
+    } catch (error) {
+      showMessage("Kunde inte läsa fotofilen: " + error.message, "error");
+      return;
+    }
+  }
+
+  const newInstructor = {
+    id: Date.now(),
+    name,
+    signature,
+    photo: photoBase64
+  };
+
+  instructors.push(newInstructor);
+  await saveInstructors();
+  renderInstructorDropdown();
+  closeAddInstructorModal();
+  showMessage(`Instruktör ${name} tillagd!`, "success");
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function handleInstructorPhotoUpload(input) {
+  const file = input.files[0];
+  const preview = document.getElementById("photoPreview");
+
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      preview.innerHTML = `<img src="${e.target.result}" alt="Förhandsvisning" style="max-width:150px; max-height:150px; object-fit:cover; border-radius:8px;">`;
+      preview.style.display = "block";
+    };
+    reader.readAsDataURL(file);
+  } else {
+    preview.innerHTML = "";
+    preview.style.display = "none";
+  }
+}
+
 async function addLesson() {
   const title = document.getElementById("title").value.trim();
-  const instructor = document.getElementById("instructor").value.trim();
+  const instructorId = document.getElementById("instructorSelect").value;
+  const instructor = instructorId ? instructors.find(i => i.id == instructorId)?.name : "";
   const startTime = document.getElementById("startTime").value;
   const endTime = document.getElementById("endTime").value;
   const location = document.getElementById("location").value.trim();
@@ -215,7 +349,7 @@ async function addBreak() {
 
 function clearForm() {
   document.getElementById("title").value = "";
-  document.getElementById("instructor").value = "";
+  document.getElementById("instructorSelect").value = "";
   document.getElementById("startTime").value = "";
   document.getElementById("endTime").value = "";
   document.getElementById("location").value = "";
@@ -234,7 +368,9 @@ function editLesson(id) {
   }
 
   document.getElementById("title").value = lesson.title;
-  document.getElementById("instructor").value = lesson.instructor;
+  // Find instructor by name and set select value
+  const instructor = instructors.find(i => i.name === lesson.instructor);
+  document.getElementById("instructorSelect").value = instructor ? instructor.id : "";
   document.getElementById("startTime").value = lesson.start;
   document.getElementById("endTime").value = lesson.end;
   document.getElementById("location").value = lesson.location;
@@ -677,4 +813,22 @@ function downloadTemplate() {
   }
 }
 
-loadSchedule().then(() => renderCalendar());
+loadSchedule().then(() => {
+  renderCalendar();
+  loadInstructors();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("addInstructorModal");
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeAddInstructorModal();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("addInstructorModal");
+    if (e.key === "Escape" && modal && modal.style.display === "flex") {
+      closeAddInstructorModal();
+    }
+  });
+});
