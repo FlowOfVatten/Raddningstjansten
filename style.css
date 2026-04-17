@@ -1,0 +1,219 @@
+:root {
+  --ink: #0f1b2d;
+  --ink-soft: #526177;
+  --panel: #ffffff;
+  --line: #d7dee7;
+  --accent: #d63f2b;
+  --accent-2: #0f3659;
+  --ok: #1e8f67;
+  --bg: #eef2f6;
+  --shadow: 0 20px 45px rgba(9, 17, 30, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Work Sans", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    linear-gradient(145deg, #10253b 0%, #1d3d57 28%, var(--bg) 28%),
+    var(--bg);
+  min-height: 100vh;
+}
+
+.bg-noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: radial-gradient(circle at 1px 1px, #000 1px, transparent 1px);
+  background-size: 15px 15px;
+}
+
+.app-shell {
+  position: relative;
+  width: min(1180px, 94vw);
+  margin: 24px auto;
+  display: grid;
+  gap: 16px;
+}
+
+.topbar {
+  background: linear-gradient(100deg, #ffffff 0%, #f6f9fc 100%);
+  border: 1px solid rgba(15, 27, 45, 0.1);
+  border-radius: 18px;
+  padding: 18px 22px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--accent);
+  font: 700 0.78rem/1 "Saira Condensed", sans-serif;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  font-family: "Saira Condensed", "Arial Narrow", sans-serif;
+}
+
+h1 {
+  margin-top: 4px;
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+}
+
+.today {
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 16px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid rgba(15, 27, 45, 0.1);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hint {
+  margin: 8px 0 12px;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #eef4fb;
+  color: #214262;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.schedule-list {
+  display: grid;
+  gap: 10px;
+}
+
+.lesson {
+  border: 1px solid var(--line);
+  border-left: 6px solid transparent;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 130ms ease, box-shadow 130ms ease, border-color 130ms ease;
+}
+
+.lesson:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(15, 27, 45, 0.08);
+  border-color: #c5d1df;
+}
+
+.lesson.current {
+  border-left-color: var(--ok);
+}
+
+.lesson.active {
+  background: #fff2ee;
+  border-color: #f0b8ac;
+  border-left-color: var(--accent);
+}
+
+.lesson-time {
+  margin: 0;
+  font-weight: 700;
+  color: #1a314a;
+}
+
+.lesson-title {
+  margin: 4px 0;
+  font: 700 1.14rem/1.15 "Saira Condensed", sans-serif;
+}
+
+.lesson-meta {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.detail-panel {
+  background: linear-gradient(180deg, #fcfdff 0%, #f7fafc 100%);
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 26px;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.hidden {
+  display: none;
+}
+
+.detail-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-time {
+  margin: 0;
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.type-badge {
+  background: #e8eef5;
+  color: #1f3f5e;
+}
+
+.detail-meta {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+}
+
+ul {
+  margin: 10px 0 0;
+  padding-left: 20px;
+}
+
+.focus {
+  margin: 8px 0 0;
+}
+
+@media (max-width: 920px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+}
