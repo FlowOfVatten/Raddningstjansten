@@ -25,6 +25,7 @@ const detailTitle = document.getElementById("detailTitle");
 const detailLocation = document.getElementById("detailLocation");
   const detailInstructorSection = document.getElementById("detailInstructorSection");
   const detailInstructorName = document.getElementById("detailInstructorName");
+  const detailInstructorSignature = document.getElementById("detailInstructorSignature");
   const detailInstructorPhoto = document.getElementById("detailInstructorPhoto");
 const equipmentList = document.getElementById("equipmentList");
 const detailFocus = document.getElementById("detailFocus");
@@ -176,6 +177,12 @@ async function renderDetail() {
       detailInstructorPhoto.classList.remove("hidden");
     } else {
       detailInstructorPhoto.classList.add("hidden");
+    }
+    if (instructor && instructor.signature) {
+      detailInstructorSignature.textContent = instructor.signature;
+      detailInstructorSignature.classList.remove("hidden");
+    } else {
+      detailInstructorSignature.classList.add("hidden");
     }
     detailInstructorSection.classList.remove("hidden");
   } else {
