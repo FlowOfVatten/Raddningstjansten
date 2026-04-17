@@ -219,6 +219,10 @@ ul {
   gap: 10px;
 }
 
+.break-card.hidden {
+  display: none;
+}
+
 .break-icon {
   font-size: 1.6rem;
   line-height: 1;
