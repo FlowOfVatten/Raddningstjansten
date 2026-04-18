@@ -36,6 +36,7 @@
 
     input[type="text"],
     input[type="time"],
+    select,
     textarea {
       width: 100%;
       padding: 10px;
@@ -313,7 +314,7 @@
 
     <div class="import-box">
       <h2>Importera Schemafil</h2>
-      <p class="import-copy">Ladda upp en Excel- eller CSV-fil enligt mallkolumnerna: Datum, Starttid, Sluttid, Lektionsnamn, Instruktör, Plats, Typ, Info, Larmställ, Civila kläder, Underställ.</p>
+      <p class="import-copy">Ladda upp en Excel- eller CSV-fil enligt mallkolumnerna: Datum, Starttid, Sluttid, Lektionsnamn, Instruktör, Instruktör 2 (valfri), Plats, Typ, Info, Larmställ, Civila kläder, Underställ.</p>
       <div class="import-row">
         <input id="importFile" type="file" accept=".xlsx,.xls,.csv" />
         <button class="btn-primary" onclick="importScheduleFile()">Importera fil</button>
@@ -348,14 +349,21 @@
         </div>
         
         <div class="form-group">
-          <label for="instructorSelect">Instruktör <span style="color:var(--accent)">*</span></label>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <select id="instructorSelect" style="flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: 6px; font-family: inherit;">
-              <option value="">-- Välj instruktör --</option>
-            </select>
-            <button type="button" class="btn-secondary" onclick="openAddInstructorModal()" style="padding: 10px 12px; white-space: nowrap;">+ Ny</button>
-          </div>
+          <label for="instructorSelect">Instruktör 1 <span style="color:var(--accent)">*</span></label>
+          <select id="instructorSelect">
+            <option value="">-- Välj instruktör --</option>
+          </select>
         </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="instructorSelect2">Instruktör 2 (valfri)</label>
+          <select id="instructorSelect2">
+            <option value="">-- Välj instruktör --</option>
+          </select>
+        </div>
+        <div></div>
       </div>
 
       <div class="form-row">
@@ -412,11 +420,20 @@
     <section class="instructor-manager">
       <h2>Hantera instruktörer</h2>
       <p class="import-copy">Redigera eller ta bort befintliga instruktörer.</p>
+      <div class="button-group" style="margin-top: 0; margin-bottom: 8px;">
+        <button type="button" class="btn-primary" onclick="openAddInstructorModal()">+ Ny instruktör</button>
+      </div>
       <div id="instructorsList" class="instructor-list"></div>
     </section>
 
     <div>
       <h2>Befintliga lektioner</h2>
+      <div class="form-group" style="max-width: 360px; margin-bottom: 10px;">
+        <label for="lessonsDateFilter">Visa datum</label>
+        <select id="lessonsDateFilter">
+          <option value="">Alla datum</option>
+        </select>
+      </div>
       <div id="lessonsList"></div>
     </div>
 

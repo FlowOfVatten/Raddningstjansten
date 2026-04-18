@@ -24,10 +24,8 @@ const detailTime = document.getElementById("detailTime");
 const detailType = document.getElementById("detailType");
 const detailTitle = document.getElementById("detailTitle");
 const detailLocation = document.getElementById("detailLocation");
-  const detailInstructorSection = document.getElementById("detailInstructorSection");
-  const detailInstructorName = document.getElementById("detailInstructorName");
-  const detailInstructorSignature = document.getElementById("detailInstructorSignature");
-  const detailInstructorPhoto = document.getElementById("detailInstructorPhoto");
+const detailInstructorSection = document.getElementById("detailInstructorSection");
+const detailInstructorsGrid = document.getElementById("detailInstructorsGrid");
 const equipmentList = document.getElementById("equipmentList");
 const detailFocus = document.getElementById("detailFocus");
 const equipmentSection = document.getElementById("equipmentSection");
@@ -41,6 +39,72 @@ function isBreakLesson(lesson) {
   const type = String(lesson.type || "").trim().toLowerCase();
   const title = String(lesson.title || "").trim().toLowerCase();
   return type === "rast" || title === "rast";
+}
+
+function getLessonInstructorNames(lesson) {
+  const names = [];
+  const first = String(lesson.instructor || "").trim();
+  const second = String(lesson.instructor2 || "").trim();
+
+  if (first) names.push(first);
+  if (second && second !== first) names.push(second);
+
+  return names;
+}
+
+function renderLessonInstructors(lesson) {
+  if (!detailInstructorsGrid) {
+    return;
+  }
+
+  detailInstructorsGrid.innerHTML = "";
+  const instructorNames = getLessonInstructorNames(lesson);
+
+  if (instructorNames.length === 0) {
+    detailInstructorSection.classList.add("hidden");
+    return;
+  }
+
+  instructorNames.forEach((name) => {
+    const instructor = instructors.find((item) => item.name === name);
+    const card = document.createElement("article");
+    card.className = "instructor-card";
+
+    if (instructor && instructor.photo) {
+      const photo = document.createElement("img");
+      photo.className = "instructor-photo";
+      photo.src = instructor.photo;
+      photo.alt = name;
+      card.appendChild(photo);
+    }
+
+    const info = document.createElement("div");
+    info.className = "instructor-info";
+
+    const label = document.createElement("p");
+    label.className = "instructor-label";
+    label.textContent = "Instruktör";
+
+    const nameNode = document.createElement("p");
+    nameNode.className = "instructor-name";
+    nameNode.textContent = name;
+
+    info.appendChild(label);
+    info.appendChild(nameNode);
+
+    if (instructor && instructor.signature) {
+      const signature = document.createElement("p");
+      signature.className = "instructor-signature";
+      signature.textContent = instructor.signature;
+      info.appendChild(signature);
+    }
+
+    card.appendChild(info);
+
+    detailInstructorsGrid.appendChild(card);
+  });
+
+  detailInstructorSection.classList.remove("hidden");
 }
 
 function openMapModal() {
@@ -174,11 +238,7 @@ async function renderDetail() {
 
   if (isBreak) {
     detailLocation.classList.add("hidden");
-    detailInstructorName.textContent = "";
-    detailInstructorSignature.textContent = "";
-    detailInstructorSignature.classList.add("hidden");
-    detailInstructorPhoto.src = "";
-    detailInstructorPhoto.classList.add("hidden");
+    detailInstructorsGrid.innerHTML = "";
     detailInstructorSection.classList.add("hidden");
     equipmentSection.classList.add("hidden");
     focusSection.classList.add("hidden");
@@ -195,30 +255,7 @@ async function renderDetail() {
     detailLocation.classList.add("hidden");
   }
 
-  if (String(lesson.instructor || "").trim()) {
-    const instructor = instructors.find(i => i.name === lesson.instructor);
-    detailInstructorName.textContent = lesson.instructor;
-    if (instructor && instructor.photo) {
-      detailInstructorPhoto.src = instructor.photo;
-      detailInstructorPhoto.classList.remove("hidden");
-    } else {
-      detailInstructorPhoto.classList.add("hidden");
-    }
-    if (instructor && instructor.signature) {
-      detailInstructorSignature.textContent = instructor.signature;
-      detailInstructorSignature.classList.remove("hidden");
-    } else {
-      detailInstructorSignature.classList.add("hidden");
-    }
-    detailInstructorSection.classList.remove("hidden");
-  } else {
-    detailInstructorName.textContent = "";
-    detailInstructorSignature.textContent = "";
-    detailInstructorSignature.classList.add("hidden");
-    detailInstructorPhoto.src = "";
-    detailInstructorPhoto.classList.add("hidden");
-    detailInstructorSection.classList.add("hidden");
-  }
+  renderLessonInstructors(lesson);
 
   equipmentList.innerHTML = "";
   const equipment = Array.isArray(lesson.equipment) ? lesson.equipment.filter((item) => String(item || "").trim()) : [];

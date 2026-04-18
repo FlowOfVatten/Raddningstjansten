@@ -12,6 +12,34 @@ let pendingSaveCount = 0;
 // === Calendar state ===
 let calViewDate = new Date();
 let selectedDate = toAdminIsoDate(new Date());
+let selectedLessonsFilterDate = "";
+
+function normalizeInstructorPair(primary, secondary) {
+  const first = String(primary || "").trim();
+  const second = String(secondary || "").trim();
+
+  if (first && second && first === second) {
+    return { instructor: first, instructor2: "" };
+  }
+
+  return { instructor: first, instructor2: second };
+}
+
+function getLessonInstructorNames(lesson) {
+  const names = [];
+  const first = String(lesson.instructor || "").trim();
+  const second = String(lesson.instructor2 || "").trim();
+
+  if (first) names.push(first);
+  if (second && second !== first) names.push(second);
+
+  return names;
+}
+
+function formatLessonInstructorNames(lesson) {
+  const names = getLessonInstructorNames(lesson);
+  return names.length > 0 ? names.join(" + ") : "Ingen instruktör";
+}
 
 function toAdminIsoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -149,7 +177,16 @@ async function loadSchedule() {
 
     if (Array.isArray(data) && data.length > 0) {
       const payload = data[0].payload;
-      lessons = Array.isArray(payload) ? payload : [];
+      lessons = Array.isArray(payload)
+        ? payload.map((lesson) => {
+          const normalized = normalizeInstructorPair(lesson.instructor, lesson.instructor2);
+          return {
+            ...lesson,
+            ...normalized,
+            equipment: Array.isArray(lesson.equipment) ? lesson.equipment : []
+          };
+        })
+        : [];
     } else {
       lessons = [];
     }
@@ -212,16 +249,26 @@ async function saveInstructors() {
 }
 
 function renderInstructorDropdown() {
-  const select = document.getElementById("instructorSelect");
-  if (!select) return;
+  const selectPrimary = document.getElementById("instructorSelect");
+  const selectSecondary = document.getElementById("instructorSelect2");
 
-  select.innerHTML = '<option value="">-- Välj instruktör --</option>';
+  if (!selectPrimary || !selectSecondary) return;
 
-  instructors.forEach(instructor => {
-    const option = document.createElement("option");
-    option.value = instructor.id;
-    option.textContent = `${instructor.name}${instructor.signature ? " (" + instructor.signature + ")" : ""}`;
-    select.appendChild(option);
+  selectPrimary.innerHTML = '<option value="">-- Välj instruktör --</option>';
+  selectSecondary.innerHTML = '<option value="">-- Välj instruktör --</option>';
+
+  instructors.forEach((instructor) => {
+    const label = `${instructor.name}${instructor.signature ? " (" + instructor.signature + ")" : ""}`;
+
+    const primaryOption = document.createElement("option");
+    primaryOption.value = instructor.id;
+    primaryOption.textContent = label;
+    selectPrimary.appendChild(primaryOption);
+
+    const secondaryOption = document.createElement("option");
+    secondaryOption.value = instructor.id;
+    secondaryOption.textContent = label;
+    selectSecondary.appendChild(secondaryOption);
   });
 
   renderInstructorsList();
@@ -331,7 +378,10 @@ async function deleteInstructor(id) {
     return;
   }
 
-  const linkedLessons = lessons.filter((lesson) => lesson.instructor === instructor.name).length;
+  const linkedLessons = lessons.filter((lesson) => {
+    const names = getLessonInstructorNames(lesson);
+    return names.includes(instructor.name);
+  }).length;
   const warning = linkedLessons > 0
     ? `\n\n${linkedLessons} lektion(er) använder denna instruktör och kommer att få tom instruktör.`
     : "";
@@ -347,10 +397,15 @@ async function deleteInstructor(id) {
 
   if (linkedLessons > 0) {
     lessons = lessons.map((lesson) => {
-      if (lesson.instructor === instructor.name) {
-        return { ...lesson, instructor: "" };
+      const updated = { ...lesson };
+      if (updated.instructor === instructor.name) {
+        updated.instructor = "";
       }
-      return lesson;
+      if (updated.instructor2 === instructor.name) {
+        updated.instructor2 = "";
+      }
+      const normalized = normalizeInstructorPair(updated.instructor, updated.instructor2);
+      return { ...updated, ...normalized };
     });
     renderLessonsList();
     const scheduleSaved = await saveSchedule({ successMessage: null, title: "Sparar schema", message: "Lektionsschemat uppdateras i databasen. Låt sidan vara öppen tills detta är klart." });
@@ -430,10 +485,15 @@ async function addNewInstructor() {
 
     if (oldName !== name) {
       lessons = lessons.map((lesson) => {
-        if (lesson.instructor === oldName) {
-          return { ...lesson, instructor: name };
+        const updated = { ...lesson };
+        if (updated.instructor === oldName) {
+          updated.instructor = name;
         }
-        return lesson;
+        if (updated.instructor2 === oldName) {
+          updated.instructor2 = name;
+        }
+        const normalized = normalizeInstructorPair(updated.instructor, updated.instructor2);
+        return { ...updated, ...normalized };
       });
       renderLessonsList();
       const scheduleSaved = await saveSchedule({ successMessage: null, title: "Sparar schema", message: "Lektionerna uppdateras i databasen. Låt sidan vara öppen tills detta är klart." });
@@ -521,7 +581,9 @@ function handleInstructorPhotoUpload(input) {
 async function addLesson() {
   const title = document.getElementById("title").value.trim();
   const instructorId = document.getElementById("instructorSelect").value;
-  const instructor = instructorId ? instructors.find(i => i.id == instructorId)?.name : "";
+  const instructorId2 = document.getElementById("instructorSelect2").value;
+  const instructor = instructorId ? instructors.find((i) => String(i.id) === String(instructorId))?.name : "";
+  const instructor2 = instructorId2 ? instructors.find((i) => String(i.id) === String(instructorId2))?.name : "";
   const startTime = document.getElementById("startTime").value;
   const endTime = document.getElementById("endTime").value;
   const location = document.getElementById("location").value.trim();
@@ -530,6 +592,11 @@ async function addLesson() {
 
   if (!title || !instructor || !startTime || !endTime) {
     showMessage("Fyll i all obligatorisk information", "error");
+    return;
+  }
+
+  if (instructor2 && instructor2 === instructor) {
+    showMessage("Instruktör 2 måste vara en annan person än Instruktör 1", "error");
     return;
   }
 
@@ -552,6 +619,7 @@ async function addLesson() {
     type: type || "Workshop",
     location,
     instructor,
+    instructor2,
     focus,
     equipment
   };
@@ -628,6 +696,7 @@ async function addBreak() {
 function clearForm() {
   document.getElementById("title").value = "";
   document.getElementById("instructorSelect").value = "";
+  document.getElementById("instructorSelect2").value = "";
   document.getElementById("startTime").value = "";
   document.getElementById("endTime").value = "";
   document.getElementById("location").value = "";
@@ -645,10 +714,13 @@ function editLesson(id) {
     return;
   }
 
+  const normalized = normalizeInstructorPair(lesson.instructor, lesson.instructor2);
+
   document.getElementById("title").value = lesson.title;
-  // Find instructor by name and set select value
-  const instructor = instructors.find(i => i.name === lesson.instructor);
+  const instructor = instructors.find((i) => i.name === normalized.instructor);
+  const instructor2 = instructors.find((i) => i.name === normalized.instructor2);
   document.getElementById("instructorSelect").value = instructor ? instructor.id : "";
+  document.getElementById("instructorSelect2").value = instructor2 ? instructor2.id : "";
   document.getElementById("startTime").value = lesson.start;
   document.getElementById("endTime").value = lesson.end;
   document.getElementById("location").value = lesson.location;
@@ -663,6 +735,10 @@ function editLesson(id) {
     calViewDate = new Date(lesson.date + "T00:00:00");
   }
   renderCalendar();
+
+  if (lesson.date) {
+    selectedLessonsFilterDate = lesson.date;
+  }
 
   lessons = lessons.filter((item) => item.id !== id);
   renderLessonsList();
@@ -689,20 +765,68 @@ async function deleteLesson(id) {
   }
 }
 
+function renderLessonDateFilter() {
+  const filter = document.getElementById("lessonsDateFilter");
+  if (!filter) {
+    return;
+  }
+
+  const lessonDates = Array.from(new Set(
+    lessons
+      .map((lesson) => String(lesson.date || "").trim())
+      .filter((date) => date)
+  )).sort((a, b) => a.localeCompare(b));
+
+  if (selectedLessonsFilterDate && !lessonDates.includes(selectedLessonsFilterDate)) {
+    selectedLessonsFilterDate = "";
+  }
+
+  const currentValue = selectedLessonsFilterDate;
+  filter.innerHTML = '<option value="">Alla datum</option>';
+
+  lessonDates.forEach((isoDate) => {
+    const option = document.createElement("option");
+    option.value = isoDate;
+
+    const dateObj = new Date(isoDate + "T00:00:00");
+    let label = new Intl.DateTimeFormat("sv-SE", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    }).format(dateObj);
+    label = label.charAt(0).toUpperCase() + label.slice(1);
+
+    option.textContent = label;
+    filter.appendChild(option);
+  });
+
+  filter.value = currentValue;
+}
+
 function renderLessonsList() {
   const container = document.getElementById("lessonsList");
+  renderLessonDateFilter();
 
   if (lessons.length === 0) {
     container.innerHTML = '<p style="color: var(--ink-soft); text-align: center;">Inga lektioner tillagda än</p>';
     return;
   }
 
-  const sorted = [...lessons].sort((a, b) => {
+  const filtered = selectedLessonsFilterDate
+    ? lessons.filter((lesson) => String(lesson.date || "") === selectedLessonsFilterDate)
+    : lessons;
+
+  const sorted = [...filtered].sort((a, b) => {
     const da = a.date || "9999-99-99";
     const db = b.date || "9999-99-99";
     if (da !== db) return da.localeCompare(db);
     return (a.start || "").localeCompare(b.start || "");
   });
+
+  if (sorted.length === 0) {
+    container.innerHTML = '<p style="color: var(--ink-soft); text-align: center;">Inga lektioner för valt datum</p>';
+    return;
+  }
 
   container.innerHTML = sorted.map((lesson) => {
     let dateBadge = "";
@@ -713,11 +837,13 @@ function renderLessonsList() {
     } else {
       dateBadge = `<span style="background:#fff0ea;color:#9b3e2a;padding:2px 8px;border-radius:99px;font-size:0.78rem;font-weight:700;margin-left:8px;">Odaterad</span>`;
     }
+
+    const instructorsLabel = formatLessonInstructorNames(lesson);
     return `
     <div class="lesson-item">
       <div class="lesson-info">
         <div class="lesson-title">${lesson.title} ${dateBadge}</div>
-        <div class="lesson-meta">${lesson.start} – ${lesson.end} | ${lesson.location} | ${lesson.instructor}</div>
+        <div class="lesson-meta">${lesson.start} - ${lesson.end} | ${lesson.location} | ${instructorsLabel}</div>
         <div class="lesson-meta">${lesson.type}${lesson.equipment.length ? ` | ${lesson.equipment.join(", ")}` : ""}</div>
       </div>
       <div class="lesson-actions">
@@ -882,13 +1008,18 @@ function rowsToLessons(rows) {
     if (parseYesNo(pickValue(row, ["civilaklader", "civila"]))) equipment.push("Civila kläder");
     if (parseYesNo(pickValue(row, ["understall"]))) equipment.push("Underställ");
 
+    const instructor = String(pickValue(row, ["instruktor", "instructor", "larare"])).trim();
+    const instructor2 = String(pickValue(row, ["instruktor2", "instructor2", "instruktor_2", "instructor_2", "larare2"])).trim();
+    const normalizedInstructors = normalizeInstructorPair(instructor, instructor2);
+
     imported.push({
       id: imported.length + 1,
       date,
       start,
       end,
       title,
-      instructor: String(pickValue(row, ["instruktor", "instructor", "larare"])).trim(),
+      instructor: normalizedInstructors.instructor,
+      instructor2: normalizedInstructors.instructor2,
       location: String(pickValue(row, ["plats", "location"])).trim(),
       type: String(pickValue(row, ["typ", "type"])).trim() || "Workshop",
       focus: String(pickValue(row, ["info", "fokus", "focus", "beskrivning"])).trim(),
@@ -999,6 +1130,7 @@ function lessonsToExportRows(sourceLessons) {
       Sluttid: lesson.end || "",
       Lektionsnamn: lesson.title || "",
       "Instruktör": lesson.instructor || "",
+      "Instruktör 2": lesson.instructor2 || "",
       Plats: lesson.location || "",
       Typ: lesson.type || "",
       Info: lesson.focus || "",
@@ -1041,6 +1173,7 @@ function exportScheduleFile() {
     "Sluttid",
     "Lektionsnamn",
     "Instruktör",
+    "Instruktör 2",
     "Plats",
     "Typ",
     "Info",
@@ -1083,6 +1216,7 @@ function downloadTemplate() {
       Sluttid: "09:30",
       Lektionsnamn: "Rokdykning - grundteknik",
       "Instruktör": "Anna Berg",
+      "Instruktör 2": "",
       Plats: "Övningsfält A",
       Typ: "Praktik",
       Info: "Fokus på sökmönster och kommunikation.",
@@ -1102,6 +1236,7 @@ function downloadTemplate() {
           "Sluttid",
           "Lektionsnamn",
           "Instruktör",
+          "Instruktör 2",
           "Plats",
           "Typ",
           "Info",
@@ -1117,8 +1252,8 @@ function downloadTemplate() {
     }
 
     const csv = [
-      "Datum,Starttid,Sluttid,Lektionsnamn,Instruktör,Plats,Typ,Info,Larmställ,Civila kläder,Underställ",
-      `${templateRows[0].Datum},08:00,09:30,Rokdykning - grundteknik,Anna Berg,Övningsfält A,Praktik,Fokus på sökmönster och kommunikation.,X,,X`
+      "Datum,Starttid,Sluttid,Lektionsnamn,Instruktör,Instruktör 2,Plats,Typ,Info,Larmställ,Civila kläder,Underställ",
+      `${templateRows[0].Datum},08:00,09:30,Rokdykning - grundteknik,Anna Berg,,Övningsfält A,Praktik,Fokus på sökmönster och kommunikation.,X,,X`
     ].join("\n");
 
     downloadCsv("brandresa-schema-mall.csv", csv);
@@ -1135,6 +1270,14 @@ loadSchedule().then(() => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  const lessonsDateFilter = document.getElementById("lessonsDateFilter");
+  if (lessonsDateFilter) {
+    lessonsDateFilter.addEventListener("change", (event) => {
+      selectedLessonsFilterDate = event.target.value;
+      renderLessonsList();
+    });
+  }
+
   const modal = document.getElementById("addInstructorModal");
   if (modal) {
     modal.addEventListener("click", (e) => {
