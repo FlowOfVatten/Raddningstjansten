@@ -2,7 +2,7 @@ const API_BASE_URL = (window.BRANDRESAN_API_BASE_URL || "").replace(/\/$/, "");
 const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
 const SCHEDULE_ENDPOINT = `${STATE_ENDPOINT}?id=brandresan-schedule`;
 const INSTRUCTORS_ENDPOINT = `${STATE_ENDPOINT}?id=brandresan-instructors`;
-const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+const REFRESH_INTERVAL_MS = 45 * 60 * 1000;
 const DAY_ROLLOVER_CHECK_MS = 60 * 1000;
 
 let lessons = [];
