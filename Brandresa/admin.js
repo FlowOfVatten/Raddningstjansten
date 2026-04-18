@@ -7,6 +7,7 @@ let lessons = [];
 let instructors = [];
 let editingInstructorId = null;
 let removeInstructorPhotoRequested = false;
+let pendingSaveCount = 0;
 
 // === Calendar state ===
 let calViewDate = new Date();
@@ -92,6 +93,37 @@ function showMessage(text, type = "info") {
   }
 }
 
+function setSavingState(isSaving, title = "Sparar", message = "Vänta tills sparningen är klar innan du stänger sidan.") {
+  const overlay = document.getElementById("savingOverlay");
+  const titleNode = document.getElementById("savingTitle");
+  const messageNode = document.getElementById("savingMessage");
+
+  if (!overlay || !titleNode || !messageNode) {
+    return;
+  }
+
+  titleNode.textContent = title;
+  messageNode.textContent = message;
+  overlay.classList.toggle("is-visible", isSaving);
+  overlay.setAttribute("aria-hidden", isSaving ? "false" : "true");
+}
+
+function beginSave(title, message) {
+  pendingSaveCount += 1;
+  setSavingState(true, title, message);
+}
+
+function endSave() {
+  pendingSaveCount = Math.max(0, pendingSaveCount - 1);
+  if (pendingSaveCount === 0) {
+    setSavingState(false);
+  }
+}
+
+function isSavingInProgress() {
+  return pendingSaveCount > 0;
+}
+
 async function readJson(response) {
   const bodyText = await response.text();
 
@@ -154,6 +186,7 @@ async function loadInstructors() {
 }
 
 async function saveInstructors() {
+  beginSave("Sparar instruktörer", "Instruktörslistan sparas till databasen. Låt sidan vara öppen tills detta är klart.");
   try {
     const response = await fetch(STATE_ENDPOINT, {
       method: "POST",
@@ -165,8 +198,16 @@ async function saveInstructors() {
     });
 
     await readJson(response);
+    return true;
   } catch (error) {
     console.error("Failed to save instructors:", error);
+    showMessage(
+      `Kunde inte spara instruktörer: ${error.message}. Kontrollera config.js och att backend-API är deployat.`,
+      "error"
+    );
+    return false;
+  } finally {
+    endSave();
   }
 }
 
@@ -226,6 +267,10 @@ function openAddInstructorModal() {
 }
 
 function closeAddInstructorModal() {
+  if (isSavingInProgress()) {
+    return;
+  }
+
   const modal = document.getElementById("addInstructorModal");
   if (modal) {
     modal.style.display = "none";
@@ -295,6 +340,9 @@ async function deleteInstructor(id) {
     return;
   }
 
+  const previousInstructors = instructors.map((item) => ({ ...item }));
+  const previousLessons = lessons.map((lesson) => ({ ...lesson, equipment: Array.isArray(lesson.equipment) ? [...lesson.equipment] : [] }));
+
   instructors = instructors.filter((item) => String(item.id) !== String(id));
 
   if (linkedLessons > 0) {
@@ -305,10 +353,25 @@ async function deleteInstructor(id) {
       return lesson;
     });
     renderLessonsList();
-    await saveSchedule();
+    const scheduleSaved = await saveSchedule({ successMessage: null, title: "Sparar schema", message: "Lektionsschemat uppdateras i databasen. Låt sidan vara öppen tills detta är klart." });
+    if (!scheduleSaved) {
+      instructors = previousInstructors;
+      lessons = previousLessons;
+      renderLessonsList();
+      renderInstructorDropdown();
+      return;
+    }
   }
 
-  await saveInstructors();
+  const instructorsSaved = await saveInstructors();
+  if (!instructorsSaved) {
+    instructors = previousInstructors;
+    lessons = previousLessons;
+    renderLessonsList();
+    renderInstructorDropdown();
+    return;
+  }
+
   renderInstructorDropdown();
   showMessage(`Instruktör ${instructor.name} borttagen`, "success");
 }
@@ -334,6 +397,8 @@ async function addNewInstructor() {
   }
 
   let photoBase64 = "";
+  const previousInstructors = instructors.map((item) => ({ ...item }));
+  const previousLessons = lessons.map((lesson) => ({ ...lesson, equipment: Array.isArray(lesson.equipment) ? [...lesson.equipment] : [] }));
 
   if (editingInstructorId !== null) {
     const existing = instructors.find((item) => String(item.id) === String(editingInstructorId));
@@ -371,10 +436,25 @@ async function addNewInstructor() {
         return lesson;
       });
       renderLessonsList();
-      await saveSchedule();
+      const scheduleSaved = await saveSchedule({ successMessage: null, title: "Sparar schema", message: "Lektionerna uppdateras i databasen. Låt sidan vara öppen tills detta är klart." });
+      if (!scheduleSaved) {
+        instructors = previousInstructors;
+        lessons = previousLessons;
+        renderLessonsList();
+        renderInstructorDropdown();
+        return;
+      }
     }
 
-    await saveInstructors();
+    const instructorsSaved = await saveInstructors();
+    if (!instructorsSaved) {
+      instructors = previousInstructors;
+      lessons = previousLessons;
+      renderLessonsList();
+      renderInstructorDropdown();
+      return;
+    }
+
     renderInstructorDropdown();
     closeAddInstructorModal();
     showMessage(`Instruktör ${name} uppdaterad`, "success");
@@ -398,7 +478,15 @@ async function addNewInstructor() {
   };
 
   instructors.push(newInstructor);
-  await saveInstructors();
+  const instructorsSaved = await saveInstructors();
+  if (!instructorsSaved) {
+    instructors = previousInstructors;
+    lessons = previousLessons;
+    renderLessonsList();
+    renderInstructorDropdown();
+    return;
+  }
+
   renderInstructorDropdown();
   closeAddInstructorModal();
   showMessage(`Instruktör ${name} tillagd!`, "success");
@@ -468,10 +556,21 @@ async function addLesson() {
     equipment
   };
 
+  const previousLessons = lessons.map((lesson) => ({ ...lesson, equipment: Array.isArray(lesson.equipment) ? [...lesson.equipment] : [] }));
   lessons.push(newLesson);
   renderLessonsList();
+  const saved = await saveSchedule({
+    title: "Sparar lektion",
+    message: "Lektionen sparas till databasen. Stäng inte sidan förrän detta är klart.",
+    successMessage: "Lektionen sparades"
+  });
+  if (!saved) {
+    lessons = previousLessons;
+    renderLessonsList();
+    return;
+  }
+
   clearForm();
-  await saveSchedule();
 }
 
 function addMinutesToTime(time, minutesToAdd) {
@@ -509,10 +608,21 @@ async function addBreak() {
     equipment: []
   };
 
+  const previousLessons = lessons.map((lesson) => ({ ...lesson, equipment: Array.isArray(lesson.equipment) ? [...lesson.equipment] : [] }));
   lessons.push(breakLesson);
   renderLessonsList();
+  const saved = await saveSchedule({
+    title: "Sparar rast",
+    message: "Rasten sparas till databasen. Stäng inte sidan förrän detta är klart.",
+    successMessage: "Rasten sparades"
+  });
+  if (!saved) {
+    lessons = previousLessons;
+    renderLessonsList();
+    return;
+  }
+
   clearForm();
-  await saveSchedule();
 }
 
 function clearForm() {
@@ -565,9 +675,18 @@ async function deleteLesson(id) {
     return;
   }
 
+  const previousLessons = lessons.map((lesson) => ({ ...lesson, equipment: Array.isArray(lesson.equipment) ? [...lesson.equipment] : [] }));
   lessons = lessons.filter((lesson) => lesson.id !== id);
   renderLessonsList();
-  await saveSchedule();
+  const saved = await saveSchedule({
+    title: "Sparar ändringar",
+    message: "Lektionslistan uppdateras i databasen. Stäng inte sidan förrän detta är klart.",
+    successMessage: "Lektion borttagen"
+  });
+  if (!saved) {
+    lessons = previousLessons;
+    renderLessonsList();
+  }
 }
 
 function renderLessonsList() {
@@ -610,7 +729,14 @@ function renderLessonsList() {
   }).join("");
 }
 
-async function saveSchedule() {
+async function saveSchedule(options = {}) {
+  const {
+    title = "Sparar schema",
+    message = "Schemat sparas till databasen. Låt sidan vara öppen tills detta är klart.",
+    successMessage = "Schemat sparades"
+  } = options;
+
+  beginSave(title, message);
   try {
     const response = await fetch(STATE_ENDPOINT, {
       method: "POST",
@@ -624,13 +750,19 @@ async function saveSchedule() {
     });
 
     await readJson(response);
-    showMessage("Schemat sparades", "success");
+    if (successMessage) {
+      showMessage(successMessage, "success");
+    }
+    return true;
   } catch (error) {
     console.error("Failed to save schedule:", error);
     showMessage(
       `Kunde inte spara schemat: ${error.message}. Kontrollera config.js och att backend-API är deployat.`,
       "error"
     );
+    return false;
+  } finally {
+    endSave();
   }
 }
 
@@ -827,12 +959,28 @@ async function importScheduleFile() {
       return;
     }
 
+    const previousLessons = lessons.map((lesson) => ({ ...lesson, equipment: Array.isArray(lesson.equipment) ? [...lesson.equipment] : [] }));
+    const previousSelectedDate = selectedDate;
+    const previousCalViewDate = new Date(calViewDate);
+
     lessons = importedLessons;
     selectedDate = importedLessons[0].date;
     calViewDate = new Date(selectedDate + "T00:00:00");
     renderCalendar();
     renderLessonsList();
-    await saveSchedule();
+    const saved = await saveSchedule({
+      title: "Importerar schema",
+      message: "Det importerade schemat sparas till databasen. Stäng inte sidan förrän detta är klart.",
+      successMessage: null
+    });
+    if (!saved) {
+      lessons = previousLessons;
+      selectedDate = previousSelectedDate;
+      calViewDate = previousCalViewDate;
+      renderCalendar();
+      renderLessonsList();
+      return;
+    }
 
     input.value = "";
     showMessage(`Import klar: ${importedLessons.length} pass sparades`, "success");
@@ -998,5 +1146,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape" && modal && modal.style.display === "flex") {
       closeAddInstructorModal();
     }
+  });
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!isSavingInProgress()) {
+      return;
+    }
+
+    event.preventDefault();
+    event.returnValue = "";
   });
 });

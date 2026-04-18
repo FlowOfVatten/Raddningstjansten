@@ -8,6 +8,7 @@ const DAY_ROLLOVER_CHECK_MS = 60 * 1000;
 let lessons = [];
 let instructors = [];
 let selectedId = null;
+let isInitialScheduleLoad = true;
 
 function toIsoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -89,6 +90,12 @@ function renderSchedule() {
   const now = nowMinutes();
   scheduleList.innerHTML = "";
 
+  if (isInitialScheduleLoad) {
+    countBadge.textContent = "";
+    scheduleList.innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:20px 0;">🚒 Utryckning pågår<br>Schemat hämtas just nu. Första uppstarten kan ta lite längre tid.</p>';
+    return;
+  }
+
   const dayLessons = lessons.filter((l) => !l.date || l.date === viewDate);
   const sortedDayLessons = [...dayLessons].sort((a, b) => {
     const aStart = String(a.start || "");
@@ -135,10 +142,24 @@ function renderSchedule() {
 }
 
 async function renderDetail() {
+  if (isInitialScheduleLoad) {
+    detailCard.classList.add("hidden");
+    emptyState.innerHTML = `
+      <h2>🚒 Utryckning pågår</h2>
+      <p>Schemat hämtas just nu. Första uppstarten kan ta lite längre tid.</p>
+    `;
+    emptyState.classList.remove("hidden");
+    return;
+  }
+
   const lesson = lessons.find((item) => item.id === selectedId);
 
   if (!lesson) {
     detailCard.classList.add("hidden");
+    emptyState.innerHTML = `
+      <h2>Ingen lektion vald</h2>
+      <p>Klicka på en lektion till vänster för att se detaljer.</p>
+    `;
     emptyState.classList.remove("hidden");
     return;
   }
@@ -350,9 +371,11 @@ async function loadSchedule() {
       lessons = [];
       selectedId = null;
     }
+    isInitialScheduleLoad = false;
   } catch (error) {
     try {
       await loadScheduleFromCsvFallback();
+      isInitialScheduleLoad = false;
       emptyState.innerHTML = `
         <h2>Visar lokal fallback-data</h2>
         <p>API var inte tillgängligt (${error.message}). Data visas från schedule.csv.</p>
@@ -360,6 +383,7 @@ async function loadSchedule() {
     } catch (fallbackError) {
       lessons = [];
       selectedId = null;
+      isInitialScheduleLoad = false;
       emptyState.innerHTML = `
         <h2>Kunde inte läsa schema</h2>
         <p>API-fel: ${error.message}</p>
