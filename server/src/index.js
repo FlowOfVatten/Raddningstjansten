@@ -53,6 +53,14 @@ app.get("/api/status", (_req, res) => {
   });
 });
 
+app.get("/api/snapshot", (_req, res) => {
+  res.json({
+    source: hasTrafiklabKey() ? "trafiklab" : "simulator",
+    aiEnabled: !!aiAnalyst.apiKey,
+    data: source.snapshot(),
+  });
+});
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/stream" });
 

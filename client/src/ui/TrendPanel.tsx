@@ -2,6 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useDraggable } from "./useDraggable";
 import { useCollapsible, CollapseButton } from "./useCollapsible";
 
+function trimTrailingSlash(value: string) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+function getApiBase() {
+  const configured = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  return configured ? trimTrailingSlash(configured) : "";
+}
+
 type Metric = "avgDelay" | "delayed" | "stopped" | "punctuality";
 
 interface Sample {
@@ -52,7 +61,7 @@ export function TrendPanel() {
 
     async function fetchData() {
       try {
-        const res = await fetch("/api/trends");
+        const res = await fetch(`${getApiBase()}/api/trends`);
         if (!res.ok) return;
         const json = (await res.json()) as TrendsResponse;
         if (!cancelled) setData(json);

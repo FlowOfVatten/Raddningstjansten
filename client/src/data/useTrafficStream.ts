@@ -196,7 +196,44 @@ export function useTrafficStream() {
 
     let ws: WebSocket | null = null;
     let reconnectHandle: number | null = null;
+    let pollHandle: number | null = null;
     let closed = false;
+
+    async function fetchSnapshot() {
+      const apiBase = getApiBase();
+      if (!apiBase) return;
+
+      try {
+        const res = await fetch(`${apiBase}/api/snapshot`);
+        if (!res.ok) return;
+        const payload = (await res.json()) as {
+          source?: "simulator" | "trafiklab";
+          aiEnabled?: boolean;
+          data?: Snapshot;
+        };
+        if (!payload.data) return;
+
+        setConnected(true);
+        setSource(payload.source === "trafiklab" ? "trafiklab" : "simulator");
+        useAppStore.getState().setAIEnabled(!!payload.aiEnabled);
+        applySnapshot(payload.data);
+      } catch {
+        setConnected(false);
+      }
+    }
+
+    function startPolling() {
+      if (pollHandle !== null) return;
+      fetchSnapshot();
+      pollHandle = window.setInterval(fetchSnapshot, 5000);
+    }
+
+    function stopPolling() {
+      if (pollHandle !== null) {
+        clearInterval(pollHandle);
+        pollHandle = null;
+      }
+    }
 
     function connect() {
       const wsBase = getWsBase();
@@ -204,9 +241,12 @@ export function useTrafficStream() {
       const url = wsBase ? `${wsBase}/stream` : `${proto}//${location.host}/stream`;
       ws = new WebSocket(url);
 
-      ws.onopen = () => setConnected(true);
+      ws.onopen = () => {
+        stopPolling();
+        setConnected(true);
+      };
       ws.onclose = () => {
-        setConnected(false);
+        startPolling();
         if (!closed) reconnectHandle = window.setTimeout(connect, 1500);
       };
       ws.onerror = () => { ws?.close(); };
@@ -214,9 +254,13 @@ export function useTrafficStream() {
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === "hello") {
+            stopPolling();
+            setConnected(true);
             setSource(msg.source === "trafiklab" ? "trafiklab" : "simulator");
             useAppStore.getState().setAIEnabled(!!msg.aiEnabled);
           } else if (msg.type === "snapshot") {
+            stopPolling();
+            setConnected(true);
             applySnapshot(msg.data);
           } else if (msg.type === "ai") {
             const { latest, error } = msg.data ?? {};
@@ -228,11 +272,13 @@ export function useTrafficStream() {
       };
     }
 
+    if (getApiBase()) startPolling();
     connect();
 
     return () => {
       closed = true;
       if (reconnectHandle !== null) clearTimeout(reconnectHandle);
+      stopPolling();
       ws?.close();
     };
   }, [applySnapshot, network, setConnected, setSource, useBrowserDemo]);
