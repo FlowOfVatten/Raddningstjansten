@@ -1,0 +1,75 @@
+﻿{
+  "origin": {
+    "lat": 59.8748,
+    "lon": 18.3569,
+    "label": "Alunda busstation"
+  },
+  "stations": [
+    { "id": "uppsala_c", "name": "Uppsala C", "lat": 59.8586, "lon": 17.6389, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "886"] },
+    { "id": "granby_centrum", "name": "Granby centrum", "lat": 59.8803, "lon": 17.6739, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "886"] },
+    { "id": "rasbo_kyrka", "name": "Rasbo kyrka", "lat": 59.9192, "lon": 17.7708, "depth": 0, "mode": "bus", "lines": ["801", "811", "886"] },
+    { "id": "rasbo_skola", "name": "Rasbo skola", "lat": 59.9445, "lon": 17.8607, "depth": 0, "mode": "bus", "lines": ["804"] },
+    { "id": "funbo_kyrka", "name": "Funbo kyrka", "lat": 59.8476, "lon": 17.7679, "depth": 0, "mode": "bus", "lines": ["804"] },
+    { "id": "knutby_torg", "name": "Knutby torg", "lat": 59.8899, "lon": 18.1674, "depth": 0, "mode": "bus", "lines": ["804"] },
+    { "id": "stavby", "name": "Stavby", "lat": 59.9047, "lon": 18.0044, "depth": 0, "mode": "bus", "lines": ["801", "811", "886"] },
+    { "id": "lanna_vagskal", "name": "Lanna vagskal", "lat": 59.9041, "lon": 18.2308, "depth": 0, "mode": "bus", "lines": ["801", "886"] },
+    { "id": "alunda_busstation", "name": "Alunda busstation", "lat": 59.8748, "lon": 18.3569, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "821", "851", "886"] },
+    { "id": "alunda_skolcentrum", "name": "Alunda skolcentrum", "lat": 59.8780, "lon": 18.3525, "depth": 0, "mode": "bus", "lines": ["821"] },
+    { "id": "alunda_kyrka", "name": "Alunda kyrka", "lat": 59.8707, "lon": 18.3501, "depth": 0, "mode": "bus", "lines": ["821"] },
+    { "id": "alunda_idrottsplats", "name": "Alunda idrottsplats", "lat": 59.8683, "lon": 18.3649, "depth": 0, "mode": "bus", "lines": ["821"] },
+    { "id": "marma_korsning", "name": "Marma korsning", "lat": 59.9789, "lon": 18.2884, "depth": 0, "mode": "bus", "lines": ["801", "851", "886"] },
+    { "id": "gimo_busstation", "name": "Gimo busstation", "lat": 60.1739, "lon": 18.1827, "depth": 0, "mode": "bus", "lines": ["801", "886"] },
+    { "id": "osthammar_busstation", "name": "Osthammar busstation", "lat": 60.2585, "lon": 18.3733, "depth": 0, "mode": "bus", "lines": ["811", "851"] },
+    { "id": "oregrund_hamn", "name": "Oregrund hamn", "lat": 60.3347, "lon": 18.4343, "depth": 0, "mode": "bus", "lines": ["851"] }
+  ],
+  "lines": [
+    {
+      "id": "801",
+      "name": "Uppsala - Alunda - Gimo",
+      "color": "#7cc4ff",
+      "line": "801",
+      "mode": "bus",
+      "stations": ["uppsala_c", "granby_centrum", "rasbo_kyrka", "stavby", "alunda_busstation", "lanna_vagskal", "marma_korsning", "gimo_busstation"]
+    },
+    {
+      "id": "804",
+      "name": "Uppsala - Rasbo - Knutby - Alunda",
+      "color": "#4bd582",
+      "line": "804",
+      "mode": "bus",
+      "stations": ["uppsala_c", "granby_centrum", "funbo_kyrka", "rasbo_skola", "knutby_torg", "alunda_busstation"]
+    },
+    {
+      "id": "811",
+      "name": "Uppsala - Alunda - Osthammar",
+      "color": "#ffd166",
+      "line": "811",
+      "mode": "bus",
+      "stations": ["uppsala_c", "granby_centrum", "rasbo_kyrka", "stavby", "alunda_busstation", "osthammar_busstation"]
+    },
+    {
+      "id": "821",
+      "name": "Alunda lokallinje",
+      "color": "#c792ea",
+      "line": "821",
+      "mode": "bus",
+      "stations": ["alunda_busstation", "alunda_skolcentrum", "alunda_kyrka", "alunda_idrottsplats", "alunda_busstation"]
+    },
+    {
+      "id": "851",
+      "name": "Alunda - Osthammar - Oregrund",
+      "color": "#ff9f43",
+      "line": "851",
+      "mode": "bus",
+      "stations": ["alunda_busstation", "marma_korsning", "osthammar_busstation", "oregrund_hamn"]
+    },
+    {
+      "id": "886",
+      "name": "Gimo - Alunda - Uppsala",
+      "color": "#38d9a9",
+      "line": "886",
+      "mode": "bus",
+      "stations": ["gimo_busstation", "marma_korsning", "lanna_vagskal", "alunda_busstation", "stavby", "rasbo_kyrka", "granby_centrum", "uppsala_c"]
+    }
+  ]
+}
