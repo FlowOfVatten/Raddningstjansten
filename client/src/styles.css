@@ -30,6 +30,12 @@ canvas { display: block; outline: none; }
   inset: 0;
 }
 
+.map-root {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
 .ui-overlay {
   position: absolute;
   inset: 0;
