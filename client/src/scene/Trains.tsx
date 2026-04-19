@@ -130,6 +130,7 @@ function TrainMesh({
   const sizeScale =
     mode === "subway" ? 1 :
     mode === "rail" ? 1.15 :
+    mode === "bus" ? 0.75 :
     mode === "ferry" ? 1.0 :
     mode === "lightrail" ? 0.8 :
     0.65; // tram

@@ -7,6 +7,7 @@ const MODE_BADGE: Record<string, { color: string; label: string }> = {
   lightrail: { color: "#b084ff", label: "L" },
   tram: { color: "#f4c430", label: "S" },
   ferry: { color: "#24d4d4", label: "B" },
+  bus: { color: "#7cc4ff", label: "B" },
 };
 
 function normalize(s: string) {
@@ -34,7 +35,7 @@ export function StationSearch() {
       const name = normalize(s.name);
       const hit = name.indexOf(q);
       if (hit < 0) continue;
-      const key = `${s.name}|${s.mode ?? "subway"}`;
+      const key = `${s.name}|${s.mode ?? "bus"}`;
       if (seen.has(key)) continue;
       seen.add(key);
       const score = hit === 0 ? 0 : hit < 3 ? 1 : 2;
@@ -176,7 +177,7 @@ export function StationSearch() {
           }}
         >
           {suggestions.map((s, i) => {
-            const badge = MODE_BADGE[s.mode ?? "subway"];
+            const badge = MODE_BADGE[s.mode ?? "bus"];
             const active = i === highlightedIdx;
             return (
               <button

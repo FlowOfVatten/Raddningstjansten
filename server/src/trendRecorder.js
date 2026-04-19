@@ -1,17 +1,6 @@
-const LINE_GROUP = {
-  T13: "red", T14: "red",
-  T17: "green", T18: "green", T19: "green",
-  T10: "blue", T11: "blue",
-  J40: "rail", J41: "rail", J43: "rail", J43X: "rail", J48: "rail",
-  L25: "saltsjobanan", L26: "saltsjobanan",
-  L27: "roslagsbanan", L27S: "roslagsbanan", L28: "roslagsbanan", L28S: "roslagsbanan", L28X: "roslagsbanan", L29: "roslagsbanan",
-  L30: "tvarbana", L31: "tvarbana",
-  S7: "tram", S12: "tram", S21: "tram",
-  B80: "ferry", B80X: "ferry", B84: "ferry", B89: "ferry",
-};
-
-function lineGroup(lineId) {
-  return LINE_GROUP[lineId] || "other";
+function lineGroup(train) {
+  // Prefer explicit network grouping, fall back to line id.
+  return train.lineGroup || train.lineId || "other";
 }
 
 export class TrendRecorder {
@@ -34,7 +23,7 @@ export class TrendRecorder {
       const snap = this.getSnapshot();
       const byGroup = {};
       for (const t of snap.trains) {
-        const key = lineGroup(t.lineId);
+        const key = lineGroup(t);
         let g = byGroup[key];
         if (!g) {
           g = { delaySum: 0, delayCount: 0, ok: 0, delayed: 0, stopped: 0, total: 0 };

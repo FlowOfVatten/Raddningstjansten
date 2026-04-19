@@ -51,11 +51,11 @@ export default function App() {
         >
           {showLabels ? "Dölj etiketter" : "Visa etiketter"}
         </button>
-        <div className="footer" style={{ bottom: 60 }}>Data via Trafiklab GTFS-RT · Simulator vid saknad nyckel · {network?.stations.length ?? "—"} stationer</div>
+        <div className="footer" style={{ bottom: 60 }}>Alunda regional busstrafik · Simulatorläge · {network?.stations.length ?? "—"} hållplatser</div>
       </div>
       {!network && (
         <div className="loading">
-          <div className="row"><div className="spinner" /> Läser in tunnelbanenätet…</div>
+          <div className="row"><div className="spinner" /> Läser in bussnätet runt Alunda…</div>
         </div>
       )}
       {network && !connected && (

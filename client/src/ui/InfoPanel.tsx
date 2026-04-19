@@ -82,7 +82,7 @@ export function InfoPanel() {
             letterSpacing: 0.02,
           }}>{train.lineId}</div>
           <div style={{ fontSize: 11, color: "#8b98ad", marginTop: 6, letterSpacing: 0.1, textTransform: "uppercase" }}>
-            Tåg {train.id.split("-").slice(-1)[0]}
+            Buss {train.id.split("-").slice(-1)[0]}
           </div>
         </div>
         <div style={{ display: "flex", gap: 4 }}>
@@ -181,7 +181,7 @@ export function InfoPanel() {
               cursor: "pointer",
               fontSize: 12,
             }}
-          >Följ tåget</button>
+          >Följ bussen</button>
         </div>
       )}
       </>}

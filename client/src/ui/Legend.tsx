@@ -9,23 +9,29 @@ interface Group {
   lineIds: string[];
 }
 
-const GROUPS: Group[] = [
-  { id: "subway-red",   label: "T-bana röd (T13/T14)",       color: "#ff3d4a", lineIds: ["T13", "T14"] },
-  { id: "subway-green", label: "T-bana grön (T17/T18/T19)",  color: "#4bd582", lineIds: ["T17", "T18", "T19"] },
-  { id: "subway-blue",  label: "T-bana blå (T10/T11)",       color: "#39a7ff", lineIds: ["T10", "T11"] },
-  { id: "rail",         label: "Pendeltåg (J40–J48)",        color: "#ff7a1f", lineIds: ["J40", "J41", "J43", "J43X", "J48"] },
-  { id: "tvarbana",     label: "Tvärbanan (L30/L31)",        color: "#b084ff", lineIds: ["L30", "L31"] },
-  { id: "roslagsbanan", label: "Roslagsbanan (L27–L29)",     color: "#c266d9", lineIds: ["L27", "L27S", "L28", "L28S", "L28X", "L29"] },
-  { id: "saltsjobanan", label: "Saltsjöbanan (L25/L26)",     color: "#ff6fb5", lineIds: ["L25", "L26"] },
-  { id: "tram",         label: "Spårvagn (S7/S12/S21)",      color: "#f4c430", lineIds: ["S7", "S12", "S21"] },
-  { id: "ferry",        label: "Pendelbåt (B80/B84/B89)",    color: "#24d4d4", lineIds: ["B80", "B80X", "B84", "B89"] },
-];
+function modeLabel(mode?: string) {
+  if (mode === "bus") return "Buss";
+  if (mode === "rail") return "Tåg";
+  if (mode === "tram") return "Spårvagn";
+  if (mode === "ferry") return "Båt";
+  if (mode === "lightrail") return "Lokalbana";
+  if (mode === "subway") return "Tunnelbana";
+  return "Linje";
+}
 
 export function Legend() {
   const drag = useDraggable({ storageKey: "legend", defaultAnchor: { right: 20, bottom: 20 } });
   const { collapsed, toggle } = useCollapsible("legend");
+  const network = useAppStore((s) => s.network);
   const hidden = useAppStore((s) => s.hiddenLineIds);
   const toggleLineGroup = useAppStore((s) => s.toggleLineGroup);
+
+  const groups: Group[] = (network?.lines ?? []).map((line) => ({
+    id: line.id,
+    label: `${modeLabel(line.mode)} ${line.id}${line.name ? ` - ${line.name}` : ""}`,
+    color: line.color,
+    lineIds: [line.id],
+  }));
 
   return (
     <div ref={drag.ref as any} className="legend panel" style={drag.style} {...drag.handlers}>
@@ -34,7 +40,7 @@ export function Legend() {
         <CollapseButton collapsed={collapsed} onToggle={toggle} size={22} />
       </div>
       {!collapsed && <div style={{ height: 10 }} />}
-      {!collapsed && GROUPS.map((g) => {
+      {!collapsed && groups.map((g) => {
         const isOn = !g.lineIds.every((id) => hidden.has(id));
         return (
           <button
@@ -80,7 +86,7 @@ export function Legend() {
           <div className="legend-row"><span className="swatch" style={{ background: "#ff3030", color: "#ff3030" }} />Stillastående</div>
           <div style={{ height: 10 }} />
           <div style={{ fontSize: 10.5, color: "#8b98ad", lineHeight: 1.4 }}>
-            Klicka i listan för att visa/dölja linjer. T-bana under mark, övriga på marknivå. Horisontell skala 1:300.
+            Klicka i listan för att visa eller dölja linjer. Bussnätet visas i marknivå.
           </div>
         </>
       )}

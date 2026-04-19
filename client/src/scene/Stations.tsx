@@ -22,6 +22,7 @@ const MODE_HEX: Record<string, string> = {
   lightrail: "#c99bff",
   tram: "#ffde5a",
   ferry: "#4cdadd",
+  bus: "#7cc4ff",
 };
 
 export function Stations({ network, projection }: Props) {

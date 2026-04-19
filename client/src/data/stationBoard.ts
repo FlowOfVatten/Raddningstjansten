@@ -1,7 +1,7 @@
 import type { Network, Station, Train } from "./types";
 
-const TRAIN_SPEED_MPS = 14;
-const DWELL_SECONDS = 25;
+const TRAIN_SPEED_MPS = 9;
+const DWELL_SECONDS = 18;
 const EARTH_R = 6371000;
 
 function toRad(deg: number) {

@@ -22,23 +22,7 @@ interface TrendsResponse {
   samples: Sample[];
 }
 
-interface GroupDef {
-  id: string;
-  label: string;
-  color: string;
-}
-
-const GROUPS: GroupDef[] = [
-  { id: "red",          label: "Röd (T13/T14)",     color: "#ff3d4a" },
-  { id: "green",        label: "Grön (T17-T19)",    color: "#4bd582" },
-  { id: "blue",         label: "Blå (T10/T11)",     color: "#39a7ff" },
-  { id: "rail",         label: "Pendeltåg",         color: "#ff7a1f" },
-  { id: "tvarbana",     label: "Tvärbanan",         color: "#b084ff" },
-  { id: "roslagsbanan", label: "Roslagsbanan",      color: "#c266d9" },
-  { id: "saltsjobanan", label: "Saltsjöbanan",      color: "#ff6fb5" },
-  { id: "tram",         label: "Spårvagn",          color: "#f4c430" },
-  { id: "ferry",        label: "Pendelbåt",         color: "#24d4d4" },
-];
+const PALETTE = ["#7cc4ff", "#4bd582", "#ff9f43", "#c792ea", "#ffd166", "#38d9a9", "#ff6b6b", "#74c0fc"];
 
 const METRICS: { id: Metric; label: string; unit: string }[] = [
   { id: "avgDelay",    label: "Snittförsening",   unit: "s" },
@@ -52,6 +36,15 @@ export function TrendPanel() {
   const { collapsed, toggle } = useCollapsible("trend-panel");
   const [data, setData] = useState<TrendsResponse | null>(null);
   const [metric, setMetric] = useState<Metric>("avgDelay");
+
+  const groupIds = useMemo(() => {
+    if (!data) return [] as string[];
+    const ids = new Set<string>();
+    for (const sample of data.samples) {
+      for (const id of Object.keys(sample.byGroup)) ids.add(id);
+    }
+    return Array.from(ids).sort((a, b) => a.localeCompare(b, "sv"));
+  }, [data]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,10 +70,10 @@ export function TrendPanel() {
   const series = useMemo(() => {
     if (!data) return new Map<string, number[]>();
     const out = new Map<string, number[]>();
-    for (const g of GROUPS) {
+    for (const id of groupIds) {
       const arr: number[] = [];
       for (const s of data.samples) {
-        const gd = s.byGroup[g.id];
+        const gd = s.byGroup[id];
         if (!gd) {
           arr.push(0);
           continue;
@@ -92,10 +85,10 @@ export function TrendPanel() {
         else if (metric === "punctuality") v = Math.round(gd.punctuality * 100);
         arr.push(v);
       }
-      out.set(g.id, arr);
+      out.set(id, arr);
     }
     return out;
-  }, [data, metric]);
+  }, [data, metric, groupIds]);
 
   const spanMinutes = data ? Math.round((data.samples.length * data.intervalMs) / 60_000) : 0;
   const metricMeta = METRICS.find((m) => m.id === metric)!;
@@ -146,16 +139,17 @@ export function TrendPanel() {
           </div>
 
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto", paddingRight: 4 }}>
-            {GROUPS.map((g) => {
-              const arr = series.get(g.id) ?? [];
+            {groupIds.map((id, index) => {
+              const arr = series.get(id) ?? [];
+              const color = PALETTE[index % PALETTE.length];
               const hasData = arr.some((v) => v > 0);
               const latest = arr.length ? arr[arr.length - 1] : 0;
               return (
-                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: g.color, flexShrink: 0, boxShadow: `0 0 6px ${g.color}` }} />
-                  <span style={{ fontSize: 10.5, color: "#c7cfdc", width: 110, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.label}</span>
+                <div key={id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0, boxShadow: `0 0 6px ${color}` }} />
+                  <span style={{ fontSize: 10.5, color: "#c7cfdc", width: 110, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{labelForGroup(id)}</span>
                   <div style={{ flex: 1 }}>
-                    <Sparkline data={arr} color={g.color} width={110} height={22} />
+                    <Sparkline data={arr} color={color} width={110} height={22} />
                   </div>
                   <span
                     style={{
@@ -181,6 +175,11 @@ export function TrendPanel() {
       )}
     </div>
   );
+}
+
+function labelForGroup(id: string) {
+  if (/^\d+$/.test(id)) return `Buss ${id}`;
+  return id.toUpperCase();
 }
 
 function Sparkline({ data, color, width = 110, height = 22 }: { data: number[]; color: string; width?: number; height?: number }) {

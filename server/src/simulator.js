@@ -1,7 +1,7 @@
 import { haversine } from "./geo.js";
 
-const TRAIN_SPEED_MPS = 14; // ~50 km/h average including stops
-const DWELL_SECONDS = 25; // time at each station
+const TRAIN_SPEED_MPS = 9; // ~32 km/h average city/regional bus speed including slowdowns
+const DWELL_SECONDS = 18; // typical stop dwell time
 const TICK_MS = 1000;
 
 const STATUS = { OK: "ok", DELAYED: "delayed", STOPPED: "stopped" };
@@ -185,14 +185,14 @@ export class Simulator {
 }
 
 const ALERT_MESSAGES = [
-  "Signalfel",
-  "Sjukdomsfall ombord",
-  "Polisingripande",
-  "Obehörig person i spår",
-  "Tekniskt fel på tåget",
-  "Förseningar i trafiken",
-  "Växelfel",
-  "Förkortad trafikering",
+  "Tät trafik genom centrum",
+  "Tillfällig köbildning",
+  "Fordonsbyte på linjen",
+  "Hållplats passerad utan stopp",
+  "Tekniskt fel på buss",
+  "Vägarbete påverkar tidtabell",
+  "Omledning via alternativ väg",
+  "Reducerad turtäthet",
 ];
 
 function pickAlertMessage() {

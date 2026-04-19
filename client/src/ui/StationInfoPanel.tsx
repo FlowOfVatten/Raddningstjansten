@@ -4,18 +4,13 @@ import { computeStationBoard, formatEta, type BoardEntry } from "../data/station
 import { useDraggable } from "./useDraggable";
 import { useCollapsible, CollapseButton } from "./useCollapsible";
 
-const LINE_HEX: Record<string, string> = {
-  red: "#ff3d4a",
-  green: "#4bd582",
-  blue: "#39a7ff",
-};
-
 const MODE_BADGE: Record<string, { color: string; label: string }> = {
   subway: { color: "#ffffff", label: "T-BANA" },
   rail: { color: "#ff7a1f", label: "PENDEL" },
   lightrail: { color: "#b084ff", label: "SPÅRVÄG" },
   tram: { color: "#f4c430", label: "SPÅRVAGN" },
   ferry: { color: "#24d4d4", label: "BÅT" },
+  bus: { color: "#7cc4ff", label: "BUSS" },
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -49,11 +44,16 @@ export function StationInfoPanel() {
     return computeStationBoard(station.id, trains.values(), network);
   }, [station, trains, network]);
 
+  const lineColorById = useMemo(
+    () => new Map((network?.lines ?? []).map((line) => [line.id, line.color])),
+    [network]
+  );
+
   if (!station || !network) return null;
 
   const depthLabel = station.depth > 0 ? `${station.depth} m under mark` : "marknivå";
   const linesAtStation = station.lines ?? [];
-  const modeBadge = linesAtStation.length === 0 ? MODE_BADGE[station.mode ?? "subway"] : null;
+  const modeBadge = linesAtStation.length === 0 ? MODE_BADGE[station.mode ?? "bus"] : null;
 
   const upcoming = board.slice(0, 10);
 
@@ -75,14 +75,14 @@ export function StationInfoPanel() {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, color: "#8b98ad", letterSpacing: 0.18, textTransform: "uppercase", marginBottom: 4 }}>Station</div>
+          <div style={{ fontSize: 10, color: "#8b98ad", letterSpacing: 0.18, textTransform: "uppercase", marginBottom: 4 }}>Hållplats</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", lineHeight: 1.1 }}>{station.name}</div>
           <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
             {linesAtStation.map((lg) => (
               <span
                 key={lg}
                 style={{
-                  background: LINE_HEX[lg] ?? "#888",
+                  background: lineColorById.get(lg) ?? "#888",
                   color: "#04060c",
                   padding: "2px 7px",
                   borderRadius: 4,
@@ -91,7 +91,7 @@ export function StationInfoPanel() {
                   letterSpacing: 0.04,
                 }}
               >
-                {lg === "red" ? "RÖD" : lg === "green" ? "GRÖN" : lg === "blue" ? "BLÅ" : lg.toUpperCase()}
+                {lg.toUpperCase()}
               </span>
             ))}
             {modeBadge && (
@@ -136,7 +136,7 @@ export function StationInfoPanel() {
         </div>
         {upcoming.length === 0 ? (
           <div style={{ fontSize: 12, color: "#6b778c", padding: "12px 0" }}>
-            Inga tåg på väg just nu.
+            Inga bussar på väg just nu.
           </div>
         ) : (
           <div

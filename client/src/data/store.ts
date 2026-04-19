@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { AIAnalysis, Alert, CameraMode, Network, Snapshot, Train } from "./types";
 
-const HIDDEN_LINES_KEY = "sl:hidden-line-ids";
+const HIDDEN_LINES_KEY = "alunda:hidden-line-ids";
 
 function loadHiddenLineIds(): Set<string> {
   try {

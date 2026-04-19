@@ -22,23 +22,32 @@ try {
 }
 
 const GTFS_RT_VEHICLE_URL =
+  process.env.GTFS_RT_VEHICLE_URL ||
   "https://opendata.samtrafiken.se/gtfs-rt-sweden/sl/VehiclePositionsSweden.pb";
 const GTFS_RT_TRIPS_URL =
+  process.env.GTFS_RT_TRIPS_URL ||
   "https://opendata.samtrafiken.se/gtfs-rt-sweden/sl/TripUpdatesSweden.pb";
 const GTFS_RT_ALERTS_URL =
+  process.env.GTFS_RT_ALERTS_URL ||
   "https://opendata.samtrafiken.se/gtfs-rt-sweden/sl/ServiceAlertsSweden.pb";
 
 const POLL_MS = 15_000;
-const MAX_MATCH_METERS = 400;
+const MAX_MATCH_METERS = Number(process.env.GTFS_MAX_MATCH_METERS ?? 1200);
 const STATION_MATCH_METERS = 120;
 const STALE_TRAIN_MS = 90_000;
 
 export function hasTrafiklabKey() {
-  return !!(process.env.TRAFIKLAB_KEY || process.env.TRAFIKLAB_API_KEY);
+  return !!(process.env.TRAFIKLAB_RT_KEY || process.env.TRAFIKLAB_KEY || process.env.TRAFIKLAB_API_KEY);
 }
 
 function getKey() {
-  return process.env.TRAFIKLAB_KEY || process.env.TRAFIKLAB_API_KEY;
+  return process.env.TRAFIKLAB_RT_KEY || process.env.TRAFIKLAB_KEY || process.env.TRAFIKLAB_API_KEY;
+}
+
+function withApiKey(url, key) {
+  if (!key) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}key=${encodeURIComponent(key)}`;
 }
 
 export class LiveSource {
@@ -80,7 +89,7 @@ export class LiveSource {
     const key = getKey();
     if (!key) return;
     try {
-      const res = await fetch(`${GTFS_RT_TRIPS_URL}?key=${key}`, {
+      const res = await fetch(withApiKey(GTFS_RT_TRIPS_URL, key), {
         headers: { "Accept-Encoding": "gzip, deflate" },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -128,7 +137,7 @@ export class LiveSource {
     const key = getKey();
     if (!key) return;
     try {
-      const res = await fetch(`${GTFS_RT_VEHICLE_URL}?key=${key}`, {
+      const res = await fetch(withApiKey(GTFS_RT_VEHICLE_URL, key), {
         headers: { "Accept-Encoding": "gzip, deflate" },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -147,7 +156,7 @@ export class LiveSource {
     const key = getKey();
     if (!key) return;
     try {
-      const res = await fetch(`${GTFS_RT_ALERTS_URL}?key=${key}`, {
+      const res = await fetch(withApiKey(GTFS_RT_ALERTS_URL, key), {
         headers: { "Accept-Encoding": "gzip, deflate" },
       });
       if (!res.ok) return;
@@ -242,7 +251,7 @@ export class LiveSource {
 
   matchToSegment(lat, lon, forcedLineId, mode) {
     let best = null;
-    const maxMeters = mode === "ferry" ? 2500 : forcedLineId ? 600 : MAX_MATCH_METERS;
+    const maxMeters = mode === "ferry" ? 2500 : mode === "bus" ? Math.max(1200, MAX_MATCH_METERS) : forcedLineId ? 600 : MAX_MATCH_METERS;
     for (const seg of this.segments) {
       if (forcedLineId && seg.lineId !== forcedLineId) continue;
       const info = projectOntoSegment(lat, lon, seg);

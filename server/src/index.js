@@ -50,7 +50,9 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/stream" });
 
 const startTime = Date.now();
-const source = hasTrafiklabKey()
+const liveEnabled = (process.env.ENABLE_LIVE_GTFS === "1" || process.env.ENABLE_SL_GTFS === "1") && hasTrafiklabKey();
+
+const source = liveEnabled
   ? new LiveSource(network)
   : new Simulator(network);
 
@@ -95,8 +97,8 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[stockholms-puls] server on http://localhost:${PORT}`);
-  console.log(`[stockholms-puls] data source: ${hasTrafiklabKey() ? "Trafiklab GTFS-RT" : "simulator (set TRAFIKLAB_KEY for live data)"}`);
+  console.log(`[alunda-busspuls] server on http://localhost:${PORT}`);
+  console.log(`[alunda-busspuls] data source: ${liveEnabled ? "GTFS-RT live" : "simulator"}`);
 });
 
 process.on("SIGINT", () => {

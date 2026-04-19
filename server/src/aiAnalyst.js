@@ -1,7 +1,7 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
 
-const SYSTEM_PROMPT = `Du är AI-analytiker för Stockholms tunnelbana.
+const SYSTEM_PROMPT = `Du är AI-analytiker för busstrafik runt Alunda.
 Du tar emot ögonblicksbilder av realtidstrafik och ska beskriva läget kortfattat och peka på avvikelser, mönster och risker.
 Skriv på svenska. Var koncis, konkret och trafikspecifik.
 Svara ALLTID som rent JSON enligt schemat:
@@ -13,14 +13,16 @@ Svara ALLTID som rent JSON enligt schemat:
 }
 Ingen markdown, ingen extra text — bara JSON-objektet.
 - summary: max 110 tecken.
-- observations: 2–4 korta punkter (max ~80 tecken per punkt). Konkreta: linje, plats, delay, orsak.
+- observations: 2-4 korta punkter (max ~80 tecken per punkt). Konkreta: linje, plats, delay, orsak.
 - patterns: 0–3 korta punkter om trender eller systempåverkan. Undvik upprepning av observations.
 - mood: calm = nästan inga förseningar; watch = enstaka avvikelser; stressed = flera linjer påverkade eller stopp.`;
 
 function describeTrafficForPrompt(snapshot, network, history) {
-  const byLineGroup = { red: [], green: [], blue: [] };
+  const byLineGroup = {};
   for (const t of snapshot.trains) {
-    if (byLineGroup[t.lineGroup]) byLineGroup[t.lineGroup].push(t);
+    const key = t.lineGroup || t.lineId || "other";
+    if (!byLineGroup[key]) byLineGroup[key] = [];
+    byLineGroup[key].push(t);
   }
 
   const counts = { total: snapshot.trains.length, ok: 0, delayed: 0, stopped: 0 };
@@ -29,8 +31,8 @@ function describeTrafficForPrompt(snapshot, network, history) {
   const lineStats = Object.entries(byLineGroup).map(([lg, arr]) => {
     const delayed = arr.filter((t) => t.status === "delayed").length;
     const stopped = arr.filter((t) => t.status === "stopped").length;
-    const label = lg === "red" ? "Röda linjen" : lg === "green" ? "Gröna linjen" : "Blå linjen";
-    return `- ${label}: ${arr.length} tåg, ${delayed} försenade, ${stopped} stillastående`;
+    const lineLabel = /^\d+$/.test(lg) ? `Buss ${lg}` : lg.toUpperCase();
+    return `- ${lineLabel}: ${arr.length} fordon, ${delayed} försenade, ${stopped} stillastående`;
   });
 
   const anomalies = snapshot.trains
@@ -40,7 +42,7 @@ function describeTrafficForPrompt(snapshot, network, history) {
       const from = network.stations.find((s) => s.id === t.from)?.name ?? t.from;
       const to = network.stations.find((s) => s.id === t.to)?.name ?? t.to;
       const statusSv = t.status === "stopped" ? "stillastående" : "försenat";
-      return `  - ${t.lineId} ${from} → ${to}: ${statusSv} ${Math.round(t.delay)}s`;
+      return `  - ${t.lineId} ${from} -> ${to}: ${statusSv} ${Math.round(t.delay)}s`;
     });
 
   const alertLines = (snapshot.alerts ?? []).slice(0, 6).map((a) => {
@@ -62,7 +64,7 @@ function describeTrafficForPrompt(snapshot, network, history) {
   const ts = new Date(snapshot.t).toLocaleTimeString("sv-SE");
 
   return `Tidpunkt ${ts}
-Totalt ${counts.total} tåg. I tid: ${counts.ok}, försenade: ${counts.delayed}, stillastående: ${counts.stopped}.
+Totalt ${counts.total} fordon. I tid: ${counts.ok}, försenade: ${counts.delayed}, stillastående: ${counts.stopped}.
 
 Per linje:
 ${lineStats.join("\n")}
@@ -125,7 +127,7 @@ export class AIAnalyst {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "http://localhost",
-          "X-Title": "Stockholms Puls",
+          "X-Title": "Alunda Busspuls",
         },
         body: JSON.stringify({
           model: MODEL,

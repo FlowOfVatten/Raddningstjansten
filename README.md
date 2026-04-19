@@ -1,21 +1,21 @@
-# Stockholms Puls
+# Alunda Busspuls
 
-Realtidsvisualisering av Stockholms tunnelbana i 3D. Centrum expanderas, underjorden blir synlig, och en AI-analytiker kommenterar trafikläget var 45:e sekund.
+Realtidsvisualisering av busstrafik runt Alunda i 3D. Noden kring Alunda lyfts fram, linjer och fordon visas i markniva, och en AI-analytiker kommenterar trafiklaget lopande.
 
 ![Screenshot](docs/screenshot.png)
 
 ## Vad det är
 
-En webbapp som renderar hela t-banenätet som lysande tunnlar under en transparent stadsgrid. Varje tåg är en partikel som rör sig längs sin linje. Stationer skalar upp efter aktivitet, djupet under mark visas som kolumn upp mot ytan, störningar blir pulserande pelare.
+En webbapp som renderar ett bussnat runt Alunda med lysande linjer och rorliga fordon. Hallbackar skalar upp efter aktivitet och storningar visualiseras som larm i vyn.
 
 **Nyckelfunktioner**
-- Alla 7 linjer (T10, T11, T13, T14, T17, T18, T19) med ~100 stationer
-- Realtid via Trafiklab GTFS-RT, med inbyggd simulator som fallback
+- Busslinjer runt Alunda med nav mot Uppsala, Gimo och Osthammar
+- Simulatorlage som standard for stabil demo, med valfritt live-lage via Trafiklab
 - 3D-scen med React Three Fiber + postprocessing (bloom, vignette)
-- Station-klick → avgångstavla med ETA för alla kommande tåg
-- Tåg-klick → panel med linje, status, försening, djup, koordinater, följ-kamera
-- AI-analytiker via OpenRouter (Gemini) som beskriver trafikläget kontinuerligt
-- Flödespulser längs tunnlar, djupmarkörer, larm-kolumner
+- Hallplats-klick -> ankomsttavla med ETA for kommande fordon
+- Fordons-klick -> panel med linje, status, forsening, koordinater, folj-kamera
+- AI-analytiker via OpenRouter (Gemini) som beskriver trafiklaget kontinuerligt
+- Flodespulser langs linjer och larmmarkorer vid storningar
 
 ## Kom igång
 
@@ -29,7 +29,7 @@ npm run dev
 
 Öppna [http://localhost:5173](http://localhost:5173).
 
-Utan några miljövariabler: appen kör i simulator-läge, AI-panelen är inaktiv. Med `TRAFIKLAB_KEY` hämtas riktig trafik, med `OPENROUTER_KEY` börjar AI-analytikern köra.
+Utan miljo-variabler kor appen i simulator-lage och AI-panelen ar inaktiv. Med `OPENROUTER_KEY` aktiveras AI-analys. For GTFS live satter du `TRAFIKLAB_RT_KEY`, dina regionala GTFS-RT URL:er och `ENABLE_LIVE_GTFS=1`.
 
 ## Arkitektur
 
@@ -61,7 +61,13 @@ Utan några miljövariabler: appen kör i simulator-läge, AI-panelen är inakti
 
 | Variabel | Standard | Beskrivning |
 |---|---|---|
-| `TRAFIKLAB_KEY` | — | Trafiklab Open API-nyckel för GTFS-RT. Utan denna används simulatorn. |
+| `TRAFIKLAB_RT_KEY` | — | API-nyckel for GTFS Regional Realtime. |
+| `TRAFIKLAB_STATIC_KEY` | — | API-nyckel for GTFS Regional Static data (valfri, for framtida importscript). |
+| `GTFS_RT_VEHICLE_URL` | — | Regional feed-URL for Vehicle Positions. |
+| `GTFS_RT_TRIPS_URL` | — | Regional feed-URL for Trip Updates. |
+| `GTFS_RT_ALERTS_URL` | — | Regional feed-URL for Service Alerts. |
+| `ENABLE_LIVE_GTFS` | `0` | Satt till `1` for att anvanda live-kalla i stallet for simulatorn. |
+| `GTFS_MAX_MATCH_METERS` | `1200` | Matchningstolerans mellan fordon och linjesegment i meter. |
 | `OPENROUTER_KEY` | — | OpenRouter-nyckel för AI-analytikern. Utan denna är AI-panelen inaktiv. |
 | `AI_INTERVAL_MS` | `90000` | Hur ofta AI-analysen körs (ms). |
 | `PORT` | `4000` | Backend-port. Vite-proxyn förutsätter denna. |
