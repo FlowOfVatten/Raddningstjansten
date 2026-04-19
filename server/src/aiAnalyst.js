@@ -15,7 +15,9 @@ Ingen markdown, ingen extra text — bara JSON-objektet.
 - summary: max 110 tecken.
 - observations: 2-4 korta punkter (max ~80 tecken per punkt). Konkreta: linje, plats, delay, orsak.
 - patterns: 0–3 korta punkter om trender eller systempåverkan. Undvik upprepning av observations.
-- mood: calm = nästan inga förseningar; watch = enstaka avvikelser; stressed = flera linjer påverkade eller stopp.`;
+- mood: calm = nästan inga förseningar; watch = enstaka avvikelser; stressed = flera linjer påverkade eller stopp.
+Använd bussdomänens ord: "buss", "fordon", "hållplats", "linje".
+Använd aldrig orden "tåg", "spår" eller "station".`;
 
 function describeTrafficForPrompt(snapshot, network, history) {
   const byLineGroup = {};
@@ -72,7 +74,7 @@ ${lineStats.join("\n")}
 Aktiva störningar:
 ${alertLines.length ? alertLines.join("\n") : "  (inga)"}
 
-Avvikande tåg:
+Avvikande fordon:
 ${anomalies.length ? anomalies.join("\n") : "  (inga)"}
 
 ${trend}`;
