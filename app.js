@@ -13,6 +13,21 @@ const POP_FIELD_HINTS = [
   "pop",
 ];
 
+if (typeof L === "undefined" || typeof turf === "undefined") {
+  const statusEl = document.getElementById("status");
+  const metaEl = document.getElementById("meta");
+  if (statusEl) {
+    statusEl.textContent = "Fel: Kartbibliotek kunde inte laddas i Preview.";
+  }
+  if (metaEl) {
+    metaEl.innerHTML = [
+      "Kontrollera att filerna under vendor/ finns i projektet.",
+      "Om du kor via lokal server, testa hard refresh i webblasaren.",
+    ].join("<br>");
+  }
+  throw new Error("Missing runtime libraries: Leaflet/Turf");
+}
+
 const map = L.map("map").setView([59.86, 17.95], 10);
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
