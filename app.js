@@ -2,7 +2,7 @@ const SCB_WFS_URL = "https://geodata.scb.se/geoserver/stat/wfs";
 const SCB_LAYER_NAME_OVERRIDE = "";
 
 // Azure Maps is configured in config.js
-const AZURE_MAPS_ISOCHRONE_URL = "https://atlas.microsoft.com/route/isochrone/json";
+const AZURE_MAPS_ISOCHRONE_URL = "https://atlas.microsoft.com/route/range/json";
 
 const LAYER_NAME_HINTS = ["bef", "population", "deso", "regso", "ruta", "grid"];
 const POP_FIELD_HINTS = [
@@ -54,7 +54,6 @@ const clearBtn = document.getElementById("clear-btn");
 const modeInputs = Array.from(document.querySelectorAll('input[name="input-mode"]'));
 const travelSettingsEl = document.getElementById("travel-settings");
 const travelMinutesEl = document.getElementById("travel-minutes");
-const travelKmhEl = document.getElementById("travel-kmh");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -548,28 +547,23 @@ function initMapApp() {
     return Math.min(180, Math.max(1, n));
   }
 
-  function getTravelKmh() {
-    const n = Number.parseFloat(travelKmhEl?.value || "50");
-    if (!Number.isFinite(n)) return 50;
-    return Math.min(130, Math.max(5, n));
-  }
-
   async function buildTravelAreaLayer(latlng) {
     if (!AZURE_MAPS_KEY) {
       throw new Error("Azure Maps API-nyckel är inte konfigurerad. Se config.js");
     }
     
     const minutes = getTravelMinutes();
-    const kmh = getTravelKmh();
     
     setStatus(`Hämtar vägbaserat område för ${minutes} minuter (via Azure Maps)...`);
     
     const seconds = minutes * 60;
     
     const params = new URLSearchParams({
+      "api-version": "1.0",
       query: `${latlng.lat},${latlng.lng}`,
-      range: seconds,
-      rangeType: "time",
+      timeBudgetInSec: String(seconds),
+      travelMode: "car",
+      traffic: "true",
       "subscription-key": AZURE_MAPS_KEY,
     });
     
@@ -583,7 +577,15 @@ function initMapApp() {
         throw new Error("Ingen isochrone polygon mottagen från Azure Maps.");
       }
       
-      // Azure Maps returnerar boundary som array av [lon, lat] koordinater
+      const boundaryCoordinates = data.reachableRange.boundary.map((point) => [point.longitude, point.latitude]);
+      if (boundaryCoordinates.length > 2) {
+        const first = boundaryCoordinates[0];
+        const last = boundaryCoordinates[boundaryCoordinates.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+          boundaryCoordinates.push([first[0], first[1]]);
+        }
+      }
+
       const geojson = {
         type: "FeatureCollection",
         features: [
@@ -591,7 +593,7 @@ function initMapApp() {
             type: "Feature",
             geometry: {
               type: "Polygon",
-              coordinates: [data.reachableRange.boundary],
+              coordinates: [boundaryCoordinates],
             },
             properties: {},
           },
@@ -608,7 +610,7 @@ function initMapApp() {
       });
       
       setStatus(`Vägbaserat område laddat (${minutes} min)`);
-      return { layer, minutes, kmh, radiusKm: -1 };
+      return { layer, minutes };
     } catch (error) {
       setStatus(`Fel vid hämtning av Azure Maps data: ${error.message}`);
       throw error;
@@ -650,7 +652,7 @@ function initMapApp() {
 
   async function handleTravelClick(latlng) {
     try {
-      const { layer, minutes, kmh } = await buildTravelAreaLayer(latlng);
+      const { layer, minutes } = await buildTravelAreaLayer(latlng);
       lastTravelLatLng = latlng;
 
       drawnItems.clearLayers();
@@ -714,9 +716,6 @@ function initMapApp() {
 
   if (travelMinutesEl) {
     travelMinutesEl.addEventListener("change", rerunTravelIfNeeded);
-  }
-  if (travelKmhEl) {
-    travelKmhEl.addEventListener("change", rerunTravelIfNeeded);
   }
 
   clearBtn.addEventListener("click", () => {
