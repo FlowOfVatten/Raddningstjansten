@@ -47,9 +47,9 @@ export function InfoPanel() {
     const terminus = train.direction === 1 ? line.stations[line.stations.length - 1] : line.stations[0];
     const terminusStation = network.stations.find((s) => s.id === terminus);
 
-    const depthLabel = train.depth > 0 ? `${Math.round(train.depth)} m under mark` : "marknivå";
+    const speedLabel = train.speed !== null ? `${train.speed} km/h` : "—";
 
-    return { line, from, to, terminusStation, dirLabel, idx, depthLabel };
+    return { line, from, to, terminusStation, dirLabel, idx, speedLabel };
   }, [train, network]);
 
   if (!train || !meta) return null;
@@ -156,8 +156,8 @@ export function InfoPanel() {
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 10, color: "#6b778c", letterSpacing: 0.16, textTransform: "uppercase" }}>Djup</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#c7cfdc", marginTop: 2 }}>{meta.depthLabel}</div>
+          <div style={{ fontSize: 10, color: "#6b778c", letterSpacing: 0.16, textTransform: "uppercase" }}>Hastighet</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#c7cfdc", marginTop: 2 }}>{meta.speedLabel}</div>
         </div>
         <div>
           <div style={{ fontSize: 10, color: "#6b778c", letterSpacing: 0.16, textTransform: "uppercase" }}>Koordinat</div>

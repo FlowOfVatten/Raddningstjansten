@@ -42,6 +42,7 @@ export interface Train {
   lat: number;
   lon: number;
   depth: number;
+  speed: number | null;
 }
 
 export interface Alert {
