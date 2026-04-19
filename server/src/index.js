@@ -13,7 +13,14 @@ import { TrendRecorder } from "./trendRecorder.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const NETWORK_PATH = resolve(__dirname, "../data/network.json");
-const network = JSON.parse(readFileSync(NETWORK_PATH, "utf8"));
+
+function parseJsonFile(filePath) {
+  const raw = readFileSync(filePath, "utf8");
+  const clean = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+  return JSON.parse(clean);
+}
+
+const network = parseJsonFile(NETWORK_PATH);
 
 const PORT = Number(process.env.PORT ?? 4000);
 const app = express();

@@ -9,8 +9,15 @@ const { transit_realtime } = gtfsBindings;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRIP_MAP_PATH = resolve(__dirname, "../data/trip-lines.json");
 let TRIP_TO_LINE = {};
+
+function parseJsonFile(filePath) {
+  const raw = readFileSync(filePath, "utf8");
+  const clean = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+  return JSON.parse(clean);
+}
+
 try {
-  TRIP_TO_LINE = JSON.parse(readFileSync(TRIP_MAP_PATH, "utf8"));
+  TRIP_TO_LINE = parseJsonFile(TRIP_MAP_PATH);
   const byMode = {};
   for (const info of Object.values(TRIP_TO_LINE)) {
     byMode[info.mode] = (byMode[info.mode] ?? 0) + 1;
