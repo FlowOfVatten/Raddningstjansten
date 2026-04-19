@@ -1,5 +1,5 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = process.env.OPENROUTER_MODEL?.trim() || "google/gemma-3-12b-it:free";
+const DEFAULT_MODELS = ["openrouter/elephant-alpha", "google/gemma-3-12b-it:free", "openrouter/free"];
 
 const SYSTEM_PROMPT = `Du är AI-analytiker för busstrafik runt Alunda.
 Du tar emot ögonblicksbilder av realtidstrafik och ska beskriva läget kortfattat och peka på avvikelser, mönster och risker.
@@ -88,6 +88,7 @@ export class AIAnalyst {
     this.history = [];
     this.inflight = false;
     this.apiKey = process.env.OPENROUTER_KEY ?? process.env.OPENROUTER_API_KEY ?? null;
+    this.models = parseModelList(process.env.OPENROUTER_MODELS ?? process.env.OPENROUTER_MODEL);
     this.stopped = false;
     this.lastError = null;
 
@@ -102,7 +103,7 @@ export class AIAnalyst {
 
   on(fn) {
     this.listeners.add(fn);
-    if (this.latest) fn(this.latest);
+    if (this.latest || this.lastError) fn({ latest: this.latest, error: this.lastError });
     return () => this.listeners.delete(fn);
   }
 
@@ -119,43 +120,16 @@ export class AIAnalyst {
       if (this.history.length > 8) this.history.shift();
 
       const userContent = describeTrafficForPrompt(snap, this.network, this.history);
-      const started = Date.now();
-
-      const res = await fetch(OPENROUTER_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost",
-          "X-Title": "Alunda Busspuls",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userContent },
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.4,
-          max_tokens: 450,
-        }),
+      const { parsed, elapsed, model } = await requestAnalysis({
+        apiKey: this.apiKey,
+        models: this.models,
+        userContent,
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-      }
-
-      const json = await res.json();
-      const content = json?.choices?.[0]?.message?.content ?? "";
-      const parsed = safeParse(content);
-      if (!parsed) throw new Error(`could not parse JSON: ${content.slice(0, 160)}`);
-
-      const elapsed = Date.now() - started;
       this.latest = {
         createdAt: Date.now(),
         elapsedMs: elapsed,
-        model: MODEL,
+        model,
         snapshotTime: snap.t,
         summary: String(parsed.summary ?? ""),
         observations: Array.isArray(parsed.observations) ? parsed.observations.map(String).slice(0, 4) : [],
@@ -163,7 +137,7 @@ export class AIAnalyst {
         mood: ["calm", "watch", "stressed"].includes(parsed.mood) ? parsed.mood : "watch",
       };
       this.lastError = null;
-      console.log(`[ai-analyst] ${this.latest.mood.toUpperCase()} · ${this.latest.summary}`);
+      console.log(`[ai-analyst] ${model} · ${this.latest.mood.toUpperCase()} · ${this.latest.summary}`);
       this.emit();
     } catch (err) {
       this.lastError = err.message;
@@ -197,4 +171,74 @@ function safeParse(s) {
     }
     return null;
   }
+}
+
+function parseModelList(raw) {
+  const parsed = String(raw ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : DEFAULT_MODELS;
+}
+
+function buildMessages(userContent) {
+  return [
+    {
+      role: "user",
+      content: `${SYSTEM_PROMPT}\n\nTrafikdata:\n${userContent}\n\nReturnera endast ett JSON-objekt enligt schemat ovan.`,
+    },
+  ];
+}
+
+async function requestAnalysis({ apiKey, models, userContent }) {
+  let lastError = null;
+
+  for (const model of models) {
+    const started = Date.now();
+    try {
+      const res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "http://localhost",
+          "X-Title": "Alunda Busspuls",
+        },
+        body: JSON.stringify({
+          model,
+          messages: buildMessages(userContent),
+          response_format: { type: "json_object" },
+          temperature: 0.4,
+          max_tokens: 450,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        lastError = new Error(`${model} -> HTTP ${res.status}: ${text.slice(0, 240)}`);
+        console.warn(`[ai-analyst] ${lastError.message}`);
+        continue;
+      }
+
+      const json = await res.json();
+      const content = json?.choices?.[0]?.message?.content ?? "";
+      const parsed = safeParse(content);
+      if (!parsed) {
+        lastError = new Error(`${model} -> could not parse JSON: ${content.slice(0, 160)}`);
+        console.warn(`[ai-analyst] ${lastError.message}`);
+        continue;
+      }
+
+      return {
+        parsed,
+        elapsed: Date.now() - started,
+        model,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.warn(`[ai-analyst] ${model} -> ${lastError.message}`);
+    }
+  }
+
+  throw lastError ?? new Error("no OpenRouter models available");
 }

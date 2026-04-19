@@ -29,7 +29,7 @@ npm run dev
 
 Öppna [http://localhost:5173](http://localhost:5173).
 
-Utan miljo-variabler kor appen i simulator-lage och AI-panelen ar inaktiv. Med `OPENROUTER_KEY` aktiveras AI-analys. Standardmodellen i den har branchen ar gratisvarianten `google/gemma-3-12b-it:free`, och du kan overridea den med `OPENROUTER_MODEL`. For GTFS live satter du `TRAFIKLAB_RT_KEY`, dina regionala GTFS-RT URL:er och `ENABLE_LIVE_GTFS=1`.
+Utan miljo-variabler kor appen i simulator-lage och AI-panelen ar inaktiv. Med `OPENROUTER_KEY` aktiveras AI-analys. Standardkedjan i den har branchen anvander gratisalternativ: `openrouter/elephant-alpha`, sedan `google/gemma-3-12b-it:free`, sedan `openrouter/free`. Du kan overridea detta med `OPENROUTER_MODEL` eller `OPENROUTER_MODELS`. For GTFS live satter du `TRAFIKLAB_RT_KEY`, dina regionala GTFS-RT URL:er och `ENABLE_LIVE_GTFS=1`.
 
 For att mappa alla hallplatser for skolbussarna 120 och 125 kan du peka servern mot en extraherad UL GTFS static-mapp via `GTFS_STATIC_DIR`. Da byggs natet om automatiskt vid uppstart. Du kan ocksa skriva de genererade filerna till repot med `npm run build:ul-network`.
 
@@ -75,7 +75,8 @@ Du kan aven lata hostingen gora jobbet. I den har branchen kor Netlify `scripts/
 | `ENABLE_LIVE_GTFS` | `0` | Satt till `1` for att anvanda live-kalla i stallet for simulatorn. |
 | `GTFS_MAX_MATCH_METERS` | `1200` | Matchningstolerans mellan fordon och linjesegment i meter. |
 | `OPENROUTER_KEY` | — | OpenRouter-nyckel för AI-analytikern. Utan denna är AI-panelen inaktiv. |
-| `OPENROUTER_MODEL` | `google/gemma-3-12b-it:free` | Valfri modelloverride for AI-analytikern. |
+| `OPENROUTER_MODEL` | `openrouter/elephant-alpha` | Primar modell for AI-analytikern. |
+| `OPENROUTER_MODELS` | `openrouter/elephant-alpha,google/gemma-3-12b-it:free,openrouter/free` | Kommaseparerad fallbackkedja av gratis-modeller. |
 | `AI_INTERVAL_MS` | `90000` | Hur ofta AI-analysen körs (ms). |
 | `PORT` | `4000` | Backend-port. Vite-proxyn förutsätter denna. |
 
@@ -83,7 +84,7 @@ Du kan aven lata hostingen gora jobbet. I den har branchen kor Netlify `scripts/
 
 - **Frontend**: React 18, TypeScript, Vite, Three.js, @react-three/fiber, @react-three/drei, @react-three/postprocessing, zustand
 - **Backend**: Node 18+, Express, ws
-- **AI**: OpenRouter → `google/gemma-3-12b-it:free` som standard
+- **AI**: OpenRouter → gratis fallbackkedja med `openrouter/elephant-alpha` som standard
 - **Data**: Trafiklab GTFS-RT (Vehicle Positions, Trip Updates, Service Alerts)
 
 ## Bygg full stoppkarta för 120/125
