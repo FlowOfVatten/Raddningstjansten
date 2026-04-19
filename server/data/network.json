@@ -6,14 +6,15 @@
   },
   "stations": [
     { "id": "uppsala_c", "name": "Uppsala C", "lat": 59.8574, "lon": 17.6490, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "886"] },
-    { "id": "granby_centrum", "name": "Granby centrum", "lat": 59.8769, "lon": 17.6742, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "886"] },
-    { "id": "rasbo_kyrka", "name": "Rasbo kyrka", "lat": 59.9495, "lon": 17.8795, "depth": 0, "mode": "bus", "lines": ["801", "811", "886"] },
+    { "id": "granby_centrum", "name": "Granby centrum", "lat": 59.8769, "lon": 17.6742, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "825", "886"] },
+    { "id": "rasbo_kyrka", "name": "Rasbo kyrka", "lat": 59.9495, "lon": 17.8795, "depth": 0, "mode": "bus", "lines": ["801", "811", "825", "886"] },
     { "id": "rasbo_skola", "name": "Rasbo skola", "lat": 59.9460, "lon": 17.8786, "depth": 0, "mode": "bus", "lines": ["804"] },
     { "id": "funbo_kyrka", "name": "Funbo kyrka", "lat": 59.8560, "lon": 17.8555, "depth": 0, "mode": "bus", "lines": ["804"] },
     { "id": "knutby_torg", "name": "Knutby torg", "lat": 59.8899, "lon": 18.1674, "depth": 0, "mode": "bus", "lines": ["804"] },
     { "id": "stavby", "name": "Stavby", "lat": 60.0095, "lon": 17.9667, "depth": 0, "mode": "bus", "lines": ["801", "811", "886"] },
     { "id": "lanna_vagskal", "name": "Lanna vagskal", "lat": 59.9041, "lon": 18.2308, "depth": 0, "mode": "bus", "lines": ["801", "886"] },
-    { "id": "alunda_busstation", "name": "Alunda busstation", "lat": 60.0629, "lon": 18.0803, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "821", "851", "886"] },
+    { "id": "saringe", "name": "Saringe", "lat": 60.0029, "lon": 18.0604, "depth": 0, "mode": "bus", "lines": ["825"] },
+    { "id": "alunda_busstation", "name": "Alunda busstation", "lat": 60.0629, "lon": 18.0803, "depth": 0, "mode": "bus", "lines": ["801", "804", "811", "821", "825", "851", "886"] },
     { "id": "alunda_skolcentrum", "name": "Alunda skolcentrum", "lat": 60.0624, "lon": 18.0813, "depth": 0, "mode": "bus", "lines": ["821"] },
     { "id": "alunda_kyrka", "name": "Alunda kyrka", "lat": 60.0600, "lon": 18.0681, "depth": 0, "mode": "bus", "lines": ["821"] },
     { "id": "alunda_idrottsplats", "name": "Alunda idrottsplats", "lat": 60.0641, "lon": 18.0793, "depth": 0, "mode": "bus", "lines": ["821"] },
@@ -54,6 +55,14 @@
       "line": "821",
       "mode": "bus",
       "stations": ["alunda_busstation", "alunda_skolcentrum", "alunda_kyrka", "alunda_idrottsplats", "alunda_busstation"]
+    },
+    {
+      "id": "825",
+      "name": "Uppsala - Saringe - Alunda",
+      "color": "#ff6b6b",
+      "line": "825",
+      "mode": "bus",
+      "stations": ["uppsala_c", "granby_centrum", "rasbo_kyrka", "saringe", "alunda_busstation"]
     },
     {
       "id": "851",
