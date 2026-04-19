@@ -3,6 +3,7 @@ const SCB_LAYER_NAME_OVERRIDE = "";
 
 // Azure Maps is configured in config.js
 const AZURE_MAPS_ISOCHRONE_URL = "https://atlas.microsoft.com/route/range/json";
+const AZURE_MAPS_TILE_URL = "https://atlas.microsoft.com/map/tile?api-version=2024-04-01&tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256&language=sv-SE&view=Auto&subscription-key=";
 
 const LAYER_NAME_HINTS = ["bef", "population", "deso", "regso", "ruta", "grid"];
 const POP_FIELD_HINTS = [
@@ -523,9 +524,17 @@ function initMapApp() {
   let currentMode = "draw";
   let lastTravelLatLng = null;
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap",
+  const baseTileUrl = AZURE_MAPS_KEY
+    ? `${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`
+    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+  const baseTileAttribution = AZURE_MAPS_KEY
+    ? '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
+    : "&copy; OpenStreetMap";
+
+  L.tileLayer(baseTileUrl, {
+    maxZoom: 22,
+    attribution: baseTileAttribution,
   }).addTo(map);
 
   const drawControl = new L.Control.Draw({
