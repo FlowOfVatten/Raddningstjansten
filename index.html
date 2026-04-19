@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SCB Area Population</title>
+    <title>Befolkning i område</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="vendor/leaflet.css" />
     <link rel="stylesheet" href="vendor/leaflet.draw.css" />
@@ -11,16 +11,16 @@
   </head>
   <body>
     <aside class="panel">
-      <h1>Befolkning i Rita Omrade</h1>
-      <p>Valj om du vill rita ett omrade eller klicka en punkt med restid. Sidan forsoker hamta SCB-data och summera hur manga som bor inom omradet.</p>
+      <h1>Befolkning i område</h1>
+      <p>Välj om du vill rita ett område eller klicka en punkt med restid. Sidan försöker hämta SCB-data och summera hur många som bor inom området.</p>
 
       <div class="mode-box">
-        <div class="mode-title">Beralningslage</div>
+        <div class="mode-title">Beräkningsläge</div>
         <label class="mode-option">
-          <input type="radio" name="input-mode" value="draw" checked /> Rita omrade
+          <input type="radio" name="input-mode" value="draw" checked /> Rita område
         </label>
         <label class="mode-option">
-          <input type="radio" name="input-mode" value="travel" /> Klick + minuter (vagbaserat)
+          <input type="radio" name="input-mode" value="travel" /> Klick + minuter (vägbaserat)
         </label>
 
         <div id="travel-settings" class="travel-settings hidden">
@@ -38,7 +38,7 @@
       <div id="status" class="status">Initierar karta...</div>
 
       <div class="result-box">
-        <div class="label">Uppskattad befolkning inom omradet</div>
+        <div class="label">Uppskattad befolkning inom området</div>
         <div id="population" class="population">-</div>
         <div id="breakdown" class="breakdown"></div>
       </div>
@@ -47,7 +47,7 @@
 
       <details>
         <summary>Teknisk info</summary>
-        <p>Datakalla: SCB GeoServer (WFS). Om ingen passande layer hittas automatiskt kan du satt override i <code>app.js</code>.</p>
+        <p>Datakälla: SCB GeoServer (WFS). Om ingen passande layer hittas automatiskt kan du sätta override i <code>app.js</code>.</p>
       </details>
     </aside>
 

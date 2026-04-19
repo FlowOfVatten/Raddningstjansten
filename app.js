@@ -363,11 +363,11 @@ async function evaluateLayerForPopulation(layerName, bounds, areaFeature) {
 
 async function ensureLayerSelected() {
   if (selectedLayerName) return selectedLayerName;
-  setStatus("Hamta SCB capabilities...");
+  setStatus("Hämtar SCB capabilities...");
   const layerNames = await getCapabilities();
   const chosen = chooseLayerName(layerNames);
   if (!chosen) {
-    throw new Error("Kunde inte hitta en passande SCB-layer automatiskt. Satt SCB_LAYER_NAME_OVERRIDE i app.js.");
+    throw new Error("Kunde inte hitta en passande SCB-layer automatiskt. Sätt SCB_LAYER_NAME_OVERRIDE i app.js.");
   }
   selectedLayerName = chosen;
   return chosen;
@@ -432,7 +432,7 @@ async function runPopulationEstimate(layer) {
   const areaFeature = geo.type === "Feature" ? geo : geo.features?.[0];
   if (!areaFeature) return;
 
-  setStatus("Rakn ar befolkning inom omradet...");
+  setStatus("Räknar befolkning inom området...");
   const bounds = layer.getBounds();
 
   const area = areaKm2(areaFeature);
@@ -441,7 +441,7 @@ async function runPopulationEstimate(layer) {
   let evaluation = await evaluateLayerForPopulation(layerName, bounds, areaFeature);
   if (!evaluation) {
     populationEl.textContent = "0";
-    setStatus("Inga SCB-features i valt bbox-omrade.");
+    setStatus("Inga SCB-features i valt bbox-område.");
     setMeta([`Layer: ${layerName}`]);
     return;
   }
@@ -486,21 +486,21 @@ async function runPopulationEstimate(layer) {
   const breakdownLines = [];
 
   if (breakdown.male !== null || breakdown.female !== null) {
-    breakdownLines.push("Kon (uppskattat):");
+    breakdownLines.push("Kön (uppskattat):");
     if (breakdown.male !== null) breakdownLines.push(`Man: ${Math.round(breakdown.male).toLocaleString("sv-SE")}`);
     if (breakdown.female !== null) breakdownLines.push(`Kvinna: ${Math.round(breakdown.female).toLocaleString("sv-SE")}`);
   }
 
   const ageWithValues = breakdown.age.filter((x) => x.value > 0.5);
   if (ageWithValues.length) {
-    breakdownLines.push("Aldersspann (uppskattat):");
+    breakdownLines.push("Åldersspann (uppskattat):");
     for (const ageRow of ageWithValues) {
       breakdownLines.push(`${ageRow.label}: ${Math.round(ageRow.value).toLocaleString("sv-SE")}`);
     }
   }
 
   if (!breakdownLines.length) {
-    breakdownLines.push("Kon/aldersfordelning finns inte i valt SCB-layer.");
+    breakdownLines.push("Köns-/åldersfördelning finns inte i valt SCB-layer.");
   }
   setBreakdown(breakdownLines);
 
@@ -508,10 +508,10 @@ async function runPopulationEstimate(layer) {
 
   setMeta([
     `Layer: ${evaluation.layerName}`,
-    `Anvandt befolkningsfalt: ${evaluation.field || "okant"}`,
+    `Använt befolkningsfält: ${evaluation.field || "okänt"}`,
     `Features i bbox: ${evaluation.featureCount}`,
     `Features som bidrog till summa: ${evaluation.matched}`,
-    "Obs: Delvis overlap viktas med areaandel.",
+    "Obs: Delvis överlapp viktas med areaandel.",
   ]);
 }
 
@@ -624,9 +624,9 @@ function initMapApp() {
     }
     mapEl.classList.toggle("travel-mode", currentMode === "travel");
     if (currentMode === "travel") {
-      setStatus("Klicka pa kartan for att skapa ett restidsomrade.");
+      setStatus("Klicka på kartan för att skapa ett restidsområde.");
     } else {
-      setStatus("Rita ett omrade pa kartan.");
+      setStatus("Rita ett område på kartan.");
     }
   }
 
@@ -643,9 +643,9 @@ function initMapApp() {
       populationEl.textContent = "-";
       setMeta([
         "Tips:",
-        "1) Denna version anvander endast direktanrop till SCB, ingen proxy.",
-        "2) Om anrop blockeras av CORS/natpolicy kravs backendlosning pa servern.",
-        "3) Satt korrekt SCB layer i SCB_LAYER_NAME_OVERRIDE i app.js vid behov.",
+        "1) Denna version använder endast direktanrop till SCB, ingen proxy.",
+        "2) Om anrop blockeras av CORS/nätpolicy krävs backendlösning på servern.",
+        "3) Sätt korrekt SCB-layer i SCB_LAYER_NAME_OVERRIDE i app.js vid behov.",
       ]);
     });
   }
@@ -660,7 +660,7 @@ function initMapApp() {
       populationEl.textContent = "-";
 
       setMeta([
-        `Restidslage: ${minutes} min (vägbaserat)`,
+        `Restidsläge: ${minutes} min (vägbaserat)`,
         `Data: Azure Maps Routing API`,
       ]);
 
@@ -675,7 +675,7 @@ function initMapApp() {
       }
     } catch (error) {
       console.error(error);
-      setStatus(`Fel vid hämtning av restidslage: ${error.message}`);
+      setStatus(`Fel vid hämtning av restidsläge: ${error.message}`);
       populationEl.textContent = "-";
     }
   }
@@ -723,7 +723,7 @@ function initMapApp() {
     lastTravelLatLng = null;
     populationEl.textContent = "-";
     setBreakdown([]);
-    setStatus(currentMode === "travel" ? "Klicka pa kartan for att skapa ett restidsomrade." : "Rita ett omrade pa kartan.");
+    setStatus(currentMode === "travel" ? "Klicka på kartan för att skapa ett restidsområde." : "Rita ett område på kartan.");
     setMeta([]);
   });
 
@@ -743,12 +743,12 @@ function startWhenLibrariesReady(maxWaitMs = 10000) {
       setStatus("Fel: Kartbibliotek kunde inte laddas i Preview.");
       setMeta([
         "Kontrollera att index.html refererar till vendor/leaflet.js, vendor/leaflet.draw.js och vendor/turf.min.js.",
-        "Testa att stanga och oppna Preview igen for att rensa cache.",
+        "Testa att stänga och öppna Preview igen för att rensa cache.",
       ]);
       return;
     }
 
-    setStatus("Vantar pa kartbibliotek...");
+    setStatus("Väntar på kartbibliotek...");
     setTimeout(tick, 100);
   }
 
