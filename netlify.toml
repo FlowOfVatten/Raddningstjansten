@@ -1,6 +1,6 @@
 [build]
   base = "."
-  command = "npm install && npm --prefix client install && npm run build"
+  command = "chmod +x ./scripts/prepare-ul-network.sh && npm install && npm --prefix client install && ./scripts/prepare-ul-network.sh && npm run build"
   publish = "client/dist"
 
 [build.environment]

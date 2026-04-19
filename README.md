@@ -33,6 +33,8 @@ Utan miljo-variabler kor appen i simulator-lage och AI-panelen ar inaktiv. Med `
 
 For att mappa alla hallplatser for skolbussarna 120 och 125 kan du peka servern mot en extraherad UL GTFS static-mapp via `GTFS_STATIC_DIR`. Da byggs natet om automatiskt vid uppstart. Du kan ocksa skriva de genererade filerna till repot med `npm run build:ul-network`.
 
+Du kan aven lata hostingen gora jobbet. I den har branchen kor Netlify `scripts/prepare-ul-network.sh` under build om `TRAFIKLAB_STATIC_KEY` finns satt i miljo-variablerna. Samma script kan anvandas i Render-builden.
+
 ## Arkitektur
 
 ```
@@ -89,6 +91,18 @@ For att mappa alla hallplatser for skolbussarna 120 och 125 kan du peka servern 
 2. Sätt `GTFS_STATIC_DIR` till den extraherade mappen.
 3. Kör `npm run build:ul-network` för att skriva om `server/data/network.json`, `client/public/network.json` och `server/data/trip-lines.json`.
 4. Starta sedan om servern eller gör en ny deploy.
+
+## Bygg på Netlify eller Render
+
+Netlify:
+1. Sätt `TRAFIKLAB_STATIC_KEY` i site environment variables.
+2. Valfritt: sätt `STATIC_GTFS_LINES=120,125`.
+3. Deployen laddar ner UL static, genererar nätfilen och bygger sedan klienten.
+
+Render:
+1. Sätt `TRAFIKLAB_STATIC_KEY` och valfritt `STATIC_GTFS_LINES=120,125` i service environment.
+2. Använd build command: `chmod +x ./scripts/prepare-ul-network.sh && npm install && npm --prefix server install && ./scripts/prepare-ul-network.sh`
+3. Start command kan vara oförändrad: `npm --prefix server start`
 
 ## Skalor
 
