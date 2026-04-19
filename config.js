@@ -1,0 +1,2 @@
+// Azure Maps configuration
+const AZURE_MAPS_KEY = "DDyXGJo90rmsvZWRBl8gjVei030IlU4hcBqSgcOJ2n3xiTT1cgnWJQQJ99CDACi5YpzT8CmNAAAgAZMP34PQ";

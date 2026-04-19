@@ -1,21 +1,8 @@
 const SCB_WFS_URL = "https://geodata.scb.se/geoserver/stat/wfs";
 const SCB_LAYER_NAME_OVERRIDE = "";
 
-let AZURE_MAPS_KEY = localStorage.getItem("azureMapsKey") || "";
+// Azure Maps is configured in config.js
 const AZURE_MAPS_ISOCHRONE_URL = "https://atlas.microsoft.com/route/isochrone/json";
-
-function ensureAzureMapKey() {
-  if (AZURE_MAPS_KEY) return;
-  const providedKey = prompt(
-    "Ange din Azure Maps subscription key (Gen2).\n\n" +
-    "Den sparas i din webbläsare och behöver bara matas in en gång.\n\n" +
-    "Är det första gången? Skapa gratis på https://portal.azure.com"
-  );
-  if (providedKey) {
-    AZURE_MAPS_KEY = providedKey.trim();
-    localStorage.setItem("azureMapsKey", AZURE_MAPS_KEY);
-  }
-}
 
 const LAYER_NAME_HINTS = ["bef", "population", "deso", "regso", "ruta", "grid"];
 const POP_FIELD_HINTS = [
@@ -568,8 +555,9 @@ function initMapApp() {
   }
 
   async function buildTravelAreaLayer(latlng) {
-    ensureAzureMapKey();
-    if (!AZURE_MAPS_KEY) throw new Error("Azure Maps nyckeln är obligatorisk för att använda restidslaget.");
+    if (!AZURE_MAPS_KEY) {
+      throw new Error("Azure Maps API-nyckel är inte konfigurerad. Se config.js");
+    }
     
     const minutes = getTravelMinutes();
     const kmh = getTravelKmh();
