@@ -223,9 +223,12 @@ export class LiveSource {
         const tripId = v.trip?.tripId;
         if (!tripId) continue;
         const info = TRIP_TO_LINE[tripId];
-        if (!info) continue;
-        forcedLineId = info.lineId;
-        mode = info.mode;
+        if (info) {
+          forcedLineId = info.lineId;
+          mode = info.mode;
+        } else {
+          mode = "bus";
+        }
       }
 
       const match = this.matchToSegment(lat, lon, forcedLineId, mode);
