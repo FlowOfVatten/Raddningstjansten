@@ -1,5 +1,5 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = process.env.OPENROUTER_MODEL?.trim() || "google/gemma-3-12b-it:free";
 
 const SYSTEM_PROMPT = `Du är AI-analytiker för busstrafik runt Alunda.
 Du tar emot ögonblicksbilder av realtidstrafik och ska beskriva läget kortfattat och peka på avvikelser, mönster och risker.
