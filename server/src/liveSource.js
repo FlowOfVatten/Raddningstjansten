@@ -28,6 +28,11 @@ try {
   console.warn("[live] trip-lines.json missing — falling back to geographic filter only");
 }
 
+const HAS_BUS_TRIP_MAPPINGS = Object.values(TRIP_TO_LINE).some((info) => info?.mode === "bus");
+if (Object.keys(TRIP_TO_LINE).length > 0 && !HAS_BUS_TRIP_MAPPINGS) {
+  console.warn("[live] trip-lines.json has no bus mappings — using geographic match for regional bus feeds");
+}
+
 const GTFS_RT_VEHICLE_URL =
   process.env.GTFS_RT_VEHICLE_URL ||
   "https://opendata.samtrafiken.se/gtfs-rt-sweden/sl/VehiclePositionsSweden.pb";
@@ -204,7 +209,7 @@ export class LiveSource {
   }
 
   updateFromFeed(feed) {
-    const usingTripMap = Object.keys(TRIP_TO_LINE).length > 0;
+    const usingTripMap = Object.keys(TRIP_TO_LINE).length > 0 && HAS_BUS_TRIP_MAPPINGS;
     for (const entity of feed.entity) {
       const v = entity.vehicle;
       if (!v?.position) continue;
