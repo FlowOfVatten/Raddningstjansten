@@ -51,6 +51,10 @@ app.get("/api/status", (_req, res) => {
   res.json({
     status: "ok",
     source: hasTrafiklabKey() ? "trafiklab-gtfs-rt" : "simulator",
+    networkStations: network.stations.length,
+    networkLines: network.lines.length,
+    staticGtfsImported: !!staticMetadata,
+    staticGtfsLines: staticMetadata?.lines ?? null,
     trains: snap.trains.length,
     alerts: snap.alerts.length,
     uptime: Date.now() - startTime,
