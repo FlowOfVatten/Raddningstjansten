@@ -209,6 +209,7 @@ export function useTrafficStream() {
         const payload = (await res.json()) as {
           source?: "simulator" | "trafiklab";
           aiEnabled?: boolean;
+          ai?: { latest?: any; error?: string | null };
           data?: Snapshot;
         };
         if (!payload.data) return;
@@ -216,6 +217,7 @@ export function useTrafficStream() {
         setConnected(true);
         setSource(payload.source === "trafiklab" ? "trafiklab" : "simulator");
         useAppStore.getState().setAIEnabled(!!payload.aiEnabled);
+        useAppStore.getState().setAIAnalysis(payload.ai?.latest ?? null, payload.ai?.error ?? null);
         applySnapshot(payload.data);
       } catch {
         setConnected(false);

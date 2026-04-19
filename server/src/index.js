@@ -65,6 +65,10 @@ app.get("/api/snapshot", (_req, res) => {
   res.json({
     source: hasTrafiklabKey() ? "trafiklab" : "simulator",
     aiEnabled: !!aiAnalyst.apiKey,
+    ai: {
+      latest: aiAnalyst.latest,
+      error: aiAnalyst.lastError,
+    },
     data: source.snapshot(),
   });
 });
