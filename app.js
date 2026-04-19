@@ -13,57 +13,20 @@ const POP_FIELD_HINTS = [
   "pop",
 ];
 
-if (typeof L === "undefined" || typeof turf === "undefined") {
-  const statusEl = document.getElementById("status");
-  const metaEl = document.getElementById("meta");
-  if (statusEl) {
-    statusEl.textContent = "Fel: Kartbibliotek kunde inte laddas i Preview.";
-  }
-  if (metaEl) {
-    metaEl.innerHTML = [
-      "Kontrollera att filerna under vendor/ finns i projektet.",
-      "Om du kor via lokal server, testa hard refresh i webblasaren.",
-    ].join("<br>");
-  }
-  throw new Error("Missing runtime libraries: Leaflet/Turf");
-}
-
-const map = L.map("map").setView([59.86, 17.95], 10);
-const drawnItems = new L.FeatureGroup();
-map.addLayer(drawnItems);
-
 const statusEl = document.getElementById("status");
 const populationEl = document.getElementById("population");
 const metaEl = document.getElementById("meta");
 const clearBtn = document.getElementById("clear-btn");
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "&copy; OpenStreetMap",
-}).addTo(map);
-
-const drawControl = new L.Control.Draw({
-  edit: { featureGroup: drawnItems },
-  draw: {
-    polygon: true,
-    rectangle: true,
-    circle: false,
-    marker: false,
-    circlemarker: false,
-    polyline: false,
-  },
-});
-map.addControl(drawControl);
-
 let selectedLayerName = null;
 let selectedPopulationField = null;
 
 function setStatus(text) {
-  statusEl.textContent = text;
+  if (statusEl) statusEl.textContent = text;
 }
 
 function setMeta(lines) {
-  metaEl.innerHTML = lines.join("<br>");
+  if (metaEl) metaEl.innerHTML = lines.join("<br>");
 }
 
 async function fetchDirect(url) {
@@ -233,39 +196,90 @@ async function runPopulationEstimate(layer) {
   ]);
 }
 
-function handleNewShape(layer) {
-  drawnItems.clearLayers();
-  drawnItems.addLayer(layer);
-  populationEl.textContent = "-";
-  setMeta([]);
+function initMapApp() {
+  const map = L.map("map").setView([59.86, 17.95], 10);
+  const drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
 
-  runPopulationEstimate(layer).catch((err) => {
-    console.error(err);
-    setStatus(`Fel: ${err.message}`);
-    populationEl.textContent = "-";
-    setMeta([
-      "Tips:",
-      "1) Denna version anvander endast direktanrop till SCB, ingen proxy.",
-      "2) Om anrop blockeras av CORS/natpolicy kravs backendlosning pa servern.",
-      "3) Satt korrekt SCB layer i SCB_LAYER_NAME_OVERRIDE i app.js vid behov.",
-    ]);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap",
+  }).addTo(map);
+
+  const drawControl = new L.Control.Draw({
+    edit: { featureGroup: drawnItems },
+    draw: {
+      polygon: true,
+      rectangle: true,
+      circle: false,
+      marker: false,
+      circlemarker: false,
+      polyline: false,
+    },
   });
+  map.addControl(drawControl);
+
+  function handleNewShape(layer) {
+    drawnItems.clearLayers();
+    drawnItems.addLayer(layer);
+    populationEl.textContent = "-";
+    setMeta([]);
+
+    runPopulationEstimate(layer).catch((err) => {
+      console.error(err);
+      setStatus(`Fel: ${err.message}`);
+      populationEl.textContent = "-";
+      setMeta([
+        "Tips:",
+        "1) Denna version anvander endast direktanrop till SCB, ingen proxy.",
+        "2) Om anrop blockeras av CORS/natpolicy kravs backendlosning pa servern.",
+        "3) Satt korrekt SCB layer i SCB_LAYER_NAME_OVERRIDE i app.js vid behov.",
+      ]);
+    });
+  }
+
+  map.on(L.Draw.Event.CREATED, (event) => {
+    handleNewShape(event.layer);
+  });
+
+  map.on(L.Draw.Event.EDITED, (event) => {
+    const layers = event.layers.getLayers();
+    if (layers.length) handleNewShape(layers[0]);
+  });
+
+  clearBtn.addEventListener("click", () => {
+    drawnItems.clearLayers();
+    populationEl.textContent = "-";
+    setStatus("Rita ett omrade pa kartan.");
+    setMeta([]);
+  });
+
+  setStatus("Rita ett omrade pa kartan.");
 }
 
-map.on(L.Draw.Event.CREATED, (event) => {
-  handleNewShape(event.layer);
-});
+function startWhenLibrariesReady(maxWaitMs = 10000) {
+  const start = Date.now();
 
-map.on(L.Draw.Event.EDITED, (event) => {
-  const layers = event.layers.getLayers();
-  if (layers.length) handleNewShape(layers[0]);
-});
+  function tick() {
+    if (typeof L !== "undefined" && typeof turf !== "undefined") {
+      initMapApp();
+      return;
+    }
 
-clearBtn.addEventListener("click", () => {
-  drawnItems.clearLayers();
-  populationEl.textContent = "-";
-  setStatus("Rita ett omrade pa kartan.");
-  setMeta([]);
-});
+    if (Date.now() - start >= maxWaitMs) {
+      setStatus("Fel: Kartbibliotek kunde inte laddas i Preview.");
+      setMeta([
+        "Kontrollera att index.html refererar till vendor/leaflet.js, vendor/leaflet.draw.js och vendor/turf.min.js.",
+        "Testa att stanga och oppna Preview igen for att rensa cache.",
+      ]);
+      return;
+    }
 
-setStatus("Rita ett omrade pa kartan.");
+    setStatus("Vantar pa kartbibliotek...");
+    setTimeout(tick, 100);
+  }
+
+  tick();
+}
+
+startWhenLibrariesReady();
