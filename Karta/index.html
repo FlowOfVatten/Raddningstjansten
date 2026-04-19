@@ -22,12 +22,27 @@
         <label class="mode-option">
           <input type="radio" name="input-mode" value="travel" /> Klick + minuter (vägbaserat)
         </label>
+        <label class="mode-option">
+          <input type="radio" name="input-mode" value="import" /> Importera koordinater
+        </label>
 
         <div id="travel-settings" class="travel-settings hidden">
           <label for="travel-minutes">Minuter</label>
           <input id="travel-minutes" type="number" min="1" max="180" step="1" value="8" />
 
           <div class="hint">Använder verkliga vägar, hastighetsgränser och trafikdata via Azure Maps.</div>
+        </div>
+
+        <div id="import-settings" class="import-settings hidden">
+          <label for="coordinate-input">Koordinater (en rad per punkt)</label>
+          <textarea id="coordinate-input" rows="7" placeholder="Exempel:
+60.21603492250861, 17.72232191679509
+60.21000000000000, 17.76000000000000
+..."></textarea>
+          <label for="coordinate-file">Importera CSV/TXT (från Excel)</label>
+          <input id="coordinate-file" type="file" accept=".csv,.txt" />
+          <button id="build-coordinates-btn" type="button">Skapa område från koordinater</button>
+          <div class="hint">Minst 3 punkter krävs. Format: lat, lon eller lon, lat.</div>
         </div>
       </div>
 

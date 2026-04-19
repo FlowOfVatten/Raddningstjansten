@@ -55,6 +55,10 @@ const clearBtn = document.getElementById("clear-btn");
 const modeInputs = Array.from(document.querySelectorAll('input[name="input-mode"]'));
 const travelSettingsEl = document.getElementById("travel-settings");
 const travelMinutesEl = document.getElementById("travel-minutes");
+const importSettingsEl = document.getElementById("import-settings");
+const coordinateInputEl = document.getElementById("coordinate-input");
+const coordinateFileEl = document.getElementById("coordinate-file");
+const buildCoordinatesBtn = document.getElementById("build-coordinates-btn");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -70,6 +74,79 @@ function setMeta(lines) {
 function setBreakdown(lines) {
   if (!breakdownEl) return;
   breakdownEl.innerHTML = lines.join("<br>");
+}
+
+function parseCoordinatesFromText(text) {
+  const rows = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const coordinates = [];
+  for (const row of rows) {
+    const numbers = row.match(/-?\d+(?:[.,]\d+)?/g);
+    if (!numbers || numbers.length < 2) continue;
+
+    const first = Number.parseFloat(numbers[0].replace(",", "."));
+    const second = Number.parseFloat(numbers[1].replace(",", "."));
+    if (!Number.isFinite(first) || !Number.isFinite(second)) continue;
+
+    let lat = first;
+    let lon = second;
+    if (Math.abs(first) > 90 && Math.abs(first) <= 180 && Math.abs(second) <= 90) {
+      lon = first;
+      lat = second;
+    }
+
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    coordinates.push([lon, lat]);
+  }
+
+  return coordinates;
+}
+
+function layerFromCoordinatePolygon(coords) {
+  if (coords.length < 3) {
+    throw new Error("Minst 3 giltiga koordinater krävs.");
+  }
+
+  const ring = [...coords];
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push([first[0], first[1]]);
+  }
+
+  let polygonFeature = null;
+  try {
+    polygonFeature = turf.polygon([ring]);
+    if (!Number.isFinite(turf.area(polygonFeature)) || turf.area(polygonFeature) <= 0) {
+      polygonFeature = null;
+    }
+  } catch {
+    polygonFeature = null;
+  }
+
+  // If the entered order creates an invalid polygon, fall back to a convex hull.
+  if (!polygonFeature) {
+    const pointsFc = turf.featureCollection(coords.map((c) => turf.point(c)));
+    polygonFeature = turf.convex(pointsFc);
+  }
+
+  if (!polygonFeature || !polygonFeature.geometry) {
+    throw new Error("Kunde inte bygga polygon av koordinaterna. Kontrollera format eller punktordning.");
+  }
+
+  const layer = L.geoJSON(polygonFeature, {
+    style: {
+      color: "#7c3aed",
+      weight: 2,
+      fillColor: "#a78bfa",
+      fillOpacity: 0.2,
+    },
+  });
+
+  return layer;
 }
 
 async function fetchDirect(url) {
@@ -627,13 +704,18 @@ function initMapApp() {
   }
 
   function setMode(nextMode) {
-    currentMode = nextMode === "travel" ? "travel" : "draw";
+    currentMode = ["draw", "travel", "import"].includes(nextMode) ? nextMode : "draw";
     if (travelSettingsEl) {
       travelSettingsEl.classList.toggle("hidden", currentMode !== "travel");
     }
-    mapEl.classList.toggle("travel-mode", currentMode === "travel");
+    if (importSettingsEl) {
+      importSettingsEl.classList.toggle("hidden", currentMode !== "import");
+    }
+    mapEl.classList.toggle("draw-disabled", currentMode !== "draw");
     if (currentMode === "travel") {
       setStatus("Klicka på kartan för att skapa ett restidsområde.");
+    } else if (currentMode === "import") {
+      setStatus("Klistra in eller importera koordinater och klicka på knappen för att skapa område.");
     } else {
       setStatus("Rita ett område på kartan.");
     }
@@ -689,6 +771,31 @@ function initMapApp() {
     }
   }
 
+  function handleCoordinateImport() {
+    const coords = parseCoordinatesFromText(coordinateInputEl?.value || "");
+    const layer = layerFromCoordinatePolygon(coords);
+
+    drawnItems.clearLayers();
+    drawnItems.addLayer(layer);
+    populationEl.textContent = "-";
+    setBreakdown([]);
+
+    setMeta([
+      `Importläge: ${coords.length} koordinater`,
+      "Om koordinaterna inte var i ringordning användes en omslutande polygon.",
+    ]);
+
+    const polygonLayer = layer.getLayers()[0];
+    if (polygonLayer) {
+      runPopulationEstimate(polygonLayer).catch((err) => {
+        console.error(err);
+        setStatus(`Fel: ${err.message}`);
+        populationEl.textContent = "-";
+        setBreakdown([]);
+      });
+    }
+  }
+
   map.on(L.Draw.Event.CREATED, (event) => {
     if (currentMode !== "draw") return;
     handleNewShape(event.layer);
@@ -725,6 +832,33 @@ function initMapApp() {
 
   if (travelMinutesEl) {
     travelMinutesEl.addEventListener("change", rerunTravelIfNeeded);
+  }
+
+  if (buildCoordinatesBtn) {
+    buildCoordinatesBtn.addEventListener("click", () => {
+      try {
+        handleCoordinateImport();
+      } catch (error) {
+        console.error(error);
+        setStatus(`Fel: ${error.message}`);
+      }
+    });
+  }
+
+  if (coordinateFileEl && coordinateInputEl) {
+    coordinateFileEl.addEventListener("change", () => {
+      const file = coordinateFileEl.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        coordinateInputEl.value = String(reader.result || "");
+        setStatus(`Fil inläst: ${file.name}. Klicka på "Skapa område från koordinater".`);
+      };
+      reader.onerror = () => {
+        setStatus("Kunde inte läsa filen.");
+      };
+      reader.readAsText(file);
+    });
   }
 
   clearBtn.addEventListener("click", () => {

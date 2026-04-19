@@ -61,7 +61,20 @@ p {
   gap: 6px;
 }
 
+.import-settings {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #d1d5db;
+  display: grid;
+  gap: 6px;
+}
+
 .travel-settings label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.import-settings label {
   font-size: 0.8rem;
   color: #4b5563;
 }
@@ -73,6 +86,19 @@ p {
   font-size: 0.9rem;
 }
 
+.import-settings input,
+.import-settings textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 0.9rem;
+}
+
+.import-settings textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
 .hint {
   font-size: 0.78rem;
   color: #6b7280;
@@ -82,7 +108,7 @@ p {
   display: none;
 }
 
-#map.travel-mode .leaflet-draw {
+#map.draw-disabled .leaflet-draw {
   display: none;
 }
 
