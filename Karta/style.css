@@ -99,6 +99,10 @@ p {
   min-height: 120px;
 }
 
+.import-settings button {
+  width: fit-content;
+}
+
 .hint {
   font-size: 0.78rem;
   color: #6b7280;
@@ -200,5 +204,46 @@ code {
   .panel {
     border-right: none;
     border-bottom: 1px solid #d1d5db;
+  }
+}
+
+@media print {
+  body {
+    display: block;
+    height: auto;
+    color: #111827;
+    background: #ffffff;
+  }
+
+  .panel {
+    border: 0;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .panel p,
+  .mode-box,
+  .row,
+  .status,
+  details {
+    display: none !important;
+  }
+
+  #map {
+    width: 100%;
+    height: 68vh;
+    border: 1px solid #d1d5db;
+    margin-bottom: 10px;
+  }
+
+  .result-box {
+    border: 1px solid #9ca3af;
+    background: #ffffff;
+  }
+
+  .label,
+  .meta,
+  .breakdown {
+    color: #111827;
   }
 }

@@ -58,7 +58,9 @@ const travelMinutesEl = document.getElementById("travel-minutes");
 const importSettingsEl = document.getElementById("import-settings");
 const coordinateInputEl = document.getElementById("coordinate-input");
 const coordinateFileEl = document.getElementById("coordinate-file");
+const downloadTemplateBtn = document.getElementById("download-template-btn");
 const buildCoordinatesBtn = document.getElementById("build-coordinates-btn");
+const printBtn = document.getElementById("print-btn");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -103,6 +105,75 @@ function parseCoordinatesFromText(text) {
   }
 
   return coordinates;
+}
+
+function coordinateRowsToText(rows) {
+  if (!Array.isArray(rows) || !rows.length) return "";
+
+  const firstRow = Array.isArray(rows[0]) ? rows[0] : [];
+  const headers = firstRow.map((value) => String(value || "").trim().toLowerCase());
+  const latHeaderIndex = headers.findIndex((value) => value.includes("lat"));
+  const lonHeaderIndex = headers.findIndex((value) => value.includes("lon") || value.includes("lng"));
+
+  let startIndex = 0;
+  let latIndex = 0;
+  let lonIndex = 1;
+
+  if (latHeaderIndex >= 0 && lonHeaderIndex >= 0) {
+    startIndex = 1;
+    latIndex = latHeaderIndex;
+    lonIndex = lonHeaderIndex;
+  }
+
+  const lines = [];
+  for (let i = startIndex; i < rows.length; i += 1) {
+    const row = rows[i];
+    if (!Array.isArray(row)) continue;
+    const lat = row[latIndex];
+    const lon = row[lonIndex];
+    if (lat === undefined || lon === undefined || lat === null || lon === null) continue;
+    if (String(lat).trim() === "" || String(lon).trim() === "") continue;
+    lines.push(`${lat}, ${lon}`);
+  }
+
+  return lines.join("\n");
+}
+
+function readCoordinateFile(file) {
+  return new Promise((resolve, reject) => {
+    const lowerName = (file?.name || "").toLowerCase();
+    const isExcel = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls");
+    const reader = new FileReader();
+
+    reader.onerror = () => reject(new Error("Kunde inte läsa filen."));
+
+    if (isExcel) {
+      reader.onload = () => {
+        try {
+          if (typeof XLSX === "undefined") {
+            throw new Error("Excel-stöd kunde inte laddas. Uppdatera sidan och försök igen.");
+          }
+          const workbook = XLSX.read(reader.result, { type: "array" });
+          const firstSheet = workbook.SheetNames[0];
+          if (!firstSheet) throw new Error("Excel-filen saknar blad.");
+          const worksheet = workbook.Sheets[firstSheet];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+          const text = coordinateRowsToText(rows);
+          if (!text.trim()) {
+            throw new Error("Hittade inga koordinater i Excel-filen.");
+          }
+          resolve(text);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsText(file);
+  });
 }
 
 function layerFromCoordinatePolygon(coords) {
@@ -846,18 +917,51 @@ function initMapApp() {
   }
 
   if (coordinateFileEl && coordinateInputEl) {
-    coordinateFileEl.addEventListener("change", () => {
+    coordinateFileEl.addEventListener("change", async () => {
       const file = coordinateFileEl.files?.[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        coordinateInputEl.value = String(reader.result || "");
+
+      try {
+        const text = await readCoordinateFile(file);
+        coordinateInputEl.value = text;
         setStatus(`Fil inläst: ${file.name}. Klicka på "Skapa område från koordinater".`);
-      };
-      reader.onerror = () => {
-        setStatus("Kunde inte läsa filen.");
-      };
-      reader.readAsText(file);
+      } catch (error) {
+        console.error(error);
+        setStatus(`Fel vid filimport: ${error.message}`);
+      }
+    });
+  }
+
+  if (downloadTemplateBtn) {
+    downloadTemplateBtn.addEventListener("click", () => {
+      const templateCsv = [
+        "lat,lon",
+        "60.21603492250861,17.72232191679509",
+        "60.22000000000000,17.76000000000000",
+        "60.20500000000000,17.81000000000000",
+      ].join("\n");
+
+      const blob = new Blob([templateCsv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "koordinatmall.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Mallen laddades ner.");
+    });
+  }
+
+  if (printBtn) {
+    printBtn.addEventListener("click", () => {
+      if (drawnItems.getLayers().length === 0) {
+        setStatus("Skapa först ett område innan utskrift.");
+        return;
+      }
+      setStatus("Öppnar utskriftsvy...");
+      setTimeout(() => window.print(), 50);
     });
   }
 
