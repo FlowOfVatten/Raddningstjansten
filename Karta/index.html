@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Befolkning i område</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="vendor/leaflet.css" />
+    <link rel="stylesheet" href="vendor/leaflet.draw.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <aside class="panel">
+      <h1>Befolkning i område</h1>
+      <p>Välj om du vill rita ett område eller klicka en punkt med restid. Sidan försöker hämta SCB-data och summera hur många som bor inom området.</p>
+
+      <div class="mode-box">
+        <div class="mode-title">Beräkningsläge</div>
+        <label class="mode-option">
+          <input type="radio" name="input-mode" value="draw" checked /> Rita område
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="input-mode" value="travel" /> Klick + minuter (vägbaserat)
+        </label>
+
+        <div id="travel-settings" class="travel-settings hidden">
+          <label for="travel-minutes">Minuter</label>
+          <input id="travel-minutes" type="number" min="1" max="180" step="1" value="8" />
+
+          <div class="hint">Använder verkliga vägar, hastighetsgränser och trafikdata via Azure Maps.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="clear-btn" type="button">Rensa ritning</button>
+      </div>
+
+      <div id="status" class="status">Initierar karta...</div>
+
+      <div class="result-box">
+        <div class="label">Uppskattad befolkning inom området</div>
+        <div id="population" class="population">-</div>
+        <div id="breakdown" class="breakdown"></div>
+      </div>
+
+      <div id="meta" class="meta"></div>
+
+      <details>
+        <summary>Teknisk info</summary>
+        <p>Datakälla: SCB GeoServer (WFS). Om ingen passande layer hittas automatiskt kan du sätta override i <code>app.js</code>.</p>
+      </details>
+    </aside>
+
+    <main id="map"></main>
+
+    <script src="vendor/leaflet.js"></script>
+    <script src="vendor/leaflet.draw.js"></script>
+    <script src="vendor/turf.min.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
