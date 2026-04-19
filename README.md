@@ -16,7 +16,7 @@ Oppna `index.html` i webblasare.
 
 ## Hur det fungerar
 
-1. Hamtar WFS `GetCapabilities` fran `https://geo.scb.se/geoserver/ows`
+1. Hamtar WFS `GetCapabilities` fran `https://geodata.scb.se/geoserver/ows`
 2. Forsoker valja en passande layer automatiskt
 3. Hamtar features inom ritad polygons bbox
 4. Skar features mot polygon med Turf
@@ -33,5 +33,5 @@ const SCB_LAYER_NAME_OVERRIDE = "din:layer";
 ## Viktigt
 
 - Exakt precision beror pa vilken SCB layer/falt som finns tillganglig.
-- Om CORS eller natverkspolicy blockerar `geo.scb.se` far du fel i status-rutan.
+- Om CORS eller natverkspolicy blockerar `geodata.scb.se` far du fel i status-rutan.
 - Om direktanrop blockeras behovs en egen backend-endpoint som gor SCB-anrop server-side.

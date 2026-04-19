@@ -1,4 +1,4 @@
-const SCB_WFS_URL = "https://geo.scb.se/geoserver/ows";
+const SCB_WFS_URL = "https://geodata.scb.se/geoserver/ows";
 const SCB_LAYER_NAME_OVERRIDE = "";
 
 const LAYER_NAME_HINTS = ["bef", "population", "deso", "regso", "ruta", "grid"];
