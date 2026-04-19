@@ -244,7 +244,6 @@ export function useTrafficStream() {
       ws = new WebSocket(url);
 
       ws.onopen = () => {
-        stopPolling();
         setConnected(true);
       };
       ws.onclose = () => {
@@ -256,12 +255,10 @@ export function useTrafficStream() {
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === "hello") {
-            stopPolling();
             setConnected(true);
             setSource(msg.source === "trafiklab" ? "trafiklab" : "simulator");
             useAppStore.getState().setAIEnabled(!!msg.aiEnabled);
           } else if (msg.type === "snapshot") {
-            stopPolling();
             setConnected(true);
             applySnapshot(msg.data);
           } else if (msg.type === "ai") {
