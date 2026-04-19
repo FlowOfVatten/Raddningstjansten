@@ -111,6 +111,25 @@ export function AIPanel() {
             {analysis.summary}
           </div>
 
+          {analysis.speedData && (
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)", fontSize: 11, color: "#8fb3e2" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 10, color: "#8b98ad", letterSpacing: 0.18, textTransform: "uppercase", marginBottom: 2 }}>
+                    Medelhastighet
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: moodColor }}>
+                    {analysis.speedData.averageKmh} km/h
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: "#c7cfdc" }}>
+                  {analysis.speedData.minKmh}–{analysis.speedData.maxKmh} km/h<br/>
+                  ({analysis.speedData.activeTrains} fordon)
+                </div>
+              </div>
+            </div>
+          )}
+
           {analysis.observations.length > 0 && (
             <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ fontSize: 10, color: "#8b98ad", letterSpacing: 0.18, textTransform: "uppercase", marginBottom: 6 }}>

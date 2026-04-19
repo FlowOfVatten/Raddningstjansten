@@ -70,4 +70,10 @@ export interface AIAnalysis {
   observations: string[];
   patterns: string[];
   mood: "calm" | "watch" | "stressed";
+  speedData?: {
+    averageKmh: number;
+    minKmh: number;
+    maxKmh: number;
+    activeTrains: number;
+  } | null;
 }

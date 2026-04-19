@@ -1,3 +1,5 @@
+import { haversine } from "./geo.js";
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODELS = ["openrouter/elephant-alpha", "google/gemma-3-12b-it:free", "openrouter/free"];
 
@@ -12,12 +14,57 @@ Svara ALLTID som rent JSON enligt schemat:
   "mood": "calm" | "watch" | "stressed"
 }
 Ingen markdown, ingen extra text — bara JSON-objektet.
-- summary: max 110 tecken.
-- observations: 2-4 korta punkter (max ~80 tecken per punkt). Konkreta: linje, plats, delay, orsak.
+- summary: max 110 tecken. Inkludera medelhastigheten om den är relevant för lägesbeskrivningen.
+- observations: 2-4 korta punkter (max ~80 tecken per punkt). Konkreta: linje, plats, delay, orsak, hastighet.
 - patterns: 0–3 korta punkter om trender eller systempåverkan. Undvik upprepning av observations.
-- mood: calm = nästan inga förseningar; watch = enstaka avvikelser; stressed = flera linjer påverkade eller stopp.
+- mood: calm = nästan inga förseningar och normal hastighet; watch = enstaka avvikelser; stressed = flera linjer påverkade eller stopp och låg hastighet.
 Använd bussdomänens ord: "buss", "fordon", "hållplats", "linje".
 Använd aldrig orden "tåg", "spår" eller "station".`;
+
+function calculateAverageSpeed(snapshot, history) {
+  // Beräkna medelhastighet för alla fordon genom att jämföra positioner
+  if (history.length < 2) return null;
+  
+  const prev = history[history.length - 2];
+  const curr = history[history.length - 1];
+  const timeDeltaS = (curr.t - prev.t) / 1000;
+  
+  if (timeDeltaS < 5) return null; // För kort tid för meningsful hastighet
+  
+  const currentTrainMap = new Map();
+  for (const train of snapshot.trains) {
+    currentTrainMap.set(train.id, train);
+  }
+  
+  const speeds = [];
+  
+  if (prev.trainPositions) {
+    for (const oldPos of prev.trainPositions) {
+      const newTrain = currentTrainMap.get(oldPos.id);
+      if (!newTrain) continue;
+      
+      const distanceM = haversine(
+        { lat: oldPos.lat, lon: oldPos.lon },
+        { lat: newTrain.lat, lon: newTrain.lon }
+      );
+      
+      const speedMph = (distanceM / 1000) / (timeDeltaS / 3600);
+      if (!isNaN(speedMph) && speedMph > 0 && speedMph < 200) {
+        speeds.push(speedMph);
+      }
+    }
+  }
+  
+  if (speeds.length === 0) return null;
+  
+  const avg = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+  return {
+    averageKmh: Math.round(avg),
+    activeTrains: speeds.length,
+    minKmh: Math.round(Math.min(...speeds)),
+    maxKmh: Math.round(Math.max(...speeds)),
+  };
+}
 
 function describeTrafficForPrompt(snapshot, network, history) {
   const byLineGroup = {};
@@ -63,10 +110,16 @@ function describeTrafficForPrompt(snapshot, network, history) {
       })()
     : "Trend: första mätpunkten.";
 
+  const speedData = calculateAverageSpeed(snapshot, history);
+  const speedInfo = speedData
+    ? `Medelhastighet: ${speedData.averageKmh} km/h (${speedData.activeTrains} fordon, ${speedData.minKmh}–${speedData.maxKmh} km/h)`
+    : "Hastighet: ej beräknad (väntar på data)";
+
   const ts = new Date(snapshot.t).toLocaleTimeString("sv-SE");
 
   return `Tidpunkt ${ts}
 Totalt ${counts.total} fordon. I tid: ${counts.ok}, försenade: ${counts.delayed}, stillastående: ${counts.stopped}.
+${speedInfo}
 
 Per linje:
 ${lineStats.join("\n")}
@@ -118,6 +171,7 @@ export class AIAnalyst {
         t: snap.t,
         delayed: snap.trains.filter((x) => x.status === "delayed").length,
         stopped: snap.trains.filter((x) => x.status === "stopped").length,
+        trainPositions: snap.trains.map((t) => ({ id: t.id, lat: t.lat, lon: t.lon })),
       });
       if (this.history.length > 8) this.history.shift();
 
@@ -128,6 +182,8 @@ export class AIAnalyst {
         userContent,
       });
 
+      const speedData = calculateAverageSpeed(snap, this.history);
+
       this.latest = {
         createdAt: Date.now(),
         elapsedMs: elapsed,
@@ -137,9 +193,16 @@ export class AIAnalyst {
         observations: Array.isArray(parsed.observations) ? parsed.observations.map(String).slice(0, 4) : [],
         patterns: Array.isArray(parsed.patterns) ? parsed.patterns.map(String).slice(0, 3) : [],
         mood: ["calm", "watch", "stressed"].includes(parsed.mood) ? parsed.mood : "watch",
+        speedData: speedData ? {
+          averageKmh: speedData.averageKmh,
+          minKmh: speedData.minKmh,
+          maxKmh: speedData.maxKmh,
+          activeTrains: speedData.activeTrains,
+        } : null,
       };
       this.lastError = null;
-      console.log(`[ai-analyst] ${model} · ${this.latest.mood.toUpperCase()} · ${this.latest.summary}`);
+      const speedStr = speedData ? ` · ${speedData.averageKmh} km/h` : "";
+      console.log(`[ai-analyst] ${model} · ${this.latest.mood.toUpperCase()}${speedStr} · ${this.latest.summary}`);
       this.emit();
     } catch (err) {
       this.lastError = err.message;
