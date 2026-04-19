@@ -29,6 +29,63 @@ p {
   color: #374151;
 }
 
+.mode-box {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.mode-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+
+.travel-settings {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #d1d5db;
+  display: grid;
+  gap: 6px;
+}
+
+.travel-settings label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.travel-settings input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 0.9rem;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.hidden {
+  display: none;
+}
+
+#map.travel-mode .leaflet-draw {
+  display: none;
+}
+
 #map {
   width: 100%;
   height: 100%;
@@ -78,6 +135,15 @@ button:hover {
   font-size: 2rem;
   font-weight: 700;
   margin-top: 4px;
+}
+
+.breakdown {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #c7d2fe;
+  font-size: 0.83rem;
+  color: #374151;
+  line-height: 1.35;
 }
 
 .meta {

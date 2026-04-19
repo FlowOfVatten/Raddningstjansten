@@ -14,9 +14,14 @@ Denna version anvander endast direktanrop till SCB (ingen extern proxy-fallback 
 
 Oppna `index.html` i webblasare.
 
+## Inmatningslagen
+
+- `Rita omrade`: Rita polygon/rektangel manuellt.
+- `Klick + minuter (fagelvag)`: Klicka en punkt pa kartan och ange minuter + antagen hastighet. Appen skapar en cirkel (inte vagbaserad isokron) och summerar befolkning i den ytan.
+
 ## Hur det fungerar
 
-1. Hamtar WFS `GetCapabilities` fran `https://geodata.scb.se/geoserver/ows`
+1. Hamtar WFS `GetCapabilities` fran `https://geodata.scb.se/geoserver/stat/wfs?service=wfs&version=1.1.0&request=GetCapabilities`
 2. Forsoker valja en passande layer automatiskt
 3. Hamtar features inom ritad polygons bbox
 4. Skar features mot polygon med Turf

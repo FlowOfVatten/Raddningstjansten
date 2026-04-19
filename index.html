@@ -11,8 +11,27 @@
   </head>
   <body>
     <aside class="panel">
-      <h1>SCB Befolkning i Rita Omrade</h1>
-      <p>Rita ett omrade pa kartan. Sidan forsoker hamta SCB-data och summera hur manga som bor inom polygonen.</p>
+      <h1>Befolkning i Rita Omrade</h1>
+      <p>Valj om du vill rita ett omrade eller klicka en punkt med restid. Sidan forsoker hamta SCB-data och summera hur manga som bor inom omradet.</p>
+
+      <div class="mode-box">
+        <div class="mode-title">Beralningslage</div>
+        <label class="mode-option">
+          <input type="radio" name="input-mode" value="draw" checked /> Rita omrade
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="input-mode" value="travel" /> Klick + minuter (fagelvag)
+        </label>
+
+        <div id="travel-settings" class="travel-settings hidden">
+          <label for="travel-minutes">Minuter</label>
+          <input id="travel-minutes" type="number" min="1" max="180" step="1" value="8" />
+
+          <label for="travel-kmh">Framkomstningstid antas (info)</label>
+          <input id="travel-kmh" type="number" min="5" max="130" step="1" value="50" disabled />
+          <div class="hint">Anvander verkliga vagar via OpenRouteService. Hastigheten ovan visas endast for referens.</div>
+        </div>
+      </div>
 
       <div class="row">
         <button id="clear-btn" type="button">Rensa ritning</button>
@@ -23,6 +42,7 @@
       <div class="result-box">
         <div class="label">Uppskattad befolkning inom omradet</div>
         <div id="population" class="population">-</div>
+        <div id="breakdown" class="breakdown"></div>
       </div>
 
       <div id="meta" class="meta"></div>
