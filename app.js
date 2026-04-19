@@ -1,7 +1,21 @@
 const SCB_WFS_URL = "https://geodata.scb.se/geoserver/stat/wfs";
 const SCB_LAYER_NAME_OVERRIDE = "";
-const ORS_API_KEY = "2285d258b35548d7a081fd465b65cc47";
-const ORS_API_URL = "https://api.openrouteservice.org/v2/isochrones";
+
+let AZURE_MAPS_KEY = localStorage.getItem("azureMapsKey") || "";
+const AZURE_MAPS_ISOCHRONE_URL = "https://atlas.microsoft.com/route/isochrone/json";
+
+function ensureAzureMapKey() {
+  if (AZURE_MAPS_KEY) return;
+  const providedKey = prompt(
+    "Ange din Azure Maps subscription key (Gen2).\n\n" +
+    "Den sparas i din webbläsare och behöver bara matas in en gång.\n\n" +
+    "Är det första gången? Skapa gratis på https://portal.azure.com"
+  );
+  if (providedKey) {
+    AZURE_MAPS_KEY = providedKey.trim();
+    localStorage.setItem("azureMapsKey", AZURE_MAPS_KEY);
+  }
+}
 
 const LAYER_NAME_HINTS = ["bef", "population", "deso", "regso", "ruta", "grid"];
 const POP_FIELD_HINTS = [
@@ -554,50 +568,49 @@ function initMapApp() {
   }
 
   async function buildTravelAreaLayer(latlng) {
+    ensureAzureMapKey();
+    if (!AZURE_MAPS_KEY) throw new Error("Azure Maps nyckeln är obligatorisk för att använda restidslaget.");
+    
     const minutes = getTravelMinutes();
     const kmh = getTravelKmh();
     
-    setStatus(`Hamtar vag-baserat omrade for ${minutes} minuter (via OpenRouteService)...`);
+    setStatus(`Hämtar vägbaserat område för ${minutes} minuter (via Azure Maps)...`);
     
     const seconds = minutes * 60;
-    const rangeInSeconds = [seconds];
     
-    const isochroneUrl = `${ORS_API_URL}/driving-car`;
     const params = new URLSearchParams({
-      locations: `${latlng.lng},${latlng.lat}`,
-      range: rangeInSeconds.join(","),
-      range_type: "time",
-      API_key: ORS_API_KEY,
+      query: `${latlng.lat},${latlng.lng}`,
+      range: seconds,
+      rangeType: "time",
+      "subscription-key": AZURE_MAPS_KEY,
     });
     
     try {
-      const isochroneUrl = `${ORS_API_URL}/driving-car`;
-      const body = {
-        locations: [[latlng.lng, latlng.lat]],
-        range: [seconds],
-        range_type: "time",
-      };
+      const response = await fetch(`${AZURE_MAPS_ISOCHRONE_URL}?${params.toString()}`);
+      if (!response.ok) throw new Error(`Azure Maps HTTP ${response.status}`);
       
-      const allOriginsUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(isochroneUrl);
-      
-      const response = await fetch(allOriginsUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${ORS_API_KEY}`,
-        },
-        body: JSON.stringify(body),
-      });
-      
-      if (!response.ok) throw new Error(`ORS HTTP ${response.status}`);
       const data = await response.json();
       
-      if (!data.features || data.features.length === 0) {
-        throw new Error("Ingen isochrone polygon mottagen fran OpenRouteService. Svar: " + JSON.stringify(data).substring(0, 200));
+      if (!data.reachableRange || !data.reachableRange.boundary || data.reachableRange.boundary.length === 0) {
+        throw new Error("Ingen isochrone polygon mottagen från Azure Maps.");
       }
       
-      const isochrone = data.features[0];
-      const layer = L.geoJSON(isochrone, {
+      // Azure Maps returnerar boundary som array av [lon, lat] koordinater
+      const geojson = {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "Polygon",
+              coordinates: [data.reachableRange.boundary],
+            },
+            properties: {},
+          },
+        ],
+      };
+      
+      const layer = L.geoJSON(geojson, {
         style: {
           color: "#0f766e",
           weight: 2,
@@ -606,10 +619,10 @@ function initMapApp() {
         },
       });
       
-      setStatus(`Vag-baserat omrade laddat (${minutes} min)`);
-      return { layer, minutes, kmh, geojson: isochrone };
+      setStatus(`Vägbaserat område laddat (${minutes} min)`);
+      return { layer, minutes, kmh, radiusKm: -1 };
     } catch (error) {
-      setStatus(`Fel vid hämtning av OpenRouteService data: ${error.message}`);
+      setStatus(`Fel vid hämtning av Azure Maps data: ${error.message}`);
       throw error;
     }
   }
@@ -649,7 +662,7 @@ function initMapApp() {
 
   async function handleTravelClick(latlng) {
     try {
-      const { layer, minutes, kmh, geojson } = await buildTravelAreaLayer(latlng);
+      const { layer, minutes, kmh } = await buildTravelAreaLayer(latlng);
       lastTravelLatLng = latlng;
 
       drawnItems.clearLayers();
@@ -657,19 +670,19 @@ function initMapApp() {
       populationEl.textContent = "-";
 
       setMeta([
-        `Restidslage: ${minutes} min (vag-baserat)`,
-        `Data: OpenRouteService (car routing)`,
+        `Restidslage: ${minutes} min (vägbaserat)`,
+        `Data: Azure Maps Routing API`,
       ]);
 
       const polygonLayer = layer.getLayers()[0];
       if (polygonLayer) {
         runPopulationEstimate(polygonLayer).catch((err) => {
-        console.error(err);
-        setStatus(`Fel: ${err.message}`);
-        populationEl.textContent = "-";
-        setBreakdown([]);
-      });
-    }
+          console.error(err);
+          setStatus(`Fel: ${err.message}`);
+          populationEl.textContent = "-";
+          setBreakdown([]);
+        });
+      }
     } catch (error) {
       console.error(error);
       setStatus(`Fel vid hämtning av restidslage: ${error.message}`);
