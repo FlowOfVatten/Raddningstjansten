@@ -2,6 +2,33 @@ import { useEffect } from "react";
 import { useAppStore } from "./store";
 import type { Network } from "./types";
 
+function trimTrailingSlash(value: string) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+function getApiBase() {
+  const configured = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  return configured ? trimTrailingSlash(configured) : "";
+}
+
+function getWsBase() {
+  const configured = import.meta.env.VITE_WS_BASE_URL as string | undefined;
+  if (configured) return trimTrailingSlash(configured);
+
+  const apiBase = getApiBase();
+  if (apiBase) {
+    try {
+      const parsed = new URL(apiBase);
+      const wsProto = parsed.protocol === "https:" ? "wss:" : "ws:";
+      return `${wsProto}//${parsed.host}`;
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
 
 
 export function useTrafficStream() {
@@ -15,7 +42,7 @@ export function useTrafficStream() {
 
     (async () => {
       try {
-        const res = await fetch("/api/network");
+        const res = await fetch(`${getApiBase()}/api/network`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as Network;
         if (!cancelled) setNetwork(data);
@@ -35,8 +62,9 @@ export function useTrafficStream() {
     let closed = false;
 
     function connect() {
+      const wsBase = getWsBase();
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
-      const url = `${proto}//${location.host}/stream`;
+      const url = wsBase ? `${wsBase}/stream` : `${proto}//${location.host}/stream`;
       ws = new WebSocket(url);
 
       ws.onopen = () => setConnected(true);
