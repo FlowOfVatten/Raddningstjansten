@@ -49,6 +49,17 @@ function calculateTrainSpeeds(currentSnapshot, previousSnapshot) {
   return speeds;
 }
 
+function withTrainSpeeds(snapshot, previousSnapshot) {
+  const trainSpeeds = calculateTrainSpeeds(snapshot, previousSnapshot);
+  return {
+    ...snapshot,
+    trains: snapshot.trains.map((t) => ({
+      ...t,
+      speed: trainSpeeds.get(t.id) ?? null,
+    })),
+  };
+}
+
 const fallbackNetwork = parseJsonFile(NETWORK_PATH);
 const { network, tripToLine, metadata: staticMetadata } = await loadConfiguredStaticNetwork({
   fallbackNetwork,
@@ -90,18 +101,8 @@ app.get("/api/status", (_req, res) => {
 });
 
 app.get("/api/snapshot", (_req, res) => {
-  const snap = source.snapshot();
-  const trainSpeeds = calculateTrainSpeeds(snap, lastSnapshot);
-  lastSnapshot = snap;
-  
-  const snapshotWithSpeeds = {
-    ...snap,
-    trains: snap.trains.map((t) => ({
-      ...t,
-      speed: trainSpeeds.get(t.id) ?? null,
-    })),
-  };
-  
+  const snapshotWithSpeeds = getLatestSnapshotWithSpeeds();
+
   res.json({
     source: hasTrafiklabKey() ? "trafiklab" : "simulator",
     aiEnabled: !!aiAnalyst.apiKey,
@@ -117,7 +118,8 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/stream" });
 
 const startTime = Date.now();
-let lastSnapshot = null;
+let lastRawSnapshot = null;
+let latestSnapshotWithSpeeds = null;
 const liveEnabled = (process.env.ENABLE_LIVE_GTFS === "1" || process.env.ENABLE_SL_GTFS === "1") && hasTrafiklabKey();
 
 const source = liveEnabled
@@ -136,24 +138,29 @@ const trendRecorder = new TrendRecorder({
   maxSamples: 120,
 });
 
+function updateLatestSnapshot(rawSnapshot) {
+  if (latestSnapshotWithSpeeds && latestSnapshotWithSpeeds.t === rawSnapshot.t) {
+    return latestSnapshotWithSpeeds;
+  }
+
+  const enriched = withTrainSpeeds(rawSnapshot, lastRawSnapshot);
+  lastRawSnapshot = rawSnapshot;
+  latestSnapshotWithSpeeds = enriched;
+  return enriched;
+}
+
+function getLatestSnapshotWithSpeeds() {
+  return updateLatestSnapshot(source.snapshot());
+}
+
 app.get("/api/trends", (_req, res) => {
   res.json(trendRecorder.snapshot());
 });
 
 wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "hello", source: hasTrafiklabKey() ? "trafiklab" : "simulator", aiEnabled: !!aiAnalyst.apiKey }));
-  
-  const initialSnap = source.snapshot();
-  const initialSpeeds = calculateTrainSpeeds(initialSnap, lastSnapshot);
-  lastSnapshot = initialSnap;
-  const initialSnapWithSpeeds = {
-    ...initialSnap,
-    trains: initialSnap.trains.map((t) => ({
-      ...t,
-      speed: initialSpeeds.get(t.id) ?? null,
-    })),
-  };
-  ws.send(JSON.stringify({ type: "snapshot", data: initialSnapWithSpeeds }));
+
+  ws.send(JSON.stringify({ type: "snapshot", data: getLatestSnapshotWithSpeeds() }));
   
   if (aiAnalyst.latest) {
     ws.send(JSON.stringify({ type: "ai", data: { latest: aiAnalyst.latest, error: aiAnalyst.lastError } }));
@@ -161,16 +168,7 @@ wss.on("connection", (ws) => {
 
   const unsubscribe = source.on((snap) => {
     if (ws.readyState === WebSocket.OPEN) {
-      const trainSpeeds = calculateTrainSpeeds(snap, lastSnapshot);
-      lastSnapshot = snap;
-      const snapWithSpeeds = {
-        ...snap,
-        trains: snap.trains.map((t) => ({
-          ...t,
-          speed: trainSpeeds.get(t.id) ?? null,
-        })),
-      };
-      ws.send(JSON.stringify({ type: "snapshot", data: snapWithSpeeds }));
+      ws.send(JSON.stringify({ type: "snapshot", data: updateLatestSnapshot(snap) }));
     }
   });
   const unsubscribeAI = aiAnalyst.on((payload) => {
