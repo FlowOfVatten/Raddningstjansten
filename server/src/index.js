@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -107,12 +107,12 @@ wss.on("connection", (ws) => {
   }
 
   const unsubscribe = source.on((snap) => {
-    if (ws.readyState === ws.OPEN) {
+    if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "snapshot", data: snap }));
     }
   });
   const unsubscribeAI = aiAnalyst.on((payload) => {
-    if (ws.readyState === ws.OPEN) {
+    if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "ai", data: payload }));
     }
   });
