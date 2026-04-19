@@ -17,7 +17,7 @@ mkdir -p "${CACHE_DIR}"
 rm -rf "${EXTRACT_DIR}"
 
 echo "Downloading UL static GTFS..."
-HTTP_CODE="$({
+HTTP_CODE="$(
   curl --location --silent --show-error \
     --retry 2 \
     --retry-delay 1 \
@@ -27,7 +27,7 @@ HTTP_CODE="$({
     --output "${ZIP_PATH}" \
     "https://opendata.samtrafiken.se/gtfs/ul/ul.zip?key=${API_KEY}" \
     || true
-}" )"
+)"
 
 if [[ "${HTTP_CODE}" != "200" ]]; then
   echo "UL static GTFS download skipped (HTTP ${HTTP_CODE})."
