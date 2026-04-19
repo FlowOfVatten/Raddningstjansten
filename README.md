@@ -31,6 +31,8 @@ npm run dev
 
 Utan miljo-variabler kor appen i simulator-lage och AI-panelen ar inaktiv. Med `OPENROUTER_KEY` aktiveras AI-analys. For GTFS live satter du `TRAFIKLAB_RT_KEY`, dina regionala GTFS-RT URL:er och `ENABLE_LIVE_GTFS=1`.
 
+For att mappa alla hallplatser for skolbussarna 120 och 125 kan du peka servern mot en extraherad UL GTFS static-mapp via `GTFS_STATIC_DIR`. Da byggs natet om automatiskt vid uppstart. Du kan ocksa skriva de genererade filerna till repot med `npm run build:ul-network`.
+
 ## Arkitektur
 
 ```
@@ -62,7 +64,9 @@ Utan miljo-variabler kor appen i simulator-lage och AI-panelen ar inaktiv. Med `
 | Variabel | Standard | Beskrivning |
 |---|---|---|
 | `TRAFIKLAB_RT_KEY` | — | API-nyckel for GTFS Regional Realtime. |
-| `TRAFIKLAB_STATIC_KEY` | — | API-nyckel for GTFS Regional Static data (valfri, for framtida importscript). |
+| `TRAFIKLAB_STATIC_KEY` | — | API-nyckel for GTFS Regional Static data. |
+| `GTFS_STATIC_DIR` | — | Sökväg till extraherad GTFS static-mapp med `routes.txt`, `trips.txt`, `stop_times.txt`, `stops.txt`. |
+| `STATIC_GTFS_LINES` | `120,125` | Kommaseparerad lista med linjer som ska importeras från static GTFS. |
 | `GTFS_RT_VEHICLE_URL` | — | Regional feed-URL for Vehicle Positions. |
 | `GTFS_RT_TRIPS_URL` | — | Regional feed-URL for Trip Updates. |
 | `GTFS_RT_ALERTS_URL` | — | Regional feed-URL for Service Alerts. |
@@ -78,6 +82,13 @@ Utan miljo-variabler kor appen i simulator-lage och AI-panelen ar inaktiv. Med `
 - **Backend**: Node 18+, Express, ws
 - **AI**: OpenRouter → `google/gemini-3-flash-preview`
 - **Data**: Trafiklab GTFS-RT (Vehicle Positions, Trip Updates, Service Alerts)
+
+## Bygg full stoppkarta för 120/125
+
+1. Ladda ner UL GTFS static och packa upp zip-filen.
+2. Sätt `GTFS_STATIC_DIR` till den extraherade mappen.
+3. Kör `npm run build:ul-network` för att skriva om `server/data/network.json`, `client/public/network.json` och `server/data/trip-lines.json`.
+4. Starta sedan om servern eller gör en ny deploy.
 
 ## Skalor
 

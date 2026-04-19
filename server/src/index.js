@@ -10,6 +10,7 @@ import { Simulator } from "./simulator.js";
 import { LiveSource, hasTrafiklabKey } from "./liveSource.js";
 import { AIAnalyst } from "./aiAnalyst.js";
 import { TrendRecorder } from "./trendRecorder.js";
+import { loadConfiguredStaticNetwork } from "./gtfsStaticNetwork.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const NETWORK_PATH = resolve(__dirname, "../data/network.json");
@@ -20,7 +21,10 @@ function parseJsonFile(filePath) {
   return JSON.parse(clean);
 }
 
-const network = parseJsonFile(NETWORK_PATH);
+const fallbackNetwork = parseJsonFile(NETWORK_PATH);
+const { network, tripToLine, metadata: staticMetadata } = await loadConfiguredStaticNetwork({
+  fallbackNetwork,
+});
 
 const PORT = Number(process.env.PORT ?? 4000);
 const app = express();
@@ -68,7 +72,7 @@ const startTime = Date.now();
 const liveEnabled = (process.env.ENABLE_LIVE_GTFS === "1" || process.env.ENABLE_SL_GTFS === "1") && hasTrafiklabKey();
 
 const source = liveEnabled
-  ? new LiveSource(network)
+  ? new LiveSource(network, { tripToLine })
   : new Simulator(network);
 
 const aiAnalyst = new AIAnalyst({
@@ -114,6 +118,9 @@ wss.on("connection", (ws) => {
 server.listen(PORT, () => {
   console.log(`[alunda-busspuls] server on http://localhost:${PORT}`);
   console.log(`[alunda-busspuls] data source: ${liveEnabled ? "GTFS-RT live" : "simulator"}`);
+  if (staticMetadata) {
+    console.log(`[static-gtfs] loaded ${staticMetadata.lineCount} lines / ${staticMetadata.stationCount} stations from ${staticMetadata.gtfsDir}`);
+  }
 });
 
 process.on("SIGINT", () => {

@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "build:ul-network": "node scripts/build-ul-school-network.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

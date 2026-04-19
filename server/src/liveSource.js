@@ -63,8 +63,10 @@ function withApiKey(url, key) {
 }
 
 export class LiveSource {
-  constructor(network) {
+  constructor(network, options = {}) {
     this.network = network;
+    this.tripToLine = { ...TRIP_TO_LINE, ...(options.tripToLine ?? {}) };
+    this.hasBusTripMappings = Object.values(this.tripToLine).some((info) => info?.mode === "bus");
     this.stationById = new Map(network.stations.map((s) => [s.id, s]));
     this.segments = buildSegments(network);
     this.trains = new Map();
@@ -114,7 +116,7 @@ export class LiveSource {
         const tu = e.tripUpdate;
         if (!tu?.trip?.tripId) continue;
         const tripId = tu.trip.tripId;
-        if (Object.keys(TRIP_TO_LINE).length && !TRIP_TO_LINE[tripId]) continue;
+        if (Object.keys(this.tripToLine).length && !this.tripToLine[tripId]) continue;
 
         // Skip canceled / duplicated / deleted trips.
         const rel = tu.trip.scheduleRelationship;
@@ -209,7 +211,7 @@ export class LiveSource {
   }
 
   updateFromFeed(feed) {
-    const usingTripMap = Object.keys(TRIP_TO_LINE).length > 0 && HAS_BUS_TRIP_MAPPINGS;
+    const usingTripMap = Object.keys(this.tripToLine).length > 0 && this.hasBusTripMappings;
     for (const entity of feed.entity) {
       const v = entity.vehicle;
       if (!v?.position) continue;
@@ -222,7 +224,7 @@ export class LiveSource {
       if (usingTripMap) {
         const tripId = v.trip?.tripId;
         if (!tripId) continue;
-        const info = TRIP_TO_LINE[tripId];
+        const info = this.tripToLine[tripId];
         if (info) {
           forcedLineId = info.lineId;
           mode = info.mode;
