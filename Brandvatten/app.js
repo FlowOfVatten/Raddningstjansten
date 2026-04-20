@@ -21,9 +21,14 @@ const DESTINATIONS = [
   },
 ];
 
-const statusEl = document.getElementById("status");
+const mapViewEl = document.getElementById("map-view");
+const listViewEl = document.getElementById("list-view");
+const showMapViewBtn = document.getElementById("show-map-view");
+const showListViewBtn = document.getElementById("show-list-view");
 const locateBtn = document.getElementById("locate-btn");
-const collapseBtn = document.getElementById("collapse-btn");
+
+const statusEl = document.getElementById("status");
+const listStatusEl = document.getElementById("list-status");
 
 const selectedCardEl = document.getElementById("selected-card");
 const selectedImageEl = document.getElementById("selected-image");
@@ -37,6 +42,7 @@ const directionsEl = document.getElementById("directions");
 const destinationListEl = document.getElementById("destination-list");
 
 const destinationById = new Map(DESTINATIONS.map((d) => [d.id, d]));
+const markerById = new Map();
 
 let map = null;
 let userMarker = null;
@@ -46,12 +52,25 @@ let selectedDestination = null;
 
 function setStatus(text) {
   statusEl.textContent = text;
+  listStatusEl.textContent = text;
+}
+
+function setActiveView(view) {
+  const showMap = view === "map";
+  mapViewEl.classList.toggle("view-active", showMap);
+  listViewEl.classList.toggle("view-active", !showMap);
+
+  showMapViewBtn.className = showMap ? "btn-primary" : "btn-secondary";
+  showListViewBtn.className = showMap ? "btn-secondary" : "btn-primary";
+
+  if (showMap && map) {
+    setTimeout(() => map.invalidateSize(), 150);
+  }
 }
 
 function haversineMeters(aLat, aLon, bLat, bLon) {
   const toRad = (deg) => (deg * Math.PI) / 180;
   const R = 6371000;
-
   const dLat = toRad(bLat - aLat);
   const dLon = toRad(bLon - aLon);
 
@@ -74,33 +93,45 @@ function formatDuration(seconds) {
   const mins = Math.round(seconds / 60);
   if (mins < 60) return `${mins} min`;
   const hours = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return `${hours} h ${rem} min`;
+  return `${hours} h ${mins % 60} min`;
 }
 
 function buildNavigationUrl(destination) {
-  const dest = `${destination.lat},${destination.lon}`;
+  const destinationPoint = `${destination.lat},${destination.lon}`;
   if (!userPosition) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=driving`;
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destinationPoint)}&travelmode=driving`;
   }
 
   const origin = `${userPosition.lat},${userPosition.lon}`;
-  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=driving`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destinationPoint)}&travelmode=driving`;
 }
 
 function findNearestDestination(position) {
-  let best = null;
-  let bestDist = Infinity;
+  let nearest = null;
+  let nearestDistance = Infinity;
 
   for (const destination of DESTINATIONS) {
-    const dist = haversineMeters(position.lat, position.lon, destination.lat, destination.lon);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = destination;
+    const distance = haversineMeters(position.lat, position.lon, destination.lat, destination.lon);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = destination;
     }
   }
 
-  return { destination: best, distanceMeters: bestDist };
+  return { destination: nearest, distanceMeters: nearestDistance };
+}
+
+function getSortedDestinations() {
+  const rows = DESTINATIONS.map((destination) => {
+    const distanceMeters = userPosition
+      ? haversineMeters(userPosition.lat, userPosition.lon, destination.lat, destination.lon)
+      : Number.POSITIVE_INFINITY;
+
+    return { destination, distanceMeters };
+  });
+
+  rows.sort((a, b) => a.distanceMeters - b.distanceMeters);
+  return rows;
 }
 
 function createPopupHtml(destination) {
@@ -108,23 +139,36 @@ function createPopupHtml(destination) {
     <img class="popup-image" src="${destination.image}" alt="Bild för ${destination.name}">
     <h3 class="popup-title">${destination.name}</h3>
     <p class="popup-text">${destination.description}</p>
-    <button type="button" class="popup-btn btn-primary" data-nav-id="${destination.id}">Navigera hit</button>
+    <div class="button-row">
+      <button type="button" class="popup-btn btn-primary" data-show-route-id="${destination.id}">Visa rutt</button>
+      <button type="button" class="popup-btn btn-secondary" data-nav-id="${destination.id}">Navigera</button>
+    </div>
   `;
 }
 
 function renderDestinationList() {
-  destinationListEl.innerHTML = DESTINATIONS.map((destination) => {
-    return `
-      <div class="destination-item">
-        <h3>${destination.name}</h3>
-        <p>${destination.description}</p>
-        <div class="destination-actions">
-          <button type="button" data-show-id="${destination.id}">Visa</button>
-          <button type="button" class="btn-primary" data-nav-id="${destination.id}">Navigera hit</button>
-        </div>
-      </div>
-    `;
-  }).join("");
+  const rows = getSortedDestinations();
+
+  destinationListEl.innerHTML = rows
+    .map((row, index) => {
+      const { destination, distanceMeters } = row;
+      const distanceText = Number.isFinite(distanceMeters) ? formatDistance(distanceMeters) : "-";
+      const nearestBadge = index === 0 && Number.isFinite(distanceMeters) ? "<span class=\"nearest-badge\">Narmast</span>" : "";
+
+      return `
+        <article class="destination-item">
+          <h3>${destination.name}</h3>
+          <p>${destination.description}</p>
+          ${nearestBadge}
+          <div class="destination-meta">Avstand: ${distanceText}</div>
+          <div class="destination-actions">
+            <button type="button" data-list-show-id="${destination.id}">Visa pa karta</button>
+            <button type="button" class="btn-primary" data-list-nav-id="${destination.id}">Navigera</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function setSelectedCard(destination, routeSummary, instructions) {
@@ -144,12 +188,12 @@ function setSelectedCard(destination, routeSummary, instructions) {
   }
 
   if (instructions && instructions.length) {
-    const items = instructions
+    const steps = instructions
       .slice(0, 6)
       .map((instruction) => `<li>${instruction.instruction || "Fortsatt fram"}</li>`)
       .join("");
 
-    directionsEl.innerHTML = `<strong>Vagbeskrivning</strong><ol>${items}</ol>`;
+    directionsEl.innerHTML = `<strong>Vagbeskrivning</strong><ol>${steps}</ol>`;
   } else {
     directionsEl.innerHTML = "";
   }
@@ -167,6 +211,7 @@ function clearRouteLine() {
 
 function setUserMarker(position) {
   const latlng = [position.lat, position.lon];
+
   if (!userMarker) {
     userMarker = L.circleMarker(latlng, {
       radius: 8,
@@ -219,8 +264,8 @@ async function fetchRouteTo(destination) {
 
 async function showRouteTo(destination, fromAutoNearest = false) {
   if (!destination) return;
-  selectedDestination = destination;
 
+  selectedDestination = destination;
   setStatus(fromAutoNearest ? "Ritar rutt till narmaste punkt..." : `Ritar rutt till ${destination.name}...`);
 
   try {
@@ -234,48 +279,55 @@ async function showRouteTo(destination, fromAutoNearest = false) {
         opacity: 0.85,
       }).addTo(map);
 
-      map.setView([destination.lat, destination.lon], 15, { animate: true });
+      const group = L.featureGroup([routeLine, userMarker].filter(Boolean));
+      map.fitBounds(group.getBounds().pad(0.2), {
+        animate: true,
+        paddingTopLeft: [10, 70],
+        paddingBottomRight: [10, 220],
+      });
+
       setSelectedCard(destination, route.summary, route.instructions);
       setStatus(fromAutoNearest ? "Narmaste vattenpunkt vald." : `Vald destination: ${destination.name}`);
       return;
     }
 
+    map.setView([destination.lat, destination.lon], 14, { animate: true });
     setSelectedCard(destination, null, null);
     setStatus("Kunde inte hamta rutt, men destinationen ar vald.");
   } catch (error) {
+    map.setView([destination.lat, destination.lon], 14, { animate: true });
     setSelectedCard(destination, null, null);
     setStatus(`Kunde inte hamta rutt: ${error.message}`);
   }
 }
 
 function bindUiEvents() {
+  showMapViewBtn.addEventListener("click", () => {
+    setActiveView("map");
+  });
+
+  showListViewBtn.addEventListener("click", () => {
+    setActiveView("list");
+  });
+
   locateBtn.addEventListener("click", () => {
     requestUserLocation(false);
-  });
-
-  collapseBtn.addEventListener("click", () => {
-    document.querySelector(".overlay-panel").classList.remove("expanded");
-  });
-
-  map.on("click", () => {
-    document.querySelector(".overlay-panel").classList.remove("expanded");
   });
 
   destinationListEl.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
-    const showId = target.getAttribute("data-show-id");
+    const showId = target.getAttribute("data-list-show-id");
     if (showId) {
       const destination = destinationById.get(showId);
       if (!destination) return;
-      document.querySelector(".overlay-panel").classList.remove("expanded");
-      map.setView([destination.lat, destination.lon], Math.max(map.getZoom(), 13), { animate: true });
       showRouteTo(destination, false);
+      setActiveView("map");
       return;
     }
 
-    const navId = target.getAttribute("data-nav-id");
+    const navId = target.getAttribute("data-list-nav-id");
     if (navId) {
       const destination = destinationById.get(navId);
       if (!destination) return;
@@ -284,13 +336,24 @@ function bindUiEvents() {
   });
 
   map.on("popupopen", () => {
-    const popupBtns = document.querySelectorAll(".popup-btn[data-nav-id]");
-    popupBtns.forEach((button) => {
+    const navButtons = document.querySelectorAll(".popup-btn[data-nav-id]");
+    const routeButtons = document.querySelectorAll(".popup-btn[data-show-route-id]");
+
+    navButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        const navId = button.getAttribute("data-nav-id");
-        const destination = navId ? destinationById.get(navId) : null;
+        const id = button.getAttribute("data-nav-id");
+        const destination = id ? destinationById.get(id) : null;
         if (!destination) return;
         openNavigation(destination);
+      });
+    });
+
+    routeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const id = button.getAttribute("data-show-route-id");
+        const destination = id ? destinationById.get(id) : null;
+        if (!destination) return;
+        showRouteTo(destination, false);
       });
     });
   });
@@ -309,26 +372,27 @@ function bindUiEvents() {
 function requestUserLocation(initial) {
   if (!navigator.geolocation) {
     setStatus("Geolokalisering stods inte i denna enhet/webblasare.");
+    renderDestinationList();
     return;
   }
 
   setStatus(initial ? "Hamtar telefonens position..." : "Uppdaterar position...");
 
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
+    async (pos) => {
       userPosition = {
         lat: pos.coords.latitude,
         lon: pos.coords.longitude,
       };
 
       setUserMarker(userPosition);
+      renderDestinationList();
 
       const nearest = findNearestDestination(userPosition);
-
-      if (!selectedDestination) {
-        map.setView([nearest.destination.lat, nearest.destination.lon], 15, { animate: true });
+      if (!selectedDestination || initial) {
+        await showRouteTo(nearest.destination, true);
       } else {
-        showRouteTo(selectedDestination, false);
+        await showRouteTo(selectedDestination, false);
       }
     },
     (error) => {
@@ -337,6 +401,7 @@ function requestUserLocation(initial) {
         msg = "Tillat platsatkomst for att hitta narmaste vattenpunkt.";
       }
       setStatus(msg);
+      renderDestinationList();
     },
     {
       enableHighAccuracy: true,
@@ -365,7 +430,7 @@ function initMap() {
   baseLayer.addTo(map);
 
   DESTINATIONS.forEach((destination) => {
-    const markerIcon = L.divIcon({
+    const icon = L.divIcon({
       className: "destination-thumb-marker",
       html: `<img src="${destination.image}" alt="Miniatyr ${destination.name}">`,
       iconSize: [40, 40],
@@ -373,11 +438,14 @@ function initMap() {
       popupAnchor: [0, -18],
     });
 
-    const marker = L.marker([destination.lat, destination.lon], { icon: markerIcon }).addTo(map);
+    const marker = L.marker([destination.lat, destination.lon], { icon }).addTo(map);
     marker.bindPopup(createPopupHtml(destination));
+    markerById.set(destination.id, marker);
 
     marker.on("click", () => {
-      showRouteTo(destination, false);
+      selectedDestination = destination;
+      setSelectedCard(destination, null, null);
+      setStatus(`Vald destination: ${destination.name}`);
     });
   });
 

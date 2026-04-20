@@ -12,53 +12,42 @@ body {
   background: #e2e8f0;
 }
 
+body {
+  position: relative;
+  overflow: hidden;
+}
+
+.top-controls {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 1500;
+  display: flex;
+  gap: 8px;
+}
+
+.top-controls button {
+  flex: 1;
+}
+
+.view {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.view-active {
+  display: block;
+}
+
+#map-view,
 #map {
   width: 100%;
   height: 100%;
 }
 
-.overlay-panel {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-height: 90px;
-  overflow: hidden;
-  background: rgba(248, 250, 252, 0.97);
-  border-top: 1px solid #cbd5e1;
-  border-radius: 18px 18px 0 0;
-  padding: 12px;
-  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.2);
-  backdrop-filter: blur(4px);
-  z-index: 1200;
-  transition: max-height 0.4s ease-in-out;
-}
-
-.overlay-panel.expanded {
-  max-height: 70vh;
-  overflow: auto;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.panel-header h1 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.panel-header p {
-  margin: 4px 0 0;
-  font-size: 0.9rem;
-  color: #334155;
-}
-
 .status {
-  margin-top: 10px;
   padding: 10px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
@@ -66,8 +55,19 @@ body {
   font-size: 0.9rem;
 }
 
+.map-info {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1300;
+  display: grid;
+  gap: 8px;
+  max-height: 52vh;
+  overflow: auto;
+}
+
 .card {
-  margin-top: 10px;
   padding: 10px;
   border-radius: 12px;
   border: 1px solid #cbd5e1;
@@ -142,11 +142,51 @@ button {
   gap: 8px;
 }
 
+.list-page {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 70px 12px 14px;
+}
+
+.list-page h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.list-page p {
+  margin: 6px 0 12px;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+#list-status {
+  margin-bottom: 8px;
+}
+
 .destination-item {
   border: 1px solid #d1d5db;
   border-radius: 10px;
-  padding: 8px;
+  padding: 10px;
   background: #f8fafc;
+}
+
+.destination-meta {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.nearest-badge {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #0f766e;
+  background: #ccfbf1;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .destination-item h3 {
@@ -230,14 +270,23 @@ button {
 }
 
 @media (min-width: 980px) {
-  .overlay-panel {
-    top: 12px;
-    right: 12px;
+  .top-controls {
+    left: 18px;
+    right: auto;
+    width: 440px;
+  }
+
+  .map-info {
     left: auto;
-    bottom: 12px;
-    width: 380px;
-    max-height: none;
-    border: 1px solid #cbd5e1;
-    border-radius: 16px;
+    right: 18px;
+    width: 420px;
+    bottom: 18px;
+    max-height: 70vh;
+  }
+
+  .list-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-top: 88px;
   }
 }

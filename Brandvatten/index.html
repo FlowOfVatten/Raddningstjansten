@@ -16,39 +16,38 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main id="map" aria-label="Karta med brandvattenpunkter"></main>
+    <div class="top-controls">
+      <button id="show-map-view" type="button" class="btn-primary">Kartvy</button>
+      <button id="show-list-view" type="button" class="btn-secondary">Listvy</button>
+      <button id="locate-btn" type="button" class="btn-secondary">Uppdatera position</button>
+    </div>
 
-    <section class="overlay-panel" aria-live="polite">
-      <header class="panel-header">
-        <div>
-          <h1>Brandvatten</h1>
-          <p>Hitta närmaste plats att fylla tankbil med vatten.</p>
-        </div>
-        <div>
-          <button id="locate-btn" type="button" class="btn-primary">Uppdatera position</button>
-          <button id="collapse-btn" type="button" class="btn-secondary" style="width: 40px; padding: 8px;">−</button>
-        </div>
-      </header>
+    <section id="map-view" class="view view-active" aria-label="Kartvy">
+      <main id="map" aria-label="Karta med brandvattenpunkter"></main>
+      <section class="map-info" aria-live="polite">
+        <div id="status" class="status">Hämtar telefonens position...</div>
+        <article id="selected-card" class="card hidden">
+          <div class="card-title">Vald punkt</div>
+          <img id="selected-image" alt="Bild för vald punkt" />
+          <h2 id="selected-name"></h2>
+          <p id="selected-desc"></p>
+          <div class="meta-row" id="selected-meta"></div>
+          <div class="button-row">
+            <button id="selected-route-btn" type="button" class="btn-primary">Visa rutt</button>
+            <button id="selected-nav-btn" type="button" class="btn-secondary">Navigera hit</button>
+          </div>
+          <div id="directions" class="directions"></div>
+        </article>
+      </section>
+    </section>
 
-      <div id="status" class="status">Hämtar telefonens position...</div>
-
-      <article id="selected-card" class="card hidden">
-        <div class="card-title">Vald punkt</div>
-        <img id="selected-image" alt="Bild för vald punkt" />
-        <h2 id="selected-name"></h2>
-        <p id="selected-desc"></p>
-        <div class="meta-row" id="selected-meta"></div>
-        <div class="button-row">
-          <button id="selected-route-btn" type="button" class="btn-primary">Visa rutt</button>
-          <button id="selected-nav-btn" type="button" class="btn-secondary">Navigera hit</button>
-        </div>
-        <div id="directions" class="directions"></div>
-      </article>
-
-      <article class="card">
-        <div class="card-title">Alla destinationer</div>
+    <section id="list-view" class="view" aria-label="Listvy">
+      <div class="list-page">
+        <h1>Brandvattenpunkter</h1>
+        <p>Sorterad lista med närmaste punkt överst.</p>
+        <div id="list-status" class="status">Väntar på position för sortering...</div>
         <div id="destination-list" class="destination-list"></div>
-      </article>
+      </div>
     </section>
 
     <script src="vendor/leaflet.js"></script>
