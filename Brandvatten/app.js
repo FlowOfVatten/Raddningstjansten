@@ -234,8 +234,6 @@ async function showRouteTo(destination, fromAutoNearest = false) {
         opacity: 0.85,
       }).addTo(map);
 
-      const panelEl = document.querySelector(".overlay-panel");
-      panelEl.classList.add("expanded");
       map.setView([destination.lat, destination.lon], 15, { animate: true });
       setSelectedCard(destination, route.summary, route.instructions);
       setStatus(fromAutoNearest ? "Narmaste vattenpunkt vald." : `Vald destination: ${destination.name}`);
