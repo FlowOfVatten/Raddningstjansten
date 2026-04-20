@@ -39,6 +39,11 @@ const NON_POP_FIELD_HINTS = [
   "lopnr",
 ];
 const NON_POP_FIELD_HINT_SET = new Set(NON_POP_FIELD_HINTS);
+const MUNICIPALITY_ADMIN_LAYERS = ["stat:RegSO_2025", "stat:RegSO_2020", "stat:DeSO_2025", "stat:DeSO_2018"];
+
+// Cache expensive municipality lookups and comparisons during the session.
+const municipalityGeometryCache = new Map();
+const municipalityComparisonCache = new Map();
 
 function keyTokens(key) {
   return String(key)
@@ -452,6 +457,169 @@ function calculateDemographicBreakdown(features, areaFeature, fields) {
   return totals;
 }
 
+function detectMunicipalityField(features, excludedKeys = []) {
+  const excluded = new Set(excludedKeys.filter(Boolean));
+  const keyStats = new Map();
+
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    for (const [key, value] of Object.entries(props)) {
+      if (excluded.has(key)) continue;
+      if (!keyStats.has(key)) {
+        keyStats.set(key, {
+          count: 0,
+          distinctValues: new Set(),
+          numericCount: 0,
+        });
+      }
+      const stat = keyStats.get(key);
+      stat.count += 1;
+      stat.distinctValues.add(String(value ?? "").trim());
+      if (safeParseFloat(value) !== null) stat.numericCount += 1;
+    }
+  }
+
+  const hints = ["kommun", "komkod", "kommunkod", "knkod", "kn_kod", "muni"];
+  const disallow = ["lankommun", "lan_kommun", "county"];
+
+  let bestField = null;
+  let bestScore = -Infinity;
+
+  for (const [key, stat] of keyStats.entries()) {
+    if (stat.count < 3) continue;
+    const lc = key.toLowerCase();
+    if (!hints.some((h) => lc.includes(h))) continue;
+    if (disallow.some((d) => lc.includes(d))) continue;
+
+    const distinctCount = stat.distinctValues.size;
+    if (distinctCount < 2) continue;
+
+    let score = 0;
+    if (lc.includes("kommunkod") || lc.includes("komkod") || lc.includes("knkod") || lc.includes("kn_kod")) score += 25;
+    if (lc.includes("kommun")) score += 18;
+
+    const numericRatio = stat.numericCount / stat.count;
+    if (numericRatio > 0.8) score += 8;
+    if (distinctCount <= 40) score += 5;
+    if (distinctCount > 150) score -= 8;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestField = key;
+    }
+  }
+
+  return bestField;
+}
+
+function identifyMunicipalityValue(features, areaFeature, municipalityField) {
+  if (!municipalityField) return null;
+  const areaByMunicipality = new Map();
+
+  for (const rawFeature of features) {
+    const props = rawFeature?.properties || {};
+    const muniValue = props[municipalityField];
+    if (muniValue === null || muniValue === undefined || String(muniValue).trim() === "") continue;
+
+    const feature = turf.feature(rawFeature.geometry, props);
+    let intersection = null;
+    try {
+      intersection = turf.intersect(feature, areaFeature);
+    } catch {
+      try {
+        intersection = turf.intersect(turf.featureCollection([feature, areaFeature]));
+      } catch {
+        intersection = null;
+      }
+    }
+    if (!intersection) continue;
+
+    const cutArea = turf.area(intersection);
+    if (cutArea <= 0) continue;
+
+    const key = String(muniValue);
+    areaByMunicipality.set(key, (areaByMunicipality.get(key) || 0) + cutArea);
+  }
+
+  let bestValue = null;
+  let bestArea = 0;
+  for (const [value, coveredArea] of areaByMunicipality.entries()) {
+    if (coveredArea > bestArea) {
+      bestArea = coveredArea;
+      bestValue = value;
+    }
+  }
+
+  return bestValue;
+}
+
+function buildMunicipalityFilter(field, value) {
+  if (value === null || value === undefined) return null;
+  const numeric = safeParseFloat(value);
+  if (numeric !== null && String(value).trim() === String(Math.trunc(numeric))) {
+    return `${field}=${Math.trunc(numeric)}`;
+  }
+
+  const escaped = String(value).replace(/'/g, "''");
+  return `${field}='${escaped}'`;
+}
+
+async function fetchFeaturesByFilter(layerName, filterExpression) {
+  const params = new URLSearchParams({
+    service: "WFS",
+    version: "1.1.0",
+    request: "GetFeature",
+    typeName: layerName,
+    outputFormat: "application/json",
+    srsName: "EPSG:4326",
+    maxFeatures: "50000",
+  });
+
+  if (filterExpression) {
+    params.set("CQL_FILTER", filterExpression);
+  }
+
+  const url = `${SCB_WFS_URL}?${params.toString()}`;
+  const res = await fetchDirect(url);
+  const json = await res.json();
+  return json.features || [];
+}
+
+function calculateMunicipalityGenderAverages(features, maleField, femaleField) {
+  if (!maleField || !femaleField || !features.length) return null;
+
+  let maleTotal = 0;
+  let femaleTotal = 0;
+  let seenAny = false;
+
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    const male = safeParseFloat(props[maleField]);
+    const female = safeParseFloat(props[femaleField]);
+
+    if (male === null && female === null) continue;
+    seenAny = true;
+    if (male !== null) maleTotal += male;
+    if (female !== null) femaleTotal += female;
+  }
+
+  const genderTotal = maleTotal + femaleTotal;
+  if (!seenAny || genderTotal <= 0) return null;
+
+  return {
+    maleTotal,
+    femaleTotal,
+    maleShare: (maleTotal / genderTotal) * 100,
+    femaleShare: (femaleTotal / genderTotal) * 100,
+  };
+}
+
+function formatSignedPe(value) {
+  const rounded = Math.round(value * 10) / 10;
+  if (rounded > 0) return `+${rounded.toLocaleString("sv-SE", { maximumFractionDigits: 1 })}`;
+  return rounded.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+}
+
 async function getCapabilities() {
   const url = `${SCB_WFS_URL}?service=WFS&version=1.1.0&request=GetCapabilities`;
   const res = await fetchDirect(url);
@@ -540,6 +708,162 @@ async function fetchFeaturesForBounds(layerName, bounds) {
   const res = await fetchDirect(url);
   const json = await res.json();
   return json.features || [];
+}
+
+async function fetchFeaturesForBbox(layerName, bboxArray, maxFeatures = 10000) {
+  const bbox = [bboxArray[0], bboxArray[1], bboxArray[2], bboxArray[3], "EPSG:4326"].join(",");
+
+  const params = new URLSearchParams({
+    service: "WFS",
+    version: "1.1.0",
+    request: "GetFeature",
+    typeName: layerName,
+    outputFormat: "application/json",
+    srsName: "EPSG:4326",
+    bbox,
+    maxFeatures: String(maxFeatures),
+  });
+
+  const url = `${SCB_WFS_URL}?${params.toString()}`;
+  const res = await fetchDirect(url);
+  const json = await res.json();
+  return json.features || [];
+}
+
+function buildMunicipalityAreasFromFeatures(adminFeatures, municipalityField, municipalityValue) {
+  const muniKey = String(municipalityValue);
+  return adminFeatures
+    .filter((feature) => String(feature?.properties?.[municipalityField]) === muniKey)
+    .map((feature) => turf.feature(feature.geometry, feature.properties || {}));
+}
+
+function calculateDemographicBreakdownForAreas(features, areaFeatures, fields) {
+  if (!Array.isArray(areaFeatures) || !areaFeatures.length) {
+    return {
+      male: null,
+      female: null,
+      age: (fields.ageFields || []).map((entry) => ({ label: entry.label, key: entry.key, value: 0 })),
+    };
+  }
+
+  const totals = {
+    male: null,
+    female: null,
+    age: [],
+  };
+
+  const ageSums = new Map();
+  for (const entry of fields.ageFields || []) {
+    ageSums.set(entry.key, 0);
+  }
+
+  let maleSum = 0;
+  let femaleSum = 0;
+  let maleSeen = false;
+  let femaleSeen = false;
+
+  for (const rawFeature of features) {
+    const feature = turf.feature(rawFeature.geometry, rawFeature.properties || {});
+    const wholeArea = turf.area(feature);
+    if (wholeArea <= 0) continue;
+
+    let cutAreaTotal = 0;
+    for (const areaFeature of areaFeatures) {
+      let intersection = null;
+      try {
+        intersection = turf.intersect(feature, areaFeature);
+      } catch {
+        try {
+          intersection = turf.intersect(turf.featureCollection([feature, areaFeature]));
+        } catch {
+          intersection = null;
+        }
+      }
+      if (!intersection) continue;
+
+      const cutArea = turf.area(intersection);
+      if (cutArea > 0) cutAreaTotal += cutArea;
+    }
+
+    if (cutAreaTotal <= 0) continue;
+    const ratio = Math.min(1, cutAreaTotal / wholeArea);
+
+    if (fields.maleField) {
+      const v = safeParseFloat(rawFeature.properties?.[fields.maleField]);
+      if (v !== null) {
+        maleSum += v * ratio;
+        maleSeen = true;
+      }
+    }
+
+    if (fields.femaleField) {
+      const v = safeParseFloat(rawFeature.properties?.[fields.femaleField]);
+      if (v !== null) {
+        femaleSum += v * ratio;
+        femaleSeen = true;
+      }
+    }
+
+    for (const ageEntry of fields.ageFields || []) {
+      const v = safeParseFloat(rawFeature.properties?.[ageEntry.key]);
+      if (v === null) continue;
+      ageSums.set(ageEntry.key, (ageSums.get(ageEntry.key) || 0) + v * ratio);
+    }
+  }
+
+  if (maleSeen) totals.male = maleSum;
+  if (femaleSeen) totals.female = femaleSum;
+  totals.age = (fields.ageFields || []).map((entry) => ({
+    label: entry.label,
+    key: entry.key,
+    value: ageSums.get(entry.key) || 0,
+  }));
+
+  return totals;
+}
+
+async function findMunicipalityFromAdminLayers(areaFeature, bounds) {
+  for (const adminLayer of MUNICIPALITY_ADMIN_LAYERS) {
+    try {
+      const candidates = await fetchFeaturesForBounds(adminLayer, bounds);
+      if (!candidates.length) continue;
+
+      const municipalityField = detectMunicipalityField(candidates, []);
+      if (!municipalityField) continue;
+
+      const municipalityValue = identifyMunicipalityValue(candidates, areaFeature, municipalityField);
+      if (!municipalityValue) continue;
+
+      const geometryCacheKey = `${adminLayer}|${municipalityField}|${municipalityValue}`;
+      let municipalityAreas = municipalityGeometryCache.get(geometryCacheKey) || null;
+
+      if (!municipalityAreas) {
+        const filter = buildMunicipalityFilter(municipalityField, municipalityValue);
+        const municipalityFeatures = await fetchFeaturesByFilter(adminLayer, filter);
+        municipalityAreas = buildMunicipalityAreasFromFeatures(
+          municipalityFeatures,
+          municipalityField,
+          municipalityValue,
+        );
+        if (municipalityAreas.length) {
+          municipalityGeometryCache.set(geometryCacheKey, municipalityAreas);
+        }
+      }
+
+      if (!municipalityAreas.length) continue;
+
+      return {
+        adminLayer,
+        municipalityField,
+        municipalityValue,
+        municipalityAreas,
+      };
+    } catch (error) {
+      console.warn(`Adminlager misslyckades: ${adminLayer}`, error);
+    }
+  }
+
+  return null;
 }
 
 function calculatePopulationWithinPolygon(features, areaFeature, populationField) {
@@ -640,6 +964,133 @@ async function runPopulationEstimate(layer) {
     if (breakdown.female !== null) breakdownLines.push(`Kvinna: ${Math.round(breakdown.female).toLocaleString("sv-SE")}`);
   }
 
+  let municipalityContext = null;
+  let municipalityReason = "okänd orsak";
+  if (
+    demographicFields.maleField &&
+    demographicFields.femaleField &&
+    breakdown.male !== null &&
+    breakdown.female !== null
+  ) {
+    let municipalityField = detectMunicipalityField(evaluation.features, [evaluation.field]);
+    if (!municipalityField) {
+      municipalityReason = "saknar kommunkod/kommunfält i valt lager, provar RegSO/DeSO";
+    }
+
+    let municipalityValue = identifyMunicipalityValue(evaluation.features, areaFeature, municipalityField);
+    let municipalityAreas = null;
+    let municipalitySourceLayer = evaluation.layerName;
+
+    if (!municipalityField || !municipalityValue) {
+      const adminMatch = await findMunicipalityFromAdminLayers(areaFeature, bounds);
+      if (adminMatch) {
+        municipalityField = adminMatch.municipalityField;
+        municipalityValue = adminMatch.municipalityValue;
+        municipalityAreas = adminMatch.municipalityAreas;
+        municipalitySourceLayer = adminMatch.adminLayer;
+      }
+    }
+
+    if (municipalityField && !municipalityValue) {
+      municipalityReason = "kunde inte avgöra kommun för markerad yta";
+    }
+
+    if (municipalityField && municipalityValue) {
+      try {
+        setStatus("Hämtar kommunsnitt för jämförelse...");
+        let municipalityAverages = null;
+        let municipalityFeatureCount = 0;
+
+        const comparisonCacheKey = [
+          evaluation.layerName,
+          municipalitySourceLayer,
+          municipalityField,
+          municipalityValue,
+          demographicFields.maleField,
+          demographicFields.femaleField,
+        ].join("|");
+
+        const cachedComparison = municipalityComparisonCache.get(comparisonCacheKey);
+        if (cachedComparison) {
+          setStatus("Använder cache för kommunsnitt...");
+          municipalityAverages = cachedComparison.averages;
+          municipalityFeatureCount = cachedComparison.featureCount;
+        }
+
+        if (!cachedComparison && municipalityAreas && municipalityAreas.length) {
+          const municipalityBbox = turf.bbox(turf.featureCollection(municipalityAreas));
+          const municipalityPopulationFeatures = await fetchFeaturesForBbox(evaluation.layerName, municipalityBbox, 50000);
+          municipalityFeatureCount = municipalityPopulationFeatures.length;
+
+          const municipalityBreakdown = calculateDemographicBreakdownForAreas(
+            municipalityPopulationFeatures,
+            municipalityAreas,
+            demographicFields,
+          );
+          const municipalityGenderTotal = (municipalityBreakdown.male || 0) + (municipalityBreakdown.female || 0);
+          if (municipalityBreakdown.male !== null && municipalityBreakdown.female !== null && municipalityGenderTotal > 0) {
+            municipalityAverages = {
+              maleTotal: municipalityBreakdown.male,
+              femaleTotal: municipalityBreakdown.female,
+              maleShare: (municipalityBreakdown.male / municipalityGenderTotal) * 100,
+              femaleShare: (municipalityBreakdown.female / municipalityGenderTotal) * 100,
+            };
+          }
+        } else if (!cachedComparison) {
+          const filter = buildMunicipalityFilter(municipalityField, municipalityValue);
+          const municipalityFeatures = await fetchFeaturesByFilter(evaluation.layerName, filter);
+          municipalityFeatureCount = municipalityFeatures.length;
+          municipalityAverages = calculateMunicipalityGenderAverages(
+            municipalityFeatures,
+            demographicFields.maleField,
+            demographicFields.femaleField,
+          );
+        }
+
+        if (!cachedComparison && municipalityAverages) {
+          municipalityComparisonCache.set(comparisonCacheKey, {
+            averages: municipalityAverages,
+            featureCount: municipalityFeatureCount,
+          });
+        }
+
+        if (!municipalityFeatureCount) {
+          municipalityReason = "hittade inga features för identifierad kommun";
+        }
+
+        const selectedGenderTotal = breakdown.male + breakdown.female;
+        if (municipalityAverages && selectedGenderTotal > 0) {
+          const selectedMaleShare = (breakdown.male / selectedGenderTotal) * 100;
+          const selectedFemaleShare = (breakdown.female / selectedGenderTotal) * 100;
+          const maleDiffPe = selectedMaleShare - municipalityAverages.maleShare;
+          const femaleDiffPe = selectedFemaleShare - municipalityAverages.femaleShare;
+
+          breakdownLines.push("Avvikelse mot kommunsnitt (kön):");
+          breakdownLines.push(
+            `Man: ${selectedMaleShare.toFixed(1).replace(".", ",")}% (kommun ${municipalityAverages.maleShare.toFixed(1).replace(".", ",")}% | ${formatSignedPe(maleDiffPe)} p.e.)`,
+          );
+          breakdownLines.push(
+            `Kvinna: ${selectedFemaleShare.toFixed(1).replace(".", ",")}% (kommun ${municipalityAverages.femaleShare.toFixed(1).replace(".", ",")}% | ${formatSignedPe(femaleDiffPe)} p.e.)`,
+          );
+
+          municipalityContext = {
+            field: municipalityField,
+            value: municipalityValue,
+            features: municipalityFeatureCount,
+            sourceLayer: municipalitySourceLayer,
+          };
+        } else {
+          municipalityReason = "kommunfeatures saknar användbara könsvärden";
+        }
+      } catch (error) {
+        municipalityReason = "anrop för kommunsnitt misslyckades";
+        console.warn("Kunde inte beräkna kommunsnitt:", error);
+      }
+    }
+  } else {
+    municipalityReason = "saknar könsfält eller könsvärden i vald yta";
+  }
+
   const ageWithValues = breakdown.age.filter((x) => x.value > 0.5);
   if (ageWithValues.length) {
     breakdownLines.push("Åldersspann (uppskattat):");
@@ -658,6 +1109,9 @@ async function runPopulationEstimate(layer) {
   setMeta([
     `Layer: ${evaluation.layerName}`,
     `Använt befolkningsfält: ${evaluation.field || "okänt"}`,
+    municipalityContext
+      ? `Kommunjämförelse: ${municipalityContext.field}=${municipalityContext.value} (${municipalityContext.features} features, källa ${municipalityContext.sourceLayer})`
+      : `Kommunjämförelse: kunde inte beräknas (${municipalityReason})`,
     `Features i bbox: ${evaluation.featureCount}`,
     `Features som bidrog till summa: ${evaluation.matched}`,
     "Obs: Delvis överlapp viktas med areaandel.",
