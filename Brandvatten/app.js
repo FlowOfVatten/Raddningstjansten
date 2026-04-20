@@ -24,14 +24,6 @@ const DESTINATIONS = [
 const statusEl = document.getElementById("status");
 const locateBtn = document.getElementById("locate-btn");
 
-const nearestCardEl = document.getElementById("nearest-card");
-const nearestImageEl = document.getElementById("nearest-image");
-const nearestNameEl = document.getElementById("nearest-name");
-const nearestDescEl = document.getElementById("nearest-desc");
-const nearestMetaEl = document.getElementById("nearest-meta");
-const nearestRouteBtn = document.getElementById("nearest-route-btn");
-const nearestNavBtn = document.getElementById("nearest-nav-btn");
-
 const selectedCardEl = document.getElementById("selected-card");
 const selectedImageEl = document.getElementById("selected-image");
 const selectedNameEl = document.getElementById("selected-name");
@@ -50,7 +42,6 @@ let userMarker = null;
 let routeLine = null;
 let userPosition = null;
 let selectedDestination = null;
-let nearestDestination = null;
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -133,16 +124,6 @@ function renderDestinationList() {
       </div>
     `;
   }).join("");
-}
-
-function setNearestCard(destination, distanceMeters) {
-  if (!destination) return;
-
-  nearestCardEl.classList.remove("hidden");
-  nearestImageEl.src = destination.image;
-  nearestNameEl.textContent = destination.name;
-  nearestDescEl.textContent = destination.description;
-  nearestMetaEl.textContent = `Fagelvag: ${formatDistance(distanceMeters)}`;
 }
 
 function setSelectedCard(destination, routeSummary, instructions) {
@@ -305,16 +286,6 @@ function bindUiEvents() {
     });
   });
 
-  nearestRouteBtn.addEventListener("click", () => {
-    if (!nearestDestination) return;
-    showRouteTo(nearestDestination, true);
-  });
-
-  nearestNavBtn.addEventListener("click", () => {
-    if (!nearestDestination) return;
-    openNavigation(nearestDestination);
-  });
-
   selectedRouteBtn.addEventListener("click", () => {
     if (!selectedDestination) return;
     showRouteTo(selectedDestination, false);
@@ -344,8 +315,6 @@ function requestUserLocation(initial) {
       setUserMarker(userPosition);
 
       const nearest = findNearestDestination(userPosition);
-      nearestDestination = nearest.destination;
-      setNearestCard(nearest.destination, nearest.distanceMeters);
 
       if (!selectedDestination || initial) {
         showRouteTo(nearest.destination, true);
@@ -387,7 +356,15 @@ function initMap() {
   baseLayer.addTo(map);
 
   DESTINATIONS.forEach((destination) => {
-    const marker = L.marker([destination.lat, destination.lon]).addTo(map);
+    const markerIcon = L.divIcon({
+      className: "destination-thumb-marker",
+      html: `<img src="${destination.image}" alt="Miniatyr ${destination.name}">`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -18],
+    });
+
+    const marker = L.marker([destination.lat, destination.lon], { icon: markerIcon }).addTo(map);
     marker.bindPopup(createPopupHtml(destination));
 
     marker.on("click", () => {

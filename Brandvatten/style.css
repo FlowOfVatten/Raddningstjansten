@@ -206,6 +206,23 @@ button {
   margin-top: 4px;
 }
 
+.destination-thumb-marker {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.destination-thumb-marker img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 @media (min-width: 980px) {
   .overlay-panel {
     top: 12px;
