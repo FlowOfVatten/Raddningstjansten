@@ -259,6 +259,10 @@ function bindUiEvents() {
     document.querySelector(".overlay-panel").classList.remove("expanded");
   });
 
+  map.on("click", () => {
+    document.querySelector(".overlay-panel").classList.remove("expanded");
+  });
+
   destinationListEl.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -267,6 +271,7 @@ function bindUiEvents() {
     if (showId) {
       const destination = destinationById.get(showId);
       if (!destination) return;
+      document.querySelector(".overlay-panel").classList.remove("expanded");
       map.setView([destination.lat, destination.lon], Math.max(map.getZoom(), 13), { animate: true });
       showRouteTo(destination, false);
       return;
