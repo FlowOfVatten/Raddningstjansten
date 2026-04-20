@@ -19,7 +19,6 @@ const POP_FIELD_HINTS = [
 const NON_POP_FIELD_HINTS = [
   "uuid",
   "objektid",
-  "objectid",
   "shape",
   "geom",
   "geometry",
@@ -1130,12 +1129,16 @@ function initMapApp() {
     '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
 
   function createAzureBaseLayer(tilesetId, options = {}) {
+    const requestTileSize = options.requestTileSize || 256;
+    const layerOptions = { ...options };
+    delete layerOptions.requestTileSize;
+
     return L.tileLayer(
-      `${AZURE_MAPS_TILE_URL.replace("microsoft.base.road", tilesetId)}${encodeURIComponent(AZURE_MAPS_KEY)}`,
+      `${AZURE_MAPS_TILE_URL.replace("microsoft.base.road", tilesetId).replace("tileSize=256", `tileSize=${requestTileSize}`)}${encodeURIComponent(AZURE_MAPS_KEY)}`,
       {
         maxZoom: 22,
         attribution: azureTileAttribution,
-        ...options,
+        ...layerOptions,
       },
     );
   }
@@ -1145,7 +1148,7 @@ function initMapApp() {
         Vägar: createAzureBaseLayer("microsoft.base.road"),
         Satellit: createAzureBaseLayer("microsoft.imagery", { maxNativeZoom: 19 }),
         Hybrid: createAzureBaseLayer("microsoft.base.hybrid.road"),
-        Terräng: createAzureBaseLayer("microsoft.terra.main", { maxNativeZoom: 6 }),
+        "Mörk grå": createAzureBaseLayer("microsoft.base.darkgrey"),
       }
     : {
         OpenStreetMap: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
