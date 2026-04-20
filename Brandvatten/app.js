@@ -4,28 +4,20 @@ const AZURE_MAPS_ROUTE_URL = "https://atlas.microsoft.com/route/directions/json"
 
 const DESTINATIONS = [
   {
-    id: "alunda-alnoret",
-    name: "Alnoret vattenpunkt",
-    description: "Öppen yta nära väg med plats för tankbil. Bra vändmöjlighet.",
-    lat: 60.1202,
-    lon: 17.9345,
-    image: "https://picsum.photos/id/1011/800/500",
+    id: "fornbro",
+    name: "Fornbro vattenpunkt",
+    description: "Brandvattenpunkt vid Fornbro.",
+    lat: 60.0618,
+    lon: 18.218,
+    image: "vendor/images/fornbro.jpg",
   },
   {
-    id: "alunda-ovre-fors",
-    name: "Ovre Fors brygga",
-    description: "Lugn inlastning från bryggkant. Passar vid mindre trafik.",
-    lat: 60.0893,
-    lon: 17.8826,
-    image: "https://picsum.photos/id/1025/800/500",
-  },
-  {
-    id: "alunda-kvarnsjon",
-    name: "Kvarnsjon ramp",
-    description: "Stabil ramp med kort avstand till huvudvag och enkel infart.",
-    lat: 60.0754,
-    lon: 18.0142,
-    image: "https://picsum.photos/id/1043/800/500",
+    id: "ekeby",
+    name: "Ekeby vattenpunkt",
+    description: "Brandvattenpunkt vid Ekeby.",
+    lat: 60.0811,
+    lon: 18.2272,
+    image: "vendor/images/ekeby.jpg",
   },
 ];
 
@@ -379,7 +371,7 @@ function requestUserLocation(initial) {
 function initMap() {
   map = L.map("map", {
     zoomControl: true,
-  }).setView([60.11, 17.93], 11);
+  }).setView([60.0715, 18.2226], 12);
 
   const baseLayer = AZURE_MAPS_KEY
     ? L.tileLayer(`${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`, {
