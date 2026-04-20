@@ -311,7 +311,8 @@ function bindUiEvents() {
   });
 
   locateBtn.addEventListener("click", () => {
-    requestUserLocation(false);
+    setActiveView("map");
+    requestUserLocation(false, true);
   });
 
   destinationListEl.addEventListener("click", (event) => {
@@ -369,14 +370,14 @@ function bindUiEvents() {
   });
 }
 
-function requestUserLocation(initial) {
+function requestUserLocation(initial, forceNearest = false) {
   if (!navigator.geolocation) {
     setStatus("Geolokalisering stods inte i denna enhet/webblasare.");
     renderDestinationList();
     return;
   }
 
-  setStatus(initial ? "Hamtar telefonens position..." : "Uppdaterar position...");
+  setStatus(initial ? "Hamtar telefonens position..." : forceNearest ? "Gar till narmaste punkt..." : "Uppdaterar position...");
 
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
@@ -389,7 +390,7 @@ function requestUserLocation(initial) {
       renderDestinationList();
 
       const nearest = findNearestDestination(userPosition);
-      if (!selectedDestination || initial) {
+      if (forceNearest || !selectedDestination || initial) {
         await showRouteTo(nearest.destination, true);
       } else {
         await showRouteTo(selectedDestination, false);
