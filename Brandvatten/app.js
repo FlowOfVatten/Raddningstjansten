@@ -1,6 +1,7 @@
 const AZURE_MAPS_TILE_URL =
   "https://atlas.microsoft.com/map/tile?api-version=2024-04-01&tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256&language=sv-SE&view=Auto&subscription-key=";
 const AZURE_MAPS_ROUTE_URL = "https://atlas.microsoft.com/route/directions/json";
+const IMAGE_VERSION = "20260420-ekeby-fix";
 
 const DESTINATIONS = [
   {
@@ -9,7 +10,7 @@ const DESTINATIONS = [
     description: "Brandvattenpunkt vid Fornbro.",
     lat: 60.0618,
     lon: 18.218,
-    image: "vendor/images/ekeby.jpg",
+    image: `vendor/images/fornbro.jpg?v=${IMAGE_VERSION}`,
   },
   {
     id: "ekeby",
@@ -17,7 +18,7 @@ const DESTINATIONS = [
     description: "Brandvattenpunkt vid Ekeby.",
     lat: 60.0811,
     lon: 18.2272,
-    image: "vendor/images/fornbro.jpg",
+    image: `vendor/images/ekeby.jpg?v=${IMAGE_VERSION}`,
   },
 ];
 
