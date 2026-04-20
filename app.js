@@ -3,6 +3,7 @@ const SCB_LAYER_NAME_OVERRIDE = "";
 
 // Azure Maps is configured in config.js
 const AZURE_MAPS_ISOCHRONE_URL = "https://atlas.microsoft.com/route/range/json";
+const AZURE_MAPS_TILE_URL = "https://atlas.microsoft.com/map/tile?api-version=2024-04-01&tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256&language=sv-SE&view=Auto&subscription-key=";
 
 const LAYER_NAME_HINTS = ["bef", "population", "deso", "regso", "ruta", "grid"];
 const POP_FIELD_HINTS = [
@@ -38,6 +39,11 @@ const NON_POP_FIELD_HINTS = [
   "lopnr",
 ];
 const NON_POP_FIELD_HINT_SET = new Set(NON_POP_FIELD_HINTS);
+const MUNICIPALITY_ADMIN_LAYERS = ["stat:RegSO_2025", "stat:RegSO_2020", "stat:DeSO_2025", "stat:DeSO_2018"];
+
+// Cache expensive municipality lookups and comparisons during the session.
+const municipalityGeometryCache = new Map();
+const municipalityComparisonCache = new Map();
 
 function keyTokens(key) {
   return String(key)
@@ -54,6 +60,12 @@ const clearBtn = document.getElementById("clear-btn");
 const modeInputs = Array.from(document.querySelectorAll('input[name="input-mode"]'));
 const travelSettingsEl = document.getElementById("travel-settings");
 const travelMinutesEl = document.getElementById("travel-minutes");
+const importSettingsEl = document.getElementById("import-settings");
+const coordinateInputEl = document.getElementById("coordinate-input");
+const coordinateFileEl = document.getElementById("coordinate-file");
+const downloadTemplateBtn = document.getElementById("download-template-btn");
+const buildCoordinatesBtn = document.getElementById("build-coordinates-btn");
+const printBtn = document.getElementById("print-btn");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -69,6 +81,148 @@ function setMeta(lines) {
 function setBreakdown(lines) {
   if (!breakdownEl) return;
   breakdownEl.innerHTML = lines.join("<br>");
+}
+
+function parseCoordinatesFromText(text) {
+  const rows = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const coordinates = [];
+  for (const row of rows) {
+    const numbers = row.match(/-?\d+(?:[.,]\d+)?/g);
+    if (!numbers || numbers.length < 2) continue;
+
+    const first = Number.parseFloat(numbers[0].replace(",", "."));
+    const second = Number.parseFloat(numbers[1].replace(",", "."));
+    if (!Number.isFinite(first) || !Number.isFinite(second)) continue;
+
+    let lat = first;
+    let lon = second;
+    if (Math.abs(first) > 90 && Math.abs(first) <= 180 && Math.abs(second) <= 90) {
+      lon = first;
+      lat = second;
+    }
+
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    coordinates.push([lon, lat]);
+  }
+
+  return coordinates;
+}
+
+function coordinateRowsToText(rows) {
+  if (!Array.isArray(rows) || !rows.length) return "";
+
+  const firstRow = Array.isArray(rows[0]) ? rows[0] : [];
+  const headers = firstRow.map((value) => String(value || "").trim().toLowerCase());
+  const latHeaderIndex = headers.findIndex((value) => value.includes("lat"));
+  const lonHeaderIndex = headers.findIndex((value) => value.includes("lon") || value.includes("lng"));
+
+  let startIndex = 0;
+  let latIndex = 0;
+  let lonIndex = 1;
+
+  if (latHeaderIndex >= 0 && lonHeaderIndex >= 0) {
+    startIndex = 1;
+    latIndex = latHeaderIndex;
+    lonIndex = lonHeaderIndex;
+  }
+
+  const lines = [];
+  for (let i = startIndex; i < rows.length; i += 1) {
+    const row = rows[i];
+    if (!Array.isArray(row)) continue;
+    const lat = row[latIndex];
+    const lon = row[lonIndex];
+    if (lat === undefined || lon === undefined || lat === null || lon === null) continue;
+    if (String(lat).trim() === "" || String(lon).trim() === "") continue;
+    lines.push(`${lat}, ${lon}`);
+  }
+
+  return lines.join("\n");
+}
+
+function readCoordinateFile(file) {
+  return new Promise((resolve, reject) => {
+    const lowerName = (file?.name || "").toLowerCase();
+    const isExcel = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls");
+    const reader = new FileReader();
+
+    reader.onerror = () => reject(new Error("Kunde inte läsa filen."));
+
+    if (isExcel) {
+      reader.onload = () => {
+        try {
+          if (typeof XLSX === "undefined") {
+            throw new Error("Excel-stöd kunde inte laddas. Uppdatera sidan och försök igen.");
+          }
+          const workbook = XLSX.read(reader.result, { type: "array" });
+          const firstSheet = workbook.SheetNames[0];
+          if (!firstSheet) throw new Error("Excel-filen saknar blad.");
+          const worksheet = workbook.Sheets[firstSheet];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+          const text = coordinateRowsToText(rows);
+          if (!text.trim()) {
+            throw new Error("Hittade inga koordinater i Excel-filen.");
+          }
+          resolve(text);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsText(file);
+  });
+}
+
+function layerFromCoordinatePolygon(coords) {
+  if (coords.length < 3) {
+    throw new Error("Minst 3 giltiga koordinater krävs.");
+  }
+
+  const ring = [...coords];
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push([first[0], first[1]]);
+  }
+
+  let polygonFeature = null;
+  try {
+    polygonFeature = turf.polygon([ring]);
+    if (!Number.isFinite(turf.area(polygonFeature)) || turf.area(polygonFeature) <= 0) {
+      polygonFeature = null;
+    }
+  } catch {
+    polygonFeature = null;
+  }
+
+  // If the entered order creates an invalid polygon, fall back to a convex hull.
+  if (!polygonFeature) {
+    const pointsFc = turf.featureCollection(coords.map((c) => turf.point(c)));
+    polygonFeature = turf.convex(pointsFc);
+  }
+
+  if (!polygonFeature || !polygonFeature.geometry) {
+    throw new Error("Kunde inte bygga polygon av koordinaterna. Kontrollera format eller punktordning.");
+  }
+
+  const layer = L.geoJSON(polygonFeature, {
+    style: {
+      color: "#7c3aed",
+      weight: 2,
+      fillColor: "#a78bfa",
+      fillOpacity: 0.2,
+    },
+  });
+
+  return layer;
 }
 
 async function fetchDirect(url) {
@@ -303,6 +457,169 @@ function calculateDemographicBreakdown(features, areaFeature, fields) {
   return totals;
 }
 
+function detectMunicipalityField(features, excludedKeys = []) {
+  const excluded = new Set(excludedKeys.filter(Boolean));
+  const keyStats = new Map();
+
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    for (const [key, value] of Object.entries(props)) {
+      if (excluded.has(key)) continue;
+      if (!keyStats.has(key)) {
+        keyStats.set(key, {
+          count: 0,
+          distinctValues: new Set(),
+          numericCount: 0,
+        });
+      }
+      const stat = keyStats.get(key);
+      stat.count += 1;
+      stat.distinctValues.add(String(value ?? "").trim());
+      if (safeParseFloat(value) !== null) stat.numericCount += 1;
+    }
+  }
+
+  const hints = ["kommun", "komkod", "kommunkod", "knkod", "kn_kod", "muni"];
+  const disallow = ["lankommun", "lan_kommun", "county"];
+
+  let bestField = null;
+  let bestScore = -Infinity;
+
+  for (const [key, stat] of keyStats.entries()) {
+    if (stat.count < 3) continue;
+    const lc = key.toLowerCase();
+    if (!hints.some((h) => lc.includes(h))) continue;
+    if (disallow.some((d) => lc.includes(d))) continue;
+
+    const distinctCount = stat.distinctValues.size;
+    if (distinctCount < 2) continue;
+
+    let score = 0;
+    if (lc.includes("kommunkod") || lc.includes("komkod") || lc.includes("knkod") || lc.includes("kn_kod")) score += 25;
+    if (lc.includes("kommun")) score += 18;
+
+    const numericRatio = stat.numericCount / stat.count;
+    if (numericRatio > 0.8) score += 8;
+    if (distinctCount <= 40) score += 5;
+    if (distinctCount > 150) score -= 8;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestField = key;
+    }
+  }
+
+  return bestField;
+}
+
+function identifyMunicipalityValue(features, areaFeature, municipalityField) {
+  if (!municipalityField) return null;
+  const areaByMunicipality = new Map();
+
+  for (const rawFeature of features) {
+    const props = rawFeature?.properties || {};
+    const muniValue = props[municipalityField];
+    if (muniValue === null || muniValue === undefined || String(muniValue).trim() === "") continue;
+
+    const feature = turf.feature(rawFeature.geometry, props);
+    let intersection = null;
+    try {
+      intersection = turf.intersect(feature, areaFeature);
+    } catch {
+      try {
+        intersection = turf.intersect(turf.featureCollection([feature, areaFeature]));
+      } catch {
+        intersection = null;
+      }
+    }
+    if (!intersection) continue;
+
+    const cutArea = turf.area(intersection);
+    if (cutArea <= 0) continue;
+
+    const key = String(muniValue);
+    areaByMunicipality.set(key, (areaByMunicipality.get(key) || 0) + cutArea);
+  }
+
+  let bestValue = null;
+  let bestArea = 0;
+  for (const [value, coveredArea] of areaByMunicipality.entries()) {
+    if (coveredArea > bestArea) {
+      bestArea = coveredArea;
+      bestValue = value;
+    }
+  }
+
+  return bestValue;
+}
+
+function buildMunicipalityFilter(field, value) {
+  if (value === null || value === undefined) return null;
+  const numeric = safeParseFloat(value);
+  if (numeric !== null && String(value).trim() === String(Math.trunc(numeric))) {
+    return `${field}=${Math.trunc(numeric)}`;
+  }
+
+  const escaped = String(value).replace(/'/g, "''");
+  return `${field}='${escaped}'`;
+}
+
+async function fetchFeaturesByFilter(layerName, filterExpression) {
+  const params = new URLSearchParams({
+    service: "WFS",
+    version: "1.1.0",
+    request: "GetFeature",
+    typeName: layerName,
+    outputFormat: "application/json",
+    srsName: "EPSG:4326",
+    maxFeatures: "50000",
+  });
+
+  if (filterExpression) {
+    params.set("CQL_FILTER", filterExpression);
+  }
+
+  const url = `${SCB_WFS_URL}?${params.toString()}`;
+  const res = await fetchDirect(url);
+  const json = await res.json();
+  return json.features || [];
+}
+
+function calculateMunicipalityGenderAverages(features, maleField, femaleField) {
+  if (!maleField || !femaleField || !features.length) return null;
+
+  let maleTotal = 0;
+  let femaleTotal = 0;
+  let seenAny = false;
+
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    const male = safeParseFloat(props[maleField]);
+    const female = safeParseFloat(props[femaleField]);
+
+    if (male === null && female === null) continue;
+    seenAny = true;
+    if (male !== null) maleTotal += male;
+    if (female !== null) femaleTotal += female;
+  }
+
+  const genderTotal = maleTotal + femaleTotal;
+  if (!seenAny || genderTotal <= 0) return null;
+
+  return {
+    maleTotal,
+    femaleTotal,
+    maleShare: (maleTotal / genderTotal) * 100,
+    femaleShare: (femaleTotal / genderTotal) * 100,
+  };
+}
+
+function formatSignedPe(value) {
+  const rounded = Math.round(value * 10) / 10;
+  if (rounded > 0) return `+${rounded.toLocaleString("sv-SE", { maximumFractionDigits: 1 })}`;
+  return rounded.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+}
+
 async function getCapabilities() {
   const url = `${SCB_WFS_URL}?service=WFS&version=1.1.0&request=GetCapabilities`;
   const res = await fetchDirect(url);
@@ -391,6 +708,162 @@ async function fetchFeaturesForBounds(layerName, bounds) {
   const res = await fetchDirect(url);
   const json = await res.json();
   return json.features || [];
+}
+
+async function fetchFeaturesForBbox(layerName, bboxArray, maxFeatures = 10000) {
+  const bbox = [bboxArray[0], bboxArray[1], bboxArray[2], bboxArray[3], "EPSG:4326"].join(",");
+
+  const params = new URLSearchParams({
+    service: "WFS",
+    version: "1.1.0",
+    request: "GetFeature",
+    typeName: layerName,
+    outputFormat: "application/json",
+    srsName: "EPSG:4326",
+    bbox,
+    maxFeatures: String(maxFeatures),
+  });
+
+  const url = `${SCB_WFS_URL}?${params.toString()}`;
+  const res = await fetchDirect(url);
+  const json = await res.json();
+  return json.features || [];
+}
+
+function buildMunicipalityAreasFromFeatures(adminFeatures, municipalityField, municipalityValue) {
+  const muniKey = String(municipalityValue);
+  return adminFeatures
+    .filter((feature) => String(feature?.properties?.[municipalityField]) === muniKey)
+    .map((feature) => turf.feature(feature.geometry, feature.properties || {}));
+}
+
+function calculateDemographicBreakdownForAreas(features, areaFeatures, fields) {
+  if (!Array.isArray(areaFeatures) || !areaFeatures.length) {
+    return {
+      male: null,
+      female: null,
+      age: (fields.ageFields || []).map((entry) => ({ label: entry.label, key: entry.key, value: 0 })),
+    };
+  }
+
+  const totals = {
+    male: null,
+    female: null,
+    age: [],
+  };
+
+  const ageSums = new Map();
+  for (const entry of fields.ageFields || []) {
+    ageSums.set(entry.key, 0);
+  }
+
+  let maleSum = 0;
+  let femaleSum = 0;
+  let maleSeen = false;
+  let femaleSeen = false;
+
+  for (const rawFeature of features) {
+    const feature = turf.feature(rawFeature.geometry, rawFeature.properties || {});
+    const wholeArea = turf.area(feature);
+    if (wholeArea <= 0) continue;
+
+    let cutAreaTotal = 0;
+    for (const areaFeature of areaFeatures) {
+      let intersection = null;
+      try {
+        intersection = turf.intersect(feature, areaFeature);
+      } catch {
+        try {
+          intersection = turf.intersect(turf.featureCollection([feature, areaFeature]));
+        } catch {
+          intersection = null;
+        }
+      }
+      if (!intersection) continue;
+
+      const cutArea = turf.area(intersection);
+      if (cutArea > 0) cutAreaTotal += cutArea;
+    }
+
+    if (cutAreaTotal <= 0) continue;
+    const ratio = Math.min(1, cutAreaTotal / wholeArea);
+
+    if (fields.maleField) {
+      const v = safeParseFloat(rawFeature.properties?.[fields.maleField]);
+      if (v !== null) {
+        maleSum += v * ratio;
+        maleSeen = true;
+      }
+    }
+
+    if (fields.femaleField) {
+      const v = safeParseFloat(rawFeature.properties?.[fields.femaleField]);
+      if (v !== null) {
+        femaleSum += v * ratio;
+        femaleSeen = true;
+      }
+    }
+
+    for (const ageEntry of fields.ageFields || []) {
+      const v = safeParseFloat(rawFeature.properties?.[ageEntry.key]);
+      if (v === null) continue;
+      ageSums.set(ageEntry.key, (ageSums.get(ageEntry.key) || 0) + v * ratio);
+    }
+  }
+
+  if (maleSeen) totals.male = maleSum;
+  if (femaleSeen) totals.female = femaleSum;
+  totals.age = (fields.ageFields || []).map((entry) => ({
+    label: entry.label,
+    key: entry.key,
+    value: ageSums.get(entry.key) || 0,
+  }));
+
+  return totals;
+}
+
+async function findMunicipalityFromAdminLayers(areaFeature, bounds) {
+  for (const adminLayer of MUNICIPALITY_ADMIN_LAYERS) {
+    try {
+      const candidates = await fetchFeaturesForBounds(adminLayer, bounds);
+      if (!candidates.length) continue;
+
+      const municipalityField = detectMunicipalityField(candidates, []);
+      if (!municipalityField) continue;
+
+      const municipalityValue = identifyMunicipalityValue(candidates, areaFeature, municipalityField);
+      if (!municipalityValue) continue;
+
+      const geometryCacheKey = `${adminLayer}|${municipalityField}|${municipalityValue}`;
+      let municipalityAreas = municipalityGeometryCache.get(geometryCacheKey) || null;
+
+      if (!municipalityAreas) {
+        const filter = buildMunicipalityFilter(municipalityField, municipalityValue);
+        const municipalityFeatures = await fetchFeaturesByFilter(adminLayer, filter);
+        municipalityAreas = buildMunicipalityAreasFromFeatures(
+          municipalityFeatures,
+          municipalityField,
+          municipalityValue,
+        );
+        if (municipalityAreas.length) {
+          municipalityGeometryCache.set(geometryCacheKey, municipalityAreas);
+        }
+      }
+
+      if (!municipalityAreas.length) continue;
+
+      return {
+        adminLayer,
+        municipalityField,
+        municipalityValue,
+        municipalityAreas,
+      };
+    } catch (error) {
+      console.warn(`Adminlager misslyckades: ${adminLayer}`, error);
+    }
+  }
+
+  return null;
 }
 
 function calculatePopulationWithinPolygon(features, areaFeature, populationField) {
@@ -491,6 +964,133 @@ async function runPopulationEstimate(layer) {
     if (breakdown.female !== null) breakdownLines.push(`Kvinna: ${Math.round(breakdown.female).toLocaleString("sv-SE")}`);
   }
 
+  let municipalityContext = null;
+  let municipalityReason = "okänd orsak";
+  if (
+    demographicFields.maleField &&
+    demographicFields.femaleField &&
+    breakdown.male !== null &&
+    breakdown.female !== null
+  ) {
+    let municipalityField = detectMunicipalityField(evaluation.features, [evaluation.field]);
+    if (!municipalityField) {
+      municipalityReason = "saknar kommunkod/kommunfält i valt lager, provar RegSO/DeSO";
+    }
+
+    let municipalityValue = identifyMunicipalityValue(evaluation.features, areaFeature, municipalityField);
+    let municipalityAreas = null;
+    let municipalitySourceLayer = evaluation.layerName;
+
+    if (!municipalityField || !municipalityValue) {
+      const adminMatch = await findMunicipalityFromAdminLayers(areaFeature, bounds);
+      if (adminMatch) {
+        municipalityField = adminMatch.municipalityField;
+        municipalityValue = adminMatch.municipalityValue;
+        municipalityAreas = adminMatch.municipalityAreas;
+        municipalitySourceLayer = adminMatch.adminLayer;
+      }
+    }
+
+    if (municipalityField && !municipalityValue) {
+      municipalityReason = "kunde inte avgöra kommun för markerad yta";
+    }
+
+    if (municipalityField && municipalityValue) {
+      try {
+        setStatus("Hämtar kommunsnitt för jämförelse...");
+        let municipalityAverages = null;
+        let municipalityFeatureCount = 0;
+
+        const comparisonCacheKey = [
+          evaluation.layerName,
+          municipalitySourceLayer,
+          municipalityField,
+          municipalityValue,
+          demographicFields.maleField,
+          demographicFields.femaleField,
+        ].join("|");
+
+        const cachedComparison = municipalityComparisonCache.get(comparisonCacheKey);
+        if (cachedComparison) {
+          setStatus("Använder cache för kommunsnitt...");
+          municipalityAverages = cachedComparison.averages;
+          municipalityFeatureCount = cachedComparison.featureCount;
+        }
+
+        if (!cachedComparison && municipalityAreas && municipalityAreas.length) {
+          const municipalityBbox = turf.bbox(turf.featureCollection(municipalityAreas));
+          const municipalityPopulationFeatures = await fetchFeaturesForBbox(evaluation.layerName, municipalityBbox, 50000);
+          municipalityFeatureCount = municipalityPopulationFeatures.length;
+
+          const municipalityBreakdown = calculateDemographicBreakdownForAreas(
+            municipalityPopulationFeatures,
+            municipalityAreas,
+            demographicFields,
+          );
+          const municipalityGenderTotal = (municipalityBreakdown.male || 0) + (municipalityBreakdown.female || 0);
+          if (municipalityBreakdown.male !== null && municipalityBreakdown.female !== null && municipalityGenderTotal > 0) {
+            municipalityAverages = {
+              maleTotal: municipalityBreakdown.male,
+              femaleTotal: municipalityBreakdown.female,
+              maleShare: (municipalityBreakdown.male / municipalityGenderTotal) * 100,
+              femaleShare: (municipalityBreakdown.female / municipalityGenderTotal) * 100,
+            };
+          }
+        } else if (!cachedComparison) {
+          const filter = buildMunicipalityFilter(municipalityField, municipalityValue);
+          const municipalityFeatures = await fetchFeaturesByFilter(evaluation.layerName, filter);
+          municipalityFeatureCount = municipalityFeatures.length;
+          municipalityAverages = calculateMunicipalityGenderAverages(
+            municipalityFeatures,
+            demographicFields.maleField,
+            demographicFields.femaleField,
+          );
+        }
+
+        if (!cachedComparison && municipalityAverages) {
+          municipalityComparisonCache.set(comparisonCacheKey, {
+            averages: municipalityAverages,
+            featureCount: municipalityFeatureCount,
+          });
+        }
+
+        if (!municipalityFeatureCount) {
+          municipalityReason = "hittade inga features för identifierad kommun";
+        }
+
+        const selectedGenderTotal = breakdown.male + breakdown.female;
+        if (municipalityAverages && selectedGenderTotal > 0) {
+          const selectedMaleShare = (breakdown.male / selectedGenderTotal) * 100;
+          const selectedFemaleShare = (breakdown.female / selectedGenderTotal) * 100;
+          const maleDiffPe = selectedMaleShare - municipalityAverages.maleShare;
+          const femaleDiffPe = selectedFemaleShare - municipalityAverages.femaleShare;
+
+          breakdownLines.push("Avvikelse mot kommunsnitt (kön):");
+          breakdownLines.push(
+            `Man: ${selectedMaleShare.toFixed(1).replace(".", ",")}% (kommun ${municipalityAverages.maleShare.toFixed(1).replace(".", ",")}% | ${formatSignedPe(maleDiffPe)} p.e.)`,
+          );
+          breakdownLines.push(
+            `Kvinna: ${selectedFemaleShare.toFixed(1).replace(".", ",")}% (kommun ${municipalityAverages.femaleShare.toFixed(1).replace(".", ",")}% | ${formatSignedPe(femaleDiffPe)} p.e.)`,
+          );
+
+          municipalityContext = {
+            field: municipalityField,
+            value: municipalityValue,
+            features: municipalityFeatureCount,
+            sourceLayer: municipalitySourceLayer,
+          };
+        } else {
+          municipalityReason = "kommunfeatures saknar användbara könsvärden";
+        }
+      } catch (error) {
+        municipalityReason = "anrop för kommunsnitt misslyckades";
+        console.warn("Kunde inte beräkna kommunsnitt:", error);
+      }
+    }
+  } else {
+    municipalityReason = "saknar könsfält eller könsvärden i vald yta";
+  }
+
   const ageWithValues = breakdown.age.filter((x) => x.value > 0.5);
   if (ageWithValues.length) {
     breakdownLines.push("Åldersspann (uppskattat):");
@@ -509,6 +1109,9 @@ async function runPopulationEstimate(layer) {
   setMeta([
     `Layer: ${evaluation.layerName}`,
     `Använt befolkningsfält: ${evaluation.field || "okänt"}`,
+    municipalityContext
+      ? `Kommunjämförelse: ${municipalityContext.field}=${municipalityContext.value} (${municipalityContext.features} features, källa ${municipalityContext.sourceLayer})`
+      : `Kommunjämförelse: kunde inte beräknas (${municipalityReason})`,
     `Features i bbox: ${evaluation.featureCount}`,
     `Features som bidrog till summa: ${evaluation.matched}`,
     "Obs: Delvis överlapp viktas med areaandel.",
@@ -523,9 +1126,17 @@ function initMapApp() {
   let currentMode = "draw";
   let lastTravelLatLng = null;
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap",
+  const baseTileUrl = AZURE_MAPS_KEY
+    ? `${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`
+    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+  const baseTileAttribution = AZURE_MAPS_KEY
+    ? '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
+    : "&copy; OpenStreetMap";
+
+  L.tileLayer(baseTileUrl, {
+    maxZoom: 22,
+    attribution: baseTileAttribution,
   }).addTo(map);
 
   const drawControl = new L.Control.Draw({
@@ -618,13 +1229,18 @@ function initMapApp() {
   }
 
   function setMode(nextMode) {
-    currentMode = nextMode === "travel" ? "travel" : "draw";
+    currentMode = ["draw", "travel", "import"].includes(nextMode) ? nextMode : "draw";
     if (travelSettingsEl) {
       travelSettingsEl.classList.toggle("hidden", currentMode !== "travel");
     }
-    mapEl.classList.toggle("travel-mode", currentMode === "travel");
+    if (importSettingsEl) {
+      importSettingsEl.classList.toggle("hidden", currentMode !== "import");
+    }
+    mapEl.classList.toggle("draw-disabled", currentMode !== "draw");
     if (currentMode === "travel") {
       setStatus("Klicka på kartan för att skapa ett restidsområde.");
+    } else if (currentMode === "import") {
+      setStatus("Klistra in eller importera koordinater och klicka på knappen för att skapa område.");
     } else {
       setStatus("Rita ett område på kartan.");
     }
@@ -680,6 +1296,31 @@ function initMapApp() {
     }
   }
 
+  function handleCoordinateImport() {
+    const coords = parseCoordinatesFromText(coordinateInputEl?.value || "");
+    const layer = layerFromCoordinatePolygon(coords);
+
+    drawnItems.clearLayers();
+    drawnItems.addLayer(layer);
+    populationEl.textContent = "-";
+    setBreakdown([]);
+
+    setMeta([
+      `Importläge: ${coords.length} koordinater`,
+      "Om koordinaterna inte var i ringordning användes en omslutande polygon.",
+    ]);
+
+    const polygonLayer = layer.getLayers()[0];
+    if (polygonLayer) {
+      runPopulationEstimate(polygonLayer).catch((err) => {
+        console.error(err);
+        setStatus(`Fel: ${err.message}`);
+        populationEl.textContent = "-";
+        setBreakdown([]);
+      });
+    }
+  }
+
   map.on(L.Draw.Event.CREATED, (event) => {
     if (currentMode !== "draw") return;
     handleNewShape(event.layer);
@@ -716,6 +1357,66 @@ function initMapApp() {
 
   if (travelMinutesEl) {
     travelMinutesEl.addEventListener("change", rerunTravelIfNeeded);
+  }
+
+  if (buildCoordinatesBtn) {
+    buildCoordinatesBtn.addEventListener("click", () => {
+      try {
+        handleCoordinateImport();
+      } catch (error) {
+        console.error(error);
+        setStatus(`Fel: ${error.message}`);
+      }
+    });
+  }
+
+  if (coordinateFileEl && coordinateInputEl) {
+    coordinateFileEl.addEventListener("change", async () => {
+      const file = coordinateFileEl.files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await readCoordinateFile(file);
+        coordinateInputEl.value = text;
+        setStatus(`Fil inläst: ${file.name}. Klicka på "Skapa område från koordinater".`);
+      } catch (error) {
+        console.error(error);
+        setStatus(`Fel vid filimport: ${error.message}`);
+      }
+    });
+  }
+
+  if (downloadTemplateBtn) {
+    downloadTemplateBtn.addEventListener("click", () => {
+      const templateCsv = [
+        "lat,lon",
+        "60.21603492250861,17.72232191679509",
+        "60.22000000000000,17.76000000000000",
+        "60.20500000000000,17.81000000000000",
+      ].join("\n");
+
+      const blob = new Blob([templateCsv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "koordinatmall.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Mallen laddades ner.");
+    });
+  }
+
+  if (printBtn) {
+    printBtn.addEventListener("click", () => {
+      if (drawnItems.getLayers().length === 0) {
+        setStatus("Skapa först ett område innan utskrift.");
+        return;
+      }
+      setStatus("Öppnar utskriftsvy...");
+      setTimeout(() => window.print(), 50);
+    });
   }
 
   clearBtn.addEventListener("click", () => {

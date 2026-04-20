@@ -22,6 +22,9 @@
         <label class="mode-option">
           <input type="radio" name="input-mode" value="travel" /> Klick + minuter (vägbaserat)
         </label>
+        <label class="mode-option">
+          <input type="radio" name="input-mode" value="import" /> Importera koordinater
+        </label>
 
         <div id="travel-settings" class="travel-settings hidden">
           <label for="travel-minutes">Minuter</label>
@@ -29,10 +32,24 @@
 
           <div class="hint">Använder verkliga vägar, hastighetsgränser och trafikdata via Azure Maps.</div>
         </div>
+
+        <div id="import-settings" class="import-settings hidden">
+          <label for="coordinate-input">Koordinater (en rad per punkt)</label>
+          <textarea id="coordinate-input" rows="7" placeholder="Exempel:
+60.21603492250861, 17.72232191679509
+60.21000000000000, 17.76000000000000
+..."></textarea>
+          <label for="coordinate-file">Importera CSV/TXT/XLSX</label>
+          <input id="coordinate-file" type="file" accept=".csv,.txt,.xlsx,.xls" />
+          <button id="download-template-btn" type="button">Ladda ner mall</button>
+          <button id="build-coordinates-btn" type="button">Skapa område från koordinater</button>
+          <div class="hint">Minst 3 punkter krävs. Format: lat, lon eller lon, lat.</div>
+        </div>
       </div>
 
       <div class="row">
         <button id="clear-btn" type="button">Rensa ritning</button>
+        <button id="print-btn" type="button">Skriv ut</button>
       </div>
 
       <div id="status" class="status">Initierar karta...</div>
@@ -56,6 +73,7 @@
     <script src="vendor/leaflet.js"></script>
     <script src="vendor/leaflet.draw.js"></script>
     <script src="vendor/turf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
   </body>

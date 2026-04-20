@@ -61,7 +61,20 @@ p {
   gap: 6px;
 }
 
+.import-settings {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #d1d5db;
+  display: grid;
+  gap: 6px;
+}
+
 .travel-settings label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.import-settings label {
   font-size: 0.8rem;
   color: #4b5563;
 }
@@ -73,6 +86,23 @@ p {
   font-size: 0.9rem;
 }
 
+.import-settings input,
+.import-settings textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 0.9rem;
+}
+
+.import-settings textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.import-settings button {
+  width: fit-content;
+}
+
 .hint {
   font-size: 0.78rem;
   color: #6b7280;
@@ -82,7 +112,7 @@ p {
   display: none;
 }
 
-#map.travel-mode .leaflet-draw {
+#map.draw-disabled .leaflet-draw {
   display: none;
 }
 
@@ -174,5 +204,46 @@ code {
   .panel {
     border-right: none;
     border-bottom: 1px solid #d1d5db;
+  }
+}
+
+@media print {
+  body {
+    display: block;
+    height: auto;
+    color: #111827;
+    background: #ffffff;
+  }
+
+  .panel {
+    border: 0;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .panel p,
+  .mode-box,
+  .row,
+  .status,
+  details {
+    display: none !important;
+  }
+
+  #map {
+    width: 100%;
+    height: 68vh;
+    border: 1px solid #d1d5db;
+    margin-bottom: 10px;
+  }
+
+  .result-box {
+    border: 1px solid #9ca3af;
+    background: #ffffff;
+  }
+
+  .label,
+  .meta,
+  .breakdown {
+    color: #111827;
   }
 }
