@@ -234,7 +234,10 @@ async function showRouteTo(destination, fromAutoNearest = false) {
       }).addTo(map);
 
       const group = L.featureGroup([routeLine, userMarker].filter(Boolean));
-      map.fitBounds(group.getBounds().pad(0.25), { animate: true });
+      map.fitBounds(group.getBounds().pad(0.25), { 
+        animate: true,
+        padding: [10, 10, 450, 10]
+      });
       setSelectedCard(destination, route.summary, route.instructions);
       setStatus(fromAutoNearest ? "Narmaste vattenpunkt vald." : `Vald destination: ${destination.name}`);
       return;
