@@ -208,6 +208,11 @@ code {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
   body {
     display: block;
     height: auto;
@@ -215,10 +220,16 @@ code {
     background: #ffffff;
   }
 
+  html {
+    height: auto;
+  }
+
   .panel {
     border: 0;
     background: #ffffff;
     padding: 0;
+    break-after: page;
+    page-break-after: always;
   }
 
   .panel p,
@@ -231,9 +242,12 @@ code {
 
   #map {
     width: 100%;
-    height: 68vh;
+    height: 255mm;
+    box-sizing: border-box;
     border: 1px solid #d1d5db;
-    margin-bottom: 10px;
+    margin: 0;
+    break-before: page;
+    page-break-before: always;
   }
 
   .result-box {

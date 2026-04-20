@@ -65,6 +65,7 @@ const coordinateFileEl = document.getElementById("coordinate-file");
 const downloadTemplateBtn = document.getElementById("download-template-btn");
 const buildCoordinatesBtn = document.getElementById("build-coordinates-btn");
 const printBtn = document.getElementById("print-btn");
+const areaStyleInputs = Array.from(document.querySelectorAll('input[name="area-style"]'));
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -214,9 +215,9 @@ function layerFromCoordinatePolygon(coords) {
 
   const layer = L.geoJSON(polygonFeature, {
     style: {
-      color: "#7c3aed",
+      color: "#0f766e",
       weight: 2,
-      fillColor: "#a78bfa",
+      fillColor: "#14b8a6",
       fillOpacity: 0.2,
     },
   });
@@ -1124,6 +1125,7 @@ function initMapApp() {
   map.addLayer(drawnItems);
   let currentMode = "draw";
   let lastTravelLatLng = null;
+  let printViewState = null;
 
   const azureTileAttribution =
     '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
@@ -1173,6 +1175,52 @@ function initMapApp() {
     },
   });
   map.addControl(drawControl);
+
+  function useFilledArea() {
+    const selected = areaStyleInputs.find((input) => input.checked)?.value;
+    return selected !== "outline";
+  }
+
+  function applySelectedAreaStyle(layer) {
+    if (!layer) return;
+
+    const style = {
+      color: "#0f766e",
+      weight: 2.5,
+      fillColor: "#14b8a6",
+      fillOpacity: useFilledArea() ? 0.2 : 0,
+      opacity: 1,
+    };
+
+    if (typeof layer.setStyle === "function") {
+      layer.setStyle(style);
+    }
+
+    if (typeof layer.eachLayer === "function") {
+      layer.eachLayer((innerLayer) => {
+        if (typeof innerLayer.setStyle === "function") {
+          innerLayer.setStyle(style);
+        }
+      });
+    }
+  }
+
+  function refreshCurrentAreaStyle() {
+    drawnItems.eachLayer((layer) => applySelectedAreaStyle(layer));
+  }
+
+  function fitMapForPrint() {
+    if (!printViewState) {
+      printViewState = {
+        center: map.getCenter(),
+        zoom: map.getZoom(),
+      };
+    }
+
+    map.invalidateSize({ pan: false, animate: false });
+    map.setView(printViewState.center, printViewState.zoom, { animate: false });
+    map.invalidateSize({ pan: false, animate: false });
+  }
 
   function getTravelMinutes() {
     const n = Number.parseFloat(travelMinutesEl?.value || "8");
@@ -1271,6 +1319,7 @@ function initMapApp() {
   function handleNewShape(layer) {
     drawnItems.clearLayers();
     drawnItems.addLayer(layer);
+    applySelectedAreaStyle(layer);
     populationEl.textContent = "-";
     setBreakdown([]);
     setMeta([]);
@@ -1295,6 +1344,7 @@ function initMapApp() {
 
       drawnItems.clearLayers();
       drawnItems.addLayer(layer);
+      applySelectedAreaStyle(layer);
       populationEl.textContent = "-";
 
       setMeta([
@@ -1324,6 +1374,7 @@ function initMapApp() {
 
     drawnItems.clearLayers();
     drawnItems.addLayer(layer);
+    applySelectedAreaStyle(layer);
     populationEl.textContent = "-";
     setBreakdown([]);
 
@@ -1436,9 +1487,36 @@ function initMapApp() {
         setStatus("Skapa först ett område innan utskrift.");
         return;
       }
+
+      printViewState = {
+        center: map.getCenter(),
+        zoom: map.getZoom(),
+      };
+      fitMapForPrint();
       setStatus("Öppnar utskriftsvy...");
-      setTimeout(() => window.print(), 50);
+      setTimeout(() => {
+        fitMapForPrint();
+        window.print();
+      }, 320);
     });
+  }
+
+  window.addEventListener("beforeprint", () => {
+    setTimeout(() => fitMapForPrint(), 40);
+  });
+
+  window.addEventListener("afterprint", () => {
+    setTimeout(() => {
+      if (printViewState) {
+        map.setView(printViewState.center, printViewState.zoom, { animate: false });
+      }
+      map.invalidateSize({ pan: false, animate: false });
+      printViewState = null;
+    }, 100);
+  });
+
+  for (const input of areaStyleInputs) {
+    input.addEventListener("change", refreshCurrentAreaStyle);
   }
 
   clearBtn.addEventListener("click", () => {
@@ -1451,6 +1529,7 @@ function initMapApp() {
   });
 
   setMode("draw");
+  refreshCurrentAreaStyle();
 }
 
 function startWhenLibrariesReady(maxWaitMs = 10000) {
