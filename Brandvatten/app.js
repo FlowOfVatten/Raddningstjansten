@@ -1,7 +1,7 @@
 const AZURE_MAPS_TILE_URL =
   "https://atlas.microsoft.com/map/tile?api-version=2024-04-01&tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256&language=sv-SE&view=Auto&subscription-key=";
 const AZURE_MAPS_ROUTE_URL = "https://atlas.microsoft.com/route/directions/json";
-const IMAGE_VERSION = "20260420-ekeby-fix";
+const IMAGE_VERSION = "20260420-ekeby-rotate-minus90-v2";
 
 const DESTINATIONS = [
   {
