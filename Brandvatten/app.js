@@ -23,6 +23,7 @@ const DESTINATIONS = [
 
 const statusEl = document.getElementById("status");
 const locateBtn = document.getElementById("locate-btn");
+const collapseBtn = document.getElementById("collapse-btn");
 
 const selectedCardEl = document.getElementById("selected-card");
 const selectedImageEl = document.getElementById("selected-image");
@@ -254,6 +255,10 @@ function bindUiEvents() {
     requestUserLocation(false);
   });
 
+  collapseBtn.addEventListener("click", () => {
+    document.querySelector(".overlay-panel").classList.remove("expanded");
+  });
+
   destinationListEl.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -317,8 +322,8 @@ function requestUserLocation(initial) {
 
       const nearest = findNearestDestination(userPosition);
 
-      if (!selectedDestination || initial) {
-        showRouteTo(nearest.destination, true);
+      if (!selectedDestination) {
+        map.setView([nearest.destination.lat, nearest.destination.lon], 15, { animate: true });
       } else {
         showRouteTo(selectedDestination, false);
       }
