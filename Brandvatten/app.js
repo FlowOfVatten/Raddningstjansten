@@ -9,7 +9,7 @@ const DESTINATIONS = [
     description: "Brandvattenpunkt vid Fornbro.",
     lat: 60.0618,
     lon: 18.218,
-    image: "vendor/images/fornbro.jpg",
+    image: "vendor/images/ekeby.jpg",
   },
   {
     id: "ekeby",
@@ -17,7 +17,7 @@ const DESTINATIONS = [
     description: "Brandvattenpunkt vid Ekeby.",
     lat: 60.0811,
     lon: 18.2272,
-    image: "vendor/images/ekeby.jpg",
+    image: "vendor/images/fornbro.jpg",
   },
 ];
 
@@ -33,6 +33,7 @@ const listStatusEl = document.getElementById("list-status");
 const selectedCardEl = document.getElementById("selected-card");
 const selectedImageEl = document.getElementById("selected-image");
 const selectedNameEl = document.getElementById("selected-name");
+const selectedCoordsEl = document.getElementById("selected-coords");
 const selectedDescEl = document.getElementById("selected-desc");
 const selectedMetaEl = document.getElementById("selected-meta");
 const selectedRouteBtn = document.getElementById("selected-route-btn");
@@ -94,6 +95,10 @@ function formatDuration(seconds) {
   if (mins < 60) return `${mins} min`;
   const hours = Math.floor(mins / 60);
   return `${hours} h ${mins % 60} min`;
+}
+
+function formatCoords(destination) {
+  return `GPS coord: ${destination.lat.toFixed(4)}, ${destination.lon.toFixed(4)}`;
 }
 
 function buildNavigationUrl(destination) {
@@ -158,6 +163,7 @@ function renderDestinationList() {
       return `
         <article class="destination-item">
           <h3>${destination.name}</h3>
+          <div class="destination-coords">${formatCoords(destination)}</div>
           <p>${destination.description}</p>
           ${nearestBadge}
           <div class="destination-meta">Avstand: ${distanceText}</div>
@@ -177,6 +183,7 @@ function setSelectedCard(destination, routeSummary, instructions) {
   selectedCardEl.classList.remove("hidden");
   selectedImageEl.src = destination.image;
   selectedNameEl.textContent = destination.name;
+  selectedCoordsEl.textContent = formatCoords(destination);
   selectedDescEl.textContent = destination.description;
 
   if (routeSummary) {
