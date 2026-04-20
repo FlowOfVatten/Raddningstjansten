@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brandvatten</title>
+    <script>
+      // SWA can serve this page at /Brandvatten (no trailing slash),
+      // which breaks relative asset paths. Normalize URL early.
+      if (/\/Brandvatten$/i.test(window.location.pathname)) {
+        window.location.replace(`${window.location.pathname}/${window.location.search}${window.location.hash}`);
+      }
+    </script>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="vendor/leaflet.css" />
     <link rel="stylesheet" href="style.css" />
