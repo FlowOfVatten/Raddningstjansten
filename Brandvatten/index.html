@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brandvatten</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="vendor/leaflet.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main id="map" aria-label="Karta med brandvattenpunkter"></main>
+
+    <section class="overlay-panel" aria-live="polite">
+      <header class="panel-header">
+        <div>
+          <h1>Brandvatten</h1>
+          <p>Hitta närmaste plats att fylla tankbil med vatten.</p>
+        </div>
+        <button id="locate-btn" type="button" class="btn-primary">Uppdatera position</button>
+      </header>
+
+      <div id="status" class="status">Hämtar telefonens position...</div>
+
+      <article id="nearest-card" class="card hidden">
+        <div class="card-title">Närmast just nu</div>
+        <img id="nearest-image" alt="Bild för närmaste punkt" />
+        <h2 id="nearest-name"></h2>
+        <p id="nearest-desc"></p>
+        <div class="meta-row" id="nearest-meta"></div>
+        <div class="button-row">
+          <button id="nearest-route-btn" type="button" class="btn-primary">Visa rutt</button>
+          <button id="nearest-nav-btn" type="button" class="btn-secondary">Navigera hit</button>
+        </div>
+      </article>
+
+      <article id="selected-card" class="card hidden">
+        <div class="card-title">Vald punkt</div>
+        <img id="selected-image" alt="Bild för vald punkt" />
+        <h2 id="selected-name"></h2>
+        <p id="selected-desc"></p>
+        <div class="meta-row" id="selected-meta"></div>
+        <div class="button-row">
+          <button id="selected-route-btn" type="button" class="btn-primary">Visa rutt</button>
+          <button id="selected-nav-btn" type="button" class="btn-secondary">Navigera hit</button>
+        </div>
+        <div id="directions" class="directions"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-title">Alla destinationer</div>
+        <div id="destination-list" class="destination-list"></div>
+      </article>
+    </section>
+
+    <script src="vendor/leaflet.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
