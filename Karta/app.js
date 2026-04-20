@@ -1126,18 +1126,37 @@ function initMapApp() {
   let currentMode = "draw";
   let lastTravelLatLng = null;
 
-  const baseTileUrl = AZURE_MAPS_KEY
-    ? `${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`
-    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const azureTileAttribution =
+    '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
 
-  const baseTileAttribution = AZURE_MAPS_KEY
-    ? '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
-    : "&copy; OpenStreetMap";
+  function createAzureBaseLayer(tilesetId, options = {}) {
+    return L.tileLayer(
+      `${AZURE_MAPS_TILE_URL.replace("microsoft.base.road", tilesetId)}${encodeURIComponent(AZURE_MAPS_KEY)}`,
+      {
+        maxZoom: 22,
+        attribution: azureTileAttribution,
+        ...options,
+      },
+    );
+  }
 
-  L.tileLayer(baseTileUrl, {
-    maxZoom: 22,
-    attribution: baseTileAttribution,
-  }).addTo(map);
+  const baseLayers = AZURE_MAPS_KEY
+    ? {
+        Vägar: createAzureBaseLayer("microsoft.base.road"),
+        Satellit: createAzureBaseLayer("microsoft.imagery", { maxNativeZoom: 19 }),
+        Hybrid: createAzureBaseLayer("microsoft.base.hybrid.road"),
+        Terräng: createAzureBaseLayer("microsoft.terra.main", { maxNativeZoom: 6 }),
+      }
+    : {
+        OpenStreetMap: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 22,
+          attribution: "&copy; OpenStreetMap",
+        }),
+      };
+
+  const defaultBaseLayer = Object.values(baseLayers)[0];
+  defaultBaseLayer.addTo(map);
+  L.control.layers(baseLayers, null, { position: "topright", collapsed: true }).addTo(map);
 
   const drawControl = new L.Control.Draw({
     edit: { featureGroup: drawnItems },
