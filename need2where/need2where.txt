@@ -1,0 +1,215 @@
+Jag lyssnar – **och idén är faktiskt bra på riktigt**.  
+Det här är *inte* “Google Maps igen”, utan en **behovs‑baserad sökning som Google löser ganska dåligt idag**, speciellt utomlands.
+
+Låt oss bryta ner den **krispigt och verklighetsnära**, utan fluff.
+
+***
+
+## 🧠 Kärnan i idén (så som du beskriver den)
+
+> *“Jag är i ett land. Jag vill köpa X. Var kan jag köpa det – lagligt, nu, nära mig – och hur tar jag mig dit?”*
+
+Input:
+
+*   📍 Min position
+*   🔎 Vad jag vill ha: *cigaretter, öl, hamburgare, apotek, gas, SIM‑kort*
+
+Output:
+
+*   ✅ Närmaste **relevanta** butik
+*   ✅ Kort förklaring (*”Säljs bara på tobaksbutik i detta land”*)
+*   ✅ Vägbeskrivning
+
+Detta är **needs‑first**, inte POI‑first.
+
+***
+
+## 🔥 Varför Google Maps inte räcker
+
+Google Maps:
+
+*   Söker **platser**
+*   Förutsätter att:
+    *   du vet *vad* som säljer varan
+    *   du förstår lokala regler
+
+Exempel där Google fallerar:
+
+*   ❌ “Cigarettes” i Finland → *fan vet*
+*   ❌ “Beer” i vissa länder → öppettider, licenser
+*   ❌ “Pharmacy” → jour / receptkrav
+*   ❌ “Gas” → campinggas? bilgas? kök?
+
+Din idé:
+
+> Jag bryr mig inte om *butikstyp* – jag bryr mig om **resultatet**.
+
+Det är en **väsentlig skillnad**.
+
+***
+
+## ✅ Det här gör idén stark (objektivt)
+
+### 1. Den löser ett äkta reseproblem
+
+Nästan alla som rest har varit här:
+
+*   “Var tusan köper man cigg här?”
+*   “Får man köpa öl i mataffär?”
+*   “Var är närmaste apotek som faktiskt är öppet?”
+
+Det är **friktion i verkligheten**, inte i appvärlden.
+
+***
+
+### 2. Den är regel‑ och landsberoende
+
+Det är här din idé blir smart:
+
+| Vara           | Land     | Säljs var        |
+| -------------- | -------- | ---------------- |
+| Cigaretter     | Sverige  | Tobakskiosk, ICA |
+| Cigaretter     | Finland  | Alko / R‑kiosk   |
+| Alkohol        | USA      | Liquor store     |
+| Alkohol        | Sverige  | Systembolaget    |
+| Smärtstillande | Tyskland | Apotheke         |
+| Smärtstillande | UK       | Supermarket      |
+
+Google kräver **lokalkunskap hos användaren**.  
+Din idé kräver **lokalkunskap hos systemet**.
+
+***
+
+### 3. Tekniken är 100 % genomförbar (viktigt)
+
+Ingen magi krävs:
+
+*   ✅ GPS (webb)
+*   ✅ POI‑databaser (OpenStreetMap räcker långt)
+*   ✅ En **regel‑/mappnings‑layer per land**
+*   ✅ Routing (OSRM / Google / Apple)
+
+Det är **data‑modellering**, inte AI‑science‑fiction.
+
+***
+
+## 🔧 Hur systemet egentligen skulle fungera (enkelt)
+
+### Steg 1: Klassificera behov
+
+Användarinput:
+
+> “cigarettes”
+
+Översätts internt till:
+
+```text
+PRODUCT = tobacco
+```
+
+***
+
+### Steg 2: Länderregel
+
+```json
+SWEDEN:
+  tobacco -> kiosk, supermarket
+
+FINLAND:
+  tobacco -> R-kiosk, Alko
+
+USA:
+  tobacco -> gas_station, liquor_store
+```
+
+***
+
+### Steg 3: POI-matchning
+
+*   Hämta POI i närheten som:
+    *   matchar tillåtna butikstyper
+    *   är öppna nu
+
+***
+
+### Steg 4: Presentation
+
+> “I Finland säljs cigaretter endast på R‑kiosker och Alko.  
+> Närmaste: **R‑kiosk, 350 m**”
+
+➡️ Klick → **vägbeskrivning**
+
+***
+
+## 🚀 Det här är extra viktigt: du kan börja EXTREMT smalt
+
+Du behöver inte bygga “hela världen”.
+
+### MVP som faktiskt funkar:
+
+*   🌍 Europa
+*   🧾 10–15 vanliga saker:
+    *   cigaretter
+    *   alkohol
+    *   apotek
+    *   mat
+    *   SIM‑kort
+    *   toalett 😄
+*   📱 Web only (ingen app)
+
+Det räcker för:
+
+*   resenärer
+*   backpackers
+*   affärsresenärer
+
+***
+
+## ⚠️ Några realistiska begränsningar (ingen BS)
+
+*   Juridik:
+    *   visa *var*, inte *sälja*
+    *   visa *regel*, inte uppmana
+*   Exakthet:
+    *   ibland saknas data om sortiment
+    *   “kan säljas”, inte “garanteras”
+
+Detta är **acceptabelt** och normalt.
+
+***
+
+## 💡 Varför jag tycker detta är värt att fortsätta på
+
+Med tanke på ALLT vi pratat om tidigare:
+
+*   du vill ha **riktig nytta**
+*   du hatar data som inte kan användas
+*   du letar efter något folk *faktiskt öppnar när de behöver*
+
+👉 **Detta är exakt en sådan tjänst.**
+
+Det är:
+
+*   inte en “kul app”
+*   inte beroende av hemliga API:er
+*   inte juridiskt grå
+*   inte realtidskänsligt
+
+***
+
+## Nästa steg (utan att bygga luftslott)
+
+Om du vill fortsätta seriöst kan vi i nästa svar:
+
+1.  ✅ välja **3 produkter + 3 länder**
+2.  ✅ definiera exakt datamodell
+3.  ✅ lista vilka öppna datakällor som räcker
+4.  ✅ avgöra: hobbyprojekt eller legit produkt
+
+Säg om du vill ta:
+
+*   **MVP‑design**
+*   **Datakällor (konkret)**
+*   **Risker / show‑stoppers**
+
+Men ja – **idén håller**.
