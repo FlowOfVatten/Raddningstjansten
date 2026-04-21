@@ -197,10 +197,5 @@ document.getElementById("clear-btn").addEventListener("click", async () => {
 // Clean up on page unload
 window.addEventListener("beforeunload", () => {
   if (updateTimer) clearInterval(updateTimer);
-  console.log("[App] Page unloading"rs, UPDATE_INTERVAL);
-});
-
-// Clean up on page unload
-window.addEventListener("beforeunload", () => {
-  if (updateTimer) clearInterval(updateTimer);
+  console.log("[App] Page unloading");
 });
