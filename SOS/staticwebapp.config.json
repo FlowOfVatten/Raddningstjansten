@@ -1,0 +1,16 @@
+{
+  "routes": [
+    {
+      "route": "/api/*",
+      "serve": "api/index.js",
+      "methods": ["GET", "POST", "DELETE"]
+    },
+    {
+      "route": "/*",
+      "serve": "/index.html"
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  }
+}

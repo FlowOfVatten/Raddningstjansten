@@ -1,0 +1,121 @@
+Absolut. Här är en **sammanfattning i neutral, besluts‑ och verksamhetsanpassad form**, som du kan använda som **underlag, presentation eller konceptbeskrivning**.
+
+***
+
+# Sammanfattning – Webb­baserat positions‑ och SOS‑stöd vid skogsbrand
+
+## Syfte
+
+Att med en **enkel webblösning** ge insatsledning snabb och tillförlitlig **lägesbild över personalens positioner** vid skogsbrand, samt möjliggöra **omedelbar positionsdelning i nödläge (SOS)** utan behov av app, inloggning eller särskild utrustning.
+
+Lösningen är utformad för att:
+
+*   fungera på **privata mobiltelefoner**
+*   användas **endast vid pågående insats**
+*   ge stöd för **säker ledning och arbetsmiljö**
+
+***
+
+## Funktion 1 – Normal positionsdelning (lägesbild)
+
+### Beskrivning
+
+Under pågående insats uppmanas brandmän att öppna en bestämd webbsida i mobilens webbläsare och godkänna positionsdelning.
+
+### Funktionalitet
+
+*   Brandmannens **aktuella position delas i realtid**
+*   Position uppdateras kontinuerligt (t.ex. var 5–10 sekund)
+*   Insatsledning ser:
+    *   samtliga aktiva brandmän på karta
+    *   senaste uppdateringstid
+    *   ungefärlig GPS‑noggrannhet
+
+### Användningsområde
+
+*   Skapa **samlad lägesbild** över personalens placering
+*   Säkerställa att **luftinsatser (brandflyg/helikopter)** kan genomföras utan risk för personal
+*   Understödja taktiska beslut vid snabbt förändrade förhållanden
+
+### Viktiga egenskaper
+
+*   Ingen historik lagras
+*   Positionsdelning upphör automatiskt när sidan stängs
+*   Ingen bakgrundsspårning
+*   Används endast när brandmannen själv aktivt deltar
+
+***
+
+## Funktion 2 – SOS / Nödläge (skadad eller utsatt brandman)
+
+### Beskrivning
+
+Vid skada, fastklämning eller annan nödsituation kan en brandman snabbt aktivera ett **SOS‑läge via webbsidan**.
+
+### Funktionalitet
+
+*   Mycket **enkel åtkomst** (kort URL, QR‑kod eller bokmärke)
+*   En tydlig knapp:
+    > **“Jag är skadad – dela min position”**
+*   Vid aktivering:
+    *   position sänds med högre frekvens
+    *   status markeras som **SOS** i ledningsvyn
+    *   tydlig visuell markering på karta
+
+### Vad insatsledningen ser
+
+*   Exakt var den skadade befinner sig
+*   Tydlig nödlägesmarkering
+*   Senaste positionstid
+*   Indikation om personen är stilla eller rör sig
+
+### Användningsområde
+
+*   Snabb lokalisering av skadad personal i terräng
+*   Prioritering och dirigering av räddningsresurser
+*   Säker koordinering med luftinsats och markresurser
+
+***
+
+## Teknik & datalagring (övergripande)
+
+*   Positioner hanteras som **tillfällig realtidsdata**
+*   Ingen kravbild på SQL‑databas
+*   Data hålls i **minne / kortlivad lagring** och raderas automatiskt
+*   Fokus på:
+    *   låg latens
+    *   hög tillgänglighet
+    *   minimal juridisk belastning
+
+***
+
+## Juridik & arbetsmiljö
+
+*   Position delas **endast efter aktivt godkännande**
+*   Används endast under **pågående insats eller nödläge**
+*   Ingen permanent spårning eller övervakning
+*   Syftet är **personal­säkerhet och arbetsmiljö**, inte tillsyn
+
+***
+
+## Sammanfattande värde
+
+Den föreslagna webblösningen ger:
+
+*   ✅ Snabb lägesbild utan teknisk tröskel
+*   ✅ Förbättrad personalsäkerhet
+*   ✅ Stöd för säkra luftinsatser
+*   ✅ Låg komplexitet och hög robusthet
+*   ✅ God förankring juridiskt och organisatoriskt
+
+Detta är en **praktisk, realistisk och ändamålsenlig lösning** som lämpar sig väl för både **övning och skarp insats**.
+
+***
+
+Om du vill kan jag nästa steg:
+
+*   anpassa texten till **tjänsteutlåtande**, **PM** eller **beslutsunderlag**
+*   förenkla den ytterligare för **personalinformation**
+*   eller göra en **1‑sidig översikt med flödesschema**
+
+Säg bara hur du tänker använda den.
