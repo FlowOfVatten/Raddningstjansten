@@ -155,11 +155,6 @@ function updateStats(firefighters) {
   document.getElementById("sos-count").textContent = `${sosCount} SOS`;
 }
 
-  // Display in header if status element exists
-  const statusEl = document.querySelector(".header-info");
-  if (statusEl && statusEl.lastElementChild) {
-    statusEl.lastElementChild.textContent = message;
-  }
 function escapeHtml(text) {
   return String(text)
     .replace(/&/g, "&amp;")
@@ -169,6 +164,11 @@ function escapeHtml(text) {
 
 function setStatus(message) {
   console.log("[Status]", message);
+  // Display in header if status element exists
+  const statusEl = document.querySelector(".header-info");
+  if (statusEl && statusEl.lastElementChild) {
+    statusEl.lastElementChild.textContent = message;
+  }
 }
 
 // Button handlers
@@ -181,6 +181,11 @@ document.getElementById("clear-btn").addEventListener("click", async () => {
     markers.forEach(marker => map.removeLayer(marker));
     markers.clear();
     document.getElementById("firefighter-list").innerHTML = '<li class="empty">Rensad</li>';
+  }
+});
+
+// Initialize
+document.addEventListener("DOMContentLoaded", () => {
   console.log("[App] Starting insatsledarvyn");
   
   try {
