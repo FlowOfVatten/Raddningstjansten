@@ -10,11 +10,23 @@ let updateTimer;
 
 // Initialize map
 function initMap() {
-  map = L.map("map").setView(DEFAULT_CENTER, 12);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap"
-  }).addTo(map);
+  const mapEl = document.getElementById("map");
+  if (!mapEl) {
+    console.error("[initMap] Map container not found");
+    return;
+  }
+
+  try {
+    map = L.map("map").setView(DEFAULT_CENTER, 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(map);
+    console.log("[initMap] Map initialized successfully");
+  } catch (error) {
+    console.error("[initMap] Failed to initialize map:", error);
+    setStatus(`Kartfel: ${error.message}`);
+  }
 }
 
 // Format timestamp
@@ -31,14 +43,23 @@ function formatTime(ms) {
 
 // Update firefighters display
 async function updateFirefighters() {
+  if (!map) {
+    console.warn("[updateFirefighters] Map not initialized yet");
+    return;
+  }
+
   try {
+    console.log("[updateFirefighters] Fetching positions from", `${API_BASE}/positions`);
     const response = await fetch(`${API_BASE}/positions`);
+    
     if (!response.ok) {
-      setStatus("Kunde inte hämta positioner");
+      console.error("[updateFirefighters] API returned", response.status);
+      setStatus(`API-fel: ${response.status}`);
       return;
     }
 
     const data = await response.json();
+    console.log("[updateFirefighters] Got", data.count, "firefighters");
     const firefighters = data.firefighters || [];
 
     // Update map markers
@@ -53,8 +74,8 @@ async function updateFirefighters() {
     // Update timestamp
     document.getElementById("last-update").textContent = formatTime(data.timestamp);
   } catch (error) {
-    console.error("Update failed:", error);
-    setStatus("Anslutningsfel");
+    console.error("[updateFirefighters] Error:", error);
+    setStatus(`Anslutningsfel: ${error.message}`);
   }
 }
 
@@ -134,6 +155,11 @@ function updateStats(firefighters) {
   document.getElementById("sos-count").textContent = `${sosCount} SOS`;
 }
 
+  // Display in header if status element exists
+  const statusEl = document.querySelector(".header-info");
+  if (statusEl && statusEl.lastElementChild) {
+    statusEl.lastElementChild.textContent = message;
+  }
 function escapeHtml(text) {
   return String(text)
     .replace(/&/g, "&amp;")
@@ -155,14 +181,23 @@ document.getElementById("clear-btn").addEventListener("click", async () => {
     markers.forEach(marker => map.removeLayer(marker));
     markers.clear();
     document.getElementById("firefighter-list").innerHTML = '<li class="empty">Rensad</li>';
+  console.log("[App] Starting insatsledarvyn");
+  
+  try {
+    initMap();
+    updateFirefighters();
+    updateTimer = setInterval(updateFirefighters, UPDATE_INTERVAL);
+    console.log("[App] Update timer started");
+  } catch (error) {
+    console.error("[App] Initialization error:", error);
+    setStatus(`Startfel: ${error.message}`);
   }
 });
 
-// Initialize
-document.addEventListener("DOMContentLoaded", () => {
-  initMap();
-  updateFirefighters();
-  updateTimer = setInterval(updateFirefighters, UPDATE_INTERVAL);
+// Clean up on page unload
+window.addEventListener("beforeunload", () => {
+  if (updateTimer) clearInterval(updateTimer);
+  console.log("[App] Page unloading"rs, UPDATE_INTERVAL);
 });
 
 // Clean up on page unload

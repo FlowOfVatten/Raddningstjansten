@@ -9,6 +9,7 @@ let isSharing = false;
 let isSOSActive = false;
 let updateTimer;
 let currentPosition;
+let lastKnownPosition = null;
 
 // Generate unique ID for this firefighter
 function generateId() {
@@ -17,14 +18,34 @@ function generateId() {
   return id;
 }
 
-// Get geolocation
+// Get geolocation with iOS fallback
 async function getPosition() {
   return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
-    });
+    // iOS often needs longer timeout or caching
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const timeout = isIOS ? 15000 : 10000;
+    const maximumAge = isIOS ? 5000 : 0;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        lastKnownPosition = position;
+        resolve(position);
+      },
+      (error) => {
+        console.warn(`Geolocation error (${error.code}):`, error.message);
+        // Use last known position as fallback
+        if (lastKnownPosition) {
+          resolve(lastKnownPosition);
+        } else {
+          reject(error);
+        }
+      },
+      {
+        enableHighAccuracy: false, // Faster on iOS without high accuracy
+        timeout,
+        maximumAge
+      }
+    );
   });
 }
 
@@ -66,8 +87,14 @@ async function updatePosition() {
 
     updateDisplay();
   } catch (error) {
-    setStatus("Kunde inte hämta position. Tillat GPS-åtkomst.", false);
-    console.error(error);
+    console.error("updatePosition error:", error);
+    if (error.code === 1) {
+      setStatus("GPS-åtkomst nekad. Tillat i inställningar.", false);
+    } else if (error.code === 3) {
+      setStatus("GPS-timeout. Försöker igen...", false);
+    } else {
+      setStatus("Kunde inte hämta position. Försöker igen...", false);
+    }
   }
 }
 
