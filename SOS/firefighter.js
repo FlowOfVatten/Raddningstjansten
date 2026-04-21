@@ -1,6 +1,6 @@
 // Brandmannens vy – Firefighter Client
 
-const API_BASE = window.location.origin;
+const API_BASE = '/api';
 const POSITION_UPDATE_INTERVAL = 5000; // Update every 5 seconds
 const SOS_UPDATE_INTERVAL = 2000; // Update every 2 seconds in SOS mode
 
@@ -40,7 +40,7 @@ async function updatePosition() {
       accuracy: position.coords.accuracy
     };
 
-    const response = await fetch(`${API_BASE}/api/position`, {
+    const response = await fetch(`${API_BASE}/position`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -163,7 +163,7 @@ document.getElementById("sos-btn").addEventListener("click", activateSOS);
 // Notify server when page closes
 window.addEventListener("beforeunload", () => {
   if (isSharing) {
-    navigator.sendBeacon(`${API_BASE}/api/position/${firefighterId}`, {});
+    navigator.sendBeacon(`${API_BASE}/position?id=${firefighterId}`, {});
   }
 });
 
@@ -171,7 +171,7 @@ window.addEventListener("beforeunload", () => {
 window.addEventListener("unload", async () => {
   if (isSharing) {
     try {
-      await fetch(`${API_BASE}/api/position/${firefighterId}`, {
+      await fetch(`${API_BASE}/position?id=${firefighterId}`, {
         method: "DELETE"
       });
     } catch (e) {

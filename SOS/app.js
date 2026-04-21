@@ -1,6 +1,6 @@
 // Insatsledarvyn – Command Center
 
-const API_BASE = window.location.origin;
+const API_BASE = '/api';
 const UPDATE_INTERVAL = 2000; // Poll every 2 seconds
 const DEFAULT_CENTER = [59.3293, 18.0686]; // Stockholm
 
@@ -32,7 +32,7 @@ function formatTime(ms) {
 // Update firefighters display
 async function updateFirefighters() {
   try {
-    const response = await fetch(`${API_BASE}/api/positions`);
+    const response = await fetch(`${API_BASE}/positions`);
     if (!response.ok) {
       setStatus("Kunde inte hämta positioner");
       return;

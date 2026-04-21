@@ -19,26 +19,33 @@ En fullständig webblösning för **positionsdelning och nödkommunikation** vid
 ## Teknologi
 
 - **Frontend**: HTML5 + Leaflet-karta + vanilla JS
-- **Backend**: Node.js + Express
+- **Backend**: Azure Functions (serverles)
 - **Lagring**: In-memory (automatisk rensning efter 5 min inaktivitet)
 - **API**: REST-baserad (`/api/positions`, `/api/position`)
+- **Hosting**: Azure Static Web Apps (Free tier kompatibel)
 
-## Lokal start
+## Lokal utveckling
 
-1. `npm install` (installera Express, CORS, body-parser)
-2. `npm start` eller `node server.js`
-3. Öppna `http://localhost:3000`
+Du behöver **INTE** Node.js installerat lokalt. Öppna bara HTML-filerna direkt:
 
-### Två separata sessionaler:
-- Insatsledare: `http://localhost:3000` (index.html)
-- Brandman: `http://localhost:3000/firefighter.html`
+1. `index.html` – Insatsledarvyn (karta)
+2. `firefighter.html` – Brandmannens vy (positionsdelning)
 
-## Deployment på Azure SWA
+**OBS:** API:et fungerar inte lokalt utan deployment. För fullständig lokal test behöver du Azure Functions Core Tools (valfritt).
 
-1. Skapa en Azure Static Web Apps-instans
-2. Länka detta repo eller ladda upp filerna
-3. Konfigurera build command: `npm install`
-4. SWA serverar automatiskt Node.js-backend via `/api/*`-routing
+## Deployment på Azure SWA (Free tier)
+
+1. Gå till **Azure Portal** → **Static Web Apps** → **Skapa ny**
+2. Länka ditt GitHub-repo: `VattenfallGIT/Raddningstjansten-Ovning`
+3. **Build-inställningar:**
+   - App location: `SOS/`
+   - Build command: (lämna tomt – ingen build behövs)
+   - Output location: `.`
+4. Deploy
+
+SWA serverar automatiskt:
+- HTML/CSS/JS-filerna
+- Azure Functions via `/api/*`-routing
 
 ## Säkerhet & juridik
 

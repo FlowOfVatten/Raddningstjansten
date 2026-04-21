@@ -2,8 +2,7 @@
   "routes": [
     {
       "route": "/api/*",
-      "serve": "api/index.js",
-      "methods": ["GET", "POST", "DELETE"]
+      "allowedRoles": ["anonymous"]
     },
     {
       "route": "/*",
