@@ -1,7 +1,7 @@
 const AZURE_MAPS_TILE_URL =
   "https://atlas.microsoft.com/map/tile?api-version=2024-04-01&tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256&language=sv-SE&view=Auto&subscription-key=";
 const AZURE_MAPS_ROUTE_URL = "https://atlas.microsoft.com/route/directions/json";
-const IMAGE_VERSION = "20260420-ekeby-rotate-minus90-v2";
+const IMAGE_VERSION = "20260421-stensunda-alsunda";
 
 const DESTINATIONS = [
   {
@@ -19,6 +19,22 @@ const DESTINATIONS = [
     lat: 60.0811,
     lon: 18.2272,
     image: `vendor/images/ekeby.jpg?v=${IMAGE_VERSION}`,
+  },
+  {
+    id: "stensunda",
+    name: "Stensunda vattenpunkt",
+    description: "Brandvattenpunkt vid Stensunda.",
+    lat: 60.0352,
+    lon: 18.2286,
+    image: `vendor/images/stensunda.jpg?v=${IMAGE_VERSION}`,
+  },
+  {
+    id: "alsunda",
+    name: "Alsunda vattenpunkt",
+    description: "Brandvattenpunkt vid Alsunda.",
+    lat: 60.0301,
+    lon: 18.1823,
+    image: `vendor/images/ålsunda.jpg?v=${IMAGE_VERSION}`,
   },
 ];
 
