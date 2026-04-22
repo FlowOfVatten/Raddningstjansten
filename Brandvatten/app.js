@@ -60,6 +60,14 @@ const DESTINATIONS = [
     lon: 18.0291,
     image: `vendor/images/ganingsmyran.jpg?v=${IMAGE_VERSION}`,
   },
+  {
+    id: "lydinge",
+    name: "Lydinge vattenpunkt",
+    description: "Brandvattenpunkt vid Lydinge.",
+    lat: 59.974,
+    lon: 17.9845,
+    image: `vendor/images/lydinge.jpg?v=${IMAGE_VERSION}`,
+  },
 ];
 
 const mapViewEl = document.getElementById("map-view");
