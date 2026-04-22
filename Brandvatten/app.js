@@ -36,6 +36,22 @@ const DESTINATIONS = [
     lon: 18.1823,
     image: `vendor/images/ålsunda.jpg?v=${IMAGE_VERSION}`,
   },
+  {
+    id: "testenbadet",
+    name: "Testenbadet vattenpunkt",
+    description: "Brandvattenpunkt vid Testenbadet.",
+    lat: 59.9414,
+    lon: 18.0729,
+    image: `vendor/images/testenbadet.jpg?v=${IMAGE_VERSION}`,
+  },
+  {
+    id: "spanga",
+    name: "Spanga vattenpunkt",
+    description: "Brandvattenpunkt vid Spanga.",
+    lat: 60.034,
+    lon: 18.039,
+    image: `vendor/images/spanga.jpg?v=${IMAGE_VERSION}`,
+  },
 ];
 
 const mapViewEl = document.getElementById("map-view");
