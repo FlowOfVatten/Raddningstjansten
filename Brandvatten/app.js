@@ -46,11 +46,19 @@ const DESTINATIONS = [
   },
   {
     id: "spanga",
-    name: "Spanga vattenpunkt",
-    description: "Brandvattenpunkt vid Spanga.",
+    name: "Spånga vattenpunkt",
+    description: "Brandvattenpunkt vid Spånga.",
     lat: 60.034,
     lon: 18.039,
     image: `vendor/images/spanga.jpg?v=${IMAGE_VERSION}`,
+  },
+  {
+    id: "ganingsmyran",
+    name: "Gåningsmyran vattenpunkt",
+    description: "Brandvattenpunkt vid Gåningsmyran. Ca 350 meter från farbar väg, men går att nå med mindre bil.",
+    lat: 60.1032,
+    lon: 18.0291,
+    image: `vendor/images/ganingsmyran.jpg?v=${IMAGE_VERSION}`,
   },
 ];
 
