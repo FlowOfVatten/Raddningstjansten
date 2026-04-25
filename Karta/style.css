@@ -156,7 +156,7 @@ p {
   padding: 8px;
 }
 
-.multi-select-panel input {
+.multi-select-panel input[type="search"] {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 6px;

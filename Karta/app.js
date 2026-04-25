@@ -199,6 +199,63 @@ function detectMunicipalityNameField(features, excludedKeys = []) {
   return bestField;
 }
 
+function detectMunicipalityCodeFieldForList(features, excludedKeys = []) {
+  const excluded = new Set(excludedKeys.filter(Boolean));
+  const keyStats = new Map();
+
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    for (const [key, value] of Object.entries(props)) {
+      if (excluded.has(key)) continue;
+
+      const text = String(value ?? "").trim();
+      if (!text) continue;
+
+      if (!keyStats.has(key)) {
+        keyStats.set(key, {
+          total: 0,
+          numericCount: 0,
+          distinctValues: new Set(),
+        });
+      }
+
+      const stat = keyStats.get(key);
+      stat.total += 1;
+      if (safeParseFloat(text) !== null) stat.numericCount += 1;
+      stat.distinctValues.add(normalizeMunicipalityCode(text));
+    }
+  }
+
+  let bestField = null;
+  let bestScore = -Infinity;
+
+  for (const [key, stat] of keyStats.entries()) {
+    if (stat.total < 100) continue;
+    const lc = key.toLowerCase();
+    const distinct = stat.distinctValues.size;
+    const numericRatio = stat.numericCount / stat.total;
+
+    let score = 0;
+    if (lc.includes("kommunkod") || lc.includes("komkod") || lc.includes("knkod") || lc.includes("kn_kod")) score += 60;
+    if (lc.includes("kommun")) score += 35;
+    if (lc.includes("kod") || lc.includes("code") || lc.includes("muni")) score += 20;
+    if (lc.includes("lan") || lc.includes("county") || lc.includes("region")) score -= 40;
+
+    if (numericRatio > 0.95) score += 20;
+    if (distinct >= 250 && distinct <= 400) score += 40;
+    else if (distinct >= 180 && distinct <= 500) score += 15;
+    else if (distinct > 1000) score -= 45;
+    else if (distinct < 100) score -= 20;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestField = key;
+    }
+  }
+
+  return bestField;
+}
+
 function chooseMunicipalityLayerName(layerNames) {
   if (!Array.isArray(layerNames) || !layerNames.length) return null;
 
@@ -2196,7 +2253,7 @@ function initMapApp() {
 
       for (const candidate of candidates) {
         const loaded = await fetchFeaturesByFilter(candidate, null);
-        const candidateCodeField = detectMunicipalityField(loaded, []);
+        const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
         if (!loaded.length || !candidateCodeField) continue;
         features = loaded;
         layerName = candidate;
@@ -2234,6 +2291,9 @@ function initMapApp() {
       }
 
       municipalityEntries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+      if (municipalityEntries.length < 200) {
+        console.warn("Kommunlista verkar ofullständig:", municipalityEntries.length, "poster", "layer:", layerName, "fält:", codeField);
+      }
       municipalityBoundaryMeta = {
         layerName,
         codeField,
@@ -2863,6 +2923,10 @@ function initMapApp() {
 
   clearBtn.addEventListener("click", () => {
     drawnItems.clearLayers();
+    if (searchResultMarker) {
+      map.removeLayer(searchResultMarker);
+      searchResultMarker = null;
+    }
     if (municipalitySelectionLayer) {
       map.removeLayer(municipalitySelectionLayer);
       municipalitySelectionLayer = null;
