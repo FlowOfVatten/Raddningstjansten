@@ -348,12 +348,21 @@ code {
 @media (max-width: 900px) {
   body {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: minmax(260px, 46dvh) 1fr;
+    height: 100dvh;
   }
 
   .panel {
     border-right: none;
     border-bottom: 1px solid #d1d5db;
+    max-height: 46dvh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  #map {
+    min-height: 54dvh;
   }
 }
 
