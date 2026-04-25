@@ -1515,7 +1515,6 @@ function initMapApp() {
       msbLegendControl = null;
     }
     setCurrentMsbOverlayLabel("");
-    hideMsbStats();
   }
 
   function renderMsbLegend(overlayConfig) {
@@ -1586,15 +1585,28 @@ function initMapApp() {
     }
   }
 
+  function refreshMsbStatsForCurrentPolygon() {
+    if (!currentDrawnPolygon) {
+      hideMsbStats();
+      return;
+    }
+    loadMsbStatsForPolygon(currentDrawnPolygon).catch((err) => {
+      console.error("MSB stats fel:", err);
+      hideMsbStats();
+    });
+  }
+
   async function renderMsbOverlay(overlayKey) {
     if (!overlayKey || overlayKey === "none") {
       clearMsbOverlay();
+      refreshMsbStatsForCurrentPolygon();
       return;
     }
 
     const overlayConfig = MSB_OVERLAY_CONFIGS[overlayKey];
     if (!overlayConfig) {
       clearMsbOverlay();
+      refreshMsbStatsForCurrentPolygon();
       return;
     }
 
@@ -1618,7 +1630,7 @@ function initMapApp() {
     if (!features.length) {
       setCurrentMsbOverlayLabel(`${overlayConfig.title} (0 objekt${polygonToClip ? " i markerat område" : " i vy"})`);
       setStatus(`${overlayConfig.title}: inga objekt${polygonToClip ? " i markerat område" : " i aktuell vy"}.`);
-      hideMsbStats();
+      refreshMsbStatsForCurrentPolygon();
       return;
     }
 
@@ -1644,12 +1656,7 @@ function initMapApp() {
     renderMsbLegend(overlayConfig);
     setCurrentMsbOverlayLabel(`${overlayConfig.title} (${features.length} objekt${polygonToClip ? "" : " i vy"})`);
     setStatus(`${overlayConfig.title} laddad.`);
-
-    if (polygonToClip) {
-      loadMsbStatsForPolygon(polygonToClip).catch((err) => console.error("MSB stats fel:", err));
-    } else {
-      hideMsbStats();
-    }
+    refreshMsbStatsForCurrentPolygon();
   }
 
   function useFilledArea() {
@@ -1810,6 +1817,7 @@ function initMapApp() {
 
     const geo = layer.toGeoJSON ? layer.toGeoJSON() : null;
     currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+    refreshMsbStatsForCurrentPolygon();
 
     const msbKey = msbOverlaySelectEl?.value || "none";
     if (msbKey !== "none") {
@@ -1851,6 +1859,7 @@ function initMapApp() {
       if (polygonLayer) {
         const geo = polygonLayer.toGeoJSON();
         currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+        refreshMsbStatsForCurrentPolygon();
 
         const msbKey = msbOverlaySelectEl?.value || "none";
         if (msbKey !== "none") {
@@ -1893,6 +1902,7 @@ function initMapApp() {
     if (polygonLayer) {
       const geo = polygonLayer.toGeoJSON();
       currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+      refreshMsbStatsForCurrentPolygon();
 
       const msbKey = msbOverlaySelectEl?.value || "none";
       if (msbKey !== "none") {
