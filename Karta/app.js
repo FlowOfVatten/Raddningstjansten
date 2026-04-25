@@ -124,7 +124,6 @@ const coordinateFileEl = document.getElementById("coordinate-file");
 const downloadTemplateBtn = document.getElementById("download-template-btn");
 const buildCoordinatesBtn = document.getElementById("build-coordinates-btn");
 const printBtn = document.getElementById("print-btn");
-const areaStyleInputs = Array.from(document.querySelectorAll('input[name="area-style"]'));
 const msbOverlaySelectEl = document.getElementById("msb-overlay-select");
 const msbStatsBoxEl = document.getElementById("msb-stats-box");
 const msbStatsContentEl = document.getElementById("msb-stats-content");
@@ -135,6 +134,7 @@ let selectedLayerName = null;
 let selectedPopulationField = null;
 let lastMetaLines = [];
 let currentMsbOverlayLabel = "";
+let currentAreaStyle = "fill";
 
 function setStatus(text) {
   if (statusEl) statusEl.textContent = text;
@@ -862,7 +862,26 @@ async function fetchMsbStatsForPolygon(polygonFeature) {
 
 function calculateMsbStats(features, areaFeature) {
   let totalOoT = 0, totalBIB = 0, totalTr = 0, totalDr = 0;
-  let weightedRespSum = 0, respWeight = 0;
+  const respSamples = [];
+
+  const weightedMedian = (samples) => {
+    if (!samples.length) return null;
+    const sorted = [...samples]
+      .filter((s) => Number.isFinite(s.value) && Number.isFinite(s.weight) && s.weight > 0)
+      .sort((a, b) => a.value - b.value);
+    if (!sorted.length) return null;
+
+    const totalWeight = sorted.reduce((sum, s) => sum + s.weight, 0);
+    if (totalWeight <= 0) return null;
+
+    const midpoint = totalWeight / 2;
+    let cumulative = 0;
+    for (const sample of sorted) {
+      cumulative += sample.weight;
+      if (cumulative >= midpoint) return sample.value;
+    }
+    return sorted[sorted.length - 1].value;
+  };
 
   for (const rawFeature of features) {
     const feature = turf.feature(rawFeature.geometry, rawFeature.properties || {});
@@ -890,11 +909,21 @@ function calculateMsbStats(features, areaFeature) {
     if (bib  !== null) totalBIB += bib * ratio;
     if (tr   !== null) totalTr  += tr  * ratio;
     if (dr   !== null) totalDr  += dr  * ratio;
-    if (resp !== null && resp > 0) { weightedRespSum += resp * cutArea; respWeight += cutArea; }
+    if (resp !== null && resp > 0) {
+      // Prefer incident-weighting for response time; fallback to overlap area where incident count is missing.
+      const incidentWeight = oot !== null && oot > 0 ? oot * ratio : 0;
+      const sampleWeight = incidentWeight > 0 ? incidentWeight : cutArea;
+      respSamples.push({ value: resp, weight: sampleWeight });
+    }
   }
 
-  const avgResp = respWeight > 0 ? weightedRespSum / respWeight : null;
-  return { totalOoT, totalBIB, totalTr, totalDr, avgResp };
+  const medianResp = weightedMedian(respSamples);
+  const respWeightTotal = respSamples.reduce((sum, sample) => sum + sample.weight, 0);
+  const meanResp = respWeightTotal > 0
+    ? respSamples.reduce((sum, sample) => sum + sample.value * sample.weight, 0) / respWeightTotal
+    : null;
+
+  return { totalOoT, totalBIB, totalTr, totalDr, medianResp, meanResp };
 }
 
 async function getCapabilities() {
@@ -1459,6 +1488,23 @@ function initMapApp() {
   });
   map.addControl(drawControl);
 
+  const areaStyleControl = L.control({ position: "topleft" });
+  areaStyleControl.onAdd = () => {
+    const container = L.DomUtil.create("div", "area-style-map-control");
+    container.innerHTML = `
+      <div class="title">Områdesstil</div>
+      <label><input type="radio" name="area-style-map" value="fill" checked> Fyllnad</label>
+      <label><input type="radio" name="area-style-map" value="outline"> Kantlinje</label>
+    `;
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    return container;
+  };
+  areaStyleControl.addTo(map);
+
+  const areaStyleMapInputs = Array.from(document.querySelectorAll('input[name="area-style-map"]'));
+
   function clearMsbOverlay() {
     if (msbOverlayLayer) {
       map.removeLayer(msbOverlayLayer);
@@ -1513,8 +1559,11 @@ function initMapApp() {
       `Trafikolyckor: <strong>${fmt(stats.totalTr)}</strong>`,
       `Drunkningsolyckor: <strong>${fmt(stats.totalDr)}</strong>`,
     ];
-    if (stats.avgResp !== null) {
-      lines.push(`Medel responstid 1:a resurs: <strong>${fmtF(stats.avgResp)} min</strong>`);
+    if (stats.medianResp !== null) {
+      lines.push(`Median responstid 1:a resurs: <strong>${fmtF(stats.medianResp)} min</strong>`);
+    }
+    if (stats.meanResp !== null) {
+      lines.push(`Medel responstid 1:a resurs: <strong>${fmtF(stats.meanResp)} min</strong>`);
     }
     msbStatsContentEl.innerHTML = lines.join("<br>");
     msbStatsBoxEl.classList.remove("hidden");
@@ -1604,8 +1653,7 @@ function initMapApp() {
   }
 
   function useFilledArea() {
-    const selected = areaStyleInputs.find((input) => input.checked)?.value;
-    return selected !== "outline";
+    return currentAreaStyle !== "outline";
   }
 
   function applySelectedAreaStyle(layer) {
@@ -1634,6 +1682,15 @@ function initMapApp() {
 
   function refreshCurrentAreaStyle() {
     drawnItems.eachLayer((layer) => applySelectedAreaStyle(layer));
+  }
+
+  for (const input of areaStyleMapInputs) {
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        currentAreaStyle = input.value;
+        refreshCurrentAreaStyle();
+      }
+    });
   }
 
   function fitMapForPrint() {
@@ -1974,10 +2031,6 @@ function initMapApp() {
       printViewState = null;
     }, 100);
   });
-
-  for (const input of areaStyleInputs) {
-    input.addEventListener("change", refreshCurrentAreaStyle);
-  }
 
   clearBtn.addEventListener("click", () => {
     drawnItems.clearLayers();
