@@ -11,8 +11,13 @@
   </head>
   <body>
     <aside class="panel">
-      <h1>Befolkning i område</h1>
-      <p>Välj om du vill rita ett område eller klicka en punkt med restid. Sidan försöker hämta SCB-data och summera hur många som bor inom området.</p>
+      <div class="title-row">
+        <h1>Befolkning i område</h1>
+        <button id="panel-help-link" class="help-link" type="button" aria-expanded="false" aria-controls="panel-help-popup">Hur funkar det?</button>
+      </div>
+      <div id="panel-help-popup" class="panel-help-popup hidden" role="note">
+        Välj om du vill rita ett område eller klicka en punkt med restid. Sidan hämtar SCB-data och summerar hur många som bor inom området.
+      </div>
 
       <div class="mode-box">
         <div class="mode-title">Beräkningsläge</div>
@@ -79,15 +84,18 @@
 
       <div id="status" class="status">Initierar karta...</div>
 
-      <div class="result-box">
-        <div class="label">Uppskattad befolkning inom området</div>
-        <div id="population" class="population">-</div>
-        <div id="breakdown" class="breakdown"></div>
-      </div>
-
       <div id="msb-stats-box" class="msb-stats-box hidden">
         <div class="msb-stats-title">MSB-statistik 2020–2024 (markerat område)</div>
         <div id="msb-stats-content" class="breakdown"></div>
+      </div>
+
+      <div class="result-box">
+        <div class="label">Uppskattad befolkning inom området</div>
+        <div id="population" class="population">-</div>
+        <details id="population-details" class="population-details hidden">
+          <summary>Visa mer</summary>
+          <div id="breakdown" class="breakdown"></div>
+        </details>
       </div>
 
       <div id="meta" class="meta"></div>

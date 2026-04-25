@@ -29,6 +29,44 @@ p {
   color: #374151;
 }
 
+.title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.title-row h1 {
+  margin: 0;
+}
+
+.help-link {
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.8rem;
+  text-decoration: underline;
+}
+
+.help-link:hover {
+  color: #1e40af;
+  background: transparent;
+}
+
+.panel-help-popup {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .mode-box {
   border: 1px solid #d1d5db;
   border-radius: 10px;
@@ -241,6 +279,21 @@ button:hover {
   font-size: 0.83rem;
   color: #374151;
   line-height: 1.35;
+}
+
+.population-details {
+  margin-top: 8px;
+}
+
+.population-details summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #1d4ed8;
+  user-select: none;
+}
+
+.population-details summary:hover {
+  color: #1e40af;
 }
 
 .meta {

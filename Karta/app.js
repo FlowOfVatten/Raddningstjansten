@@ -112,6 +112,7 @@ function keyTokens(key) {
 const statusEl = document.getElementById("status");
 const populationEl = document.getElementById("population");
 const breakdownEl = document.getElementById("breakdown");
+const populationDetailsEl = document.getElementById("population-details");
 const metaEl = document.getElementById("meta");
 const clearBtn = document.getElementById("clear-btn");
 const modeInputs = Array.from(document.querySelectorAll('input[name="input-mode"]'));
@@ -127,6 +128,8 @@ const areaStyleInputs = Array.from(document.querySelectorAll('input[name="area-s
 const msbOverlaySelectEl = document.getElementById("msb-overlay-select");
 const msbStatsBoxEl = document.getElementById("msb-stats-box");
 const msbStatsContentEl = document.getElementById("msb-stats-content");
+const panelHelpLinkEl = document.getElementById("panel-help-link");
+const panelHelpPopupEl = document.getElementById("panel-help-popup");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -154,7 +157,44 @@ function setCurrentMsbOverlayLabel(label) {
 
 function setBreakdown(lines) {
   if (!breakdownEl) return;
-  breakdownEl.innerHTML = lines.join("<br>");
+  const hasLines = Array.isArray(lines) && lines.length > 0;
+  breakdownEl.innerHTML = hasLines ? lines.join("<br>") : "";
+
+  if (populationDetailsEl) {
+    populationDetailsEl.classList.toggle("hidden", !hasLines);
+    if (!hasLines) {
+      populationDetailsEl.open = false;
+    }
+  }
+}
+
+function setupPanelHelpPopup() {
+  if (!panelHelpLinkEl || !panelHelpPopupEl) return;
+
+  const closePopup = () => {
+    panelHelpPopupEl.classList.add("hidden");
+    panelHelpLinkEl.setAttribute("aria-expanded", "false");
+  };
+
+  panelHelpLinkEl.addEventListener("click", (event) => {
+    event.preventDefault();
+    const willShow = panelHelpPopupEl.classList.contains("hidden");
+    panelHelpPopupEl.classList.toggle("hidden", !willShow);
+    panelHelpLinkEl.setAttribute("aria-expanded", willShow ? "true" : "false");
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (panelHelpPopupEl.contains(target) || panelHelpLinkEl.contains(target)) return;
+    closePopup();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closePopup();
+    }
+  });
 }
 
 function parseCoordinatesFromText(text) {
@@ -1999,3 +2039,4 @@ function startWhenLibrariesReady(maxWaitMs = 10000) {
 }
 
 startWhenLibrariesReady();
+setupPanelHelpPopup();
