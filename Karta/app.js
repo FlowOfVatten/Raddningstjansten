@@ -97,10 +97,14 @@ const NON_POP_FIELD_HINTS = [
 ];
 const NON_POP_FIELD_HINT_SET = new Set(NON_POP_FIELD_HINTS);
 const MUNICIPALITY_ADMIN_LAYERS = ["stat:RegSO_2025", "stat:RegSO_2020", "stat:DeSO_2025", "stat:DeSO_2018"];
+const LOCAL_CACHE_PREFIX = "karta-msb-cache-v1";
+const LOCAL_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
 // Cache expensive municipality lookups and comparisons during the session.
 const municipalityGeometryCache = new Map();
 const municipalityComparisonCache = new Map();
+const municipalityMsbBaselineCache = new Map();
+const municipalityPopulationBaselineCache = new Map();
 
 function keyTokens(key) {
   return String(key)
@@ -135,6 +139,7 @@ let selectedPopulationField = null;
 let lastMetaLines = [];
 let currentMsbOverlayLabel = "";
 let currentAreaStyle = "fill";
+let currentPopulationContext = null;
 
 function setStatus(text) {
   if (statusEl) statusEl.textContent = text;
@@ -165,6 +170,33 @@ function setBreakdown(lines) {
     if (!hasLines) {
       populationDetailsEl.open = false;
     }
+  }
+}
+
+function readLocalCache(cacheKey) {
+  try {
+    const raw = window.localStorage.getItem(`${LOCAL_CACHE_PREFIX}:${cacheKey}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > LOCAL_CACHE_TTL_MS) {
+      window.localStorage.removeItem(`${LOCAL_CACHE_PREFIX}:${cacheKey}`);
+      return null;
+    }
+    return parsed.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalCache(cacheKey, value) {
+  try {
+    window.localStorage.setItem(
+      `${LOCAL_CACHE_PREFIX}:${cacheKey}`,
+      JSON.stringify({ savedAt: Date.now(), value }),
+    );
+  } catch {
+    // Ignore quota/private mode failures.
   }
 }
 
@@ -860,7 +892,98 @@ async function fetchMsbStatsForPolygon(polygonFeature) {
   return features;
 }
 
-function calculateMsbStats(features, areaFeature) {
+async function fetchMsbStatsForAreas(areaFeatures) {
+  if (!Array.isArray(areaFeatures) || !areaFeatures.length) return [];
+
+  const [minLon, minLat, maxLon, maxLat] = turf.bbox(turf.featureCollection(areaFeatures));
+  const geometry = { xmin: minLon, ymin: minLat, xmax: maxLon, ymax: maxLat, spatialReference: { wkid: 4326 } };
+
+  const params = new URLSearchParams({
+    f: "geojson",
+    where: "Antal_OoT > 0 OR Antal_BIB > 0 OR Antal_tr > 0 OR Antal_dr > 0 OR RespM_1a > 0",
+    outFields: "rut_id,Antal_OoT,Antal_BIB,Antal_tr,Antal_dr,RespM_1a",
+    geometry: JSON.stringify(geometry),
+    geometryType: "esriGeometryEnvelope",
+    inSR: "4326",
+    outSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    returnGeometry: "true",
+    resultRecordCount: "5000",
+  });
+
+  const url = `${MSB_FEATURE_SERVICE_URL}/query?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`MSB stats-anrop misslyckades: HTTP ${res.status}`);
+
+  const json = await res.json();
+  const rawFeatures = Array.isArray(json?.features) ? json.features : [];
+
+  return rawFeatures.filter((feature) => {
+    try {
+      const turfFeature = turf.feature(feature.geometry, feature.properties || {});
+      return areaFeatures.some((areaFeature) => {
+        let ix = null;
+        try {
+          ix = turf.intersect(turfFeature, areaFeature);
+        } catch {
+          try {
+            ix = turf.intersect(turf.featureCollection([turfFeature, areaFeature]));
+          } catch {
+            ix = null;
+          }
+        }
+        return ix !== null;
+      });
+    } catch {
+      return false;
+    }
+  });
+}
+
+function calculatePopulationWithinAreas(features, areaFeatures, populationField) {
+  if (!Array.isArray(areaFeatures) || !areaFeatures.length) {
+    return { total: 0, matched: 0, usedField: populationField };
+  }
+
+  let total = 0;
+  let matched = 0;
+
+  for (const rawFeature of features) {
+    const feature = turf.feature(rawFeature.geometry, rawFeature.properties || {});
+    const wholeArea = turf.area(feature);
+    if (wholeArea <= 0) continue;
+
+    let cutAreaTotal = 0;
+    for (const areaFeature of areaFeatures) {
+      let intersection = null;
+      try {
+        intersection = turf.intersect(feature, areaFeature);
+      } catch {
+        try {
+          intersection = turf.intersect(turf.featureCollection([feature, areaFeature]));
+        } catch {
+          intersection = null;
+        }
+      }
+
+      if (!intersection) continue;
+      const cutArea = turf.area(intersection);
+      if (cutArea > 0) cutAreaTotal += cutArea;
+    }
+
+    if (cutAreaTotal <= 0) continue;
+
+    const popValue = safeParseFloat(rawFeature.properties?.[populationField]);
+    if (popValue === null) continue;
+
+    total += popValue * Math.min(1, cutAreaTotal / wholeArea);
+    matched += 1;
+  }
+
+  return { total, matched, usedField: populationField };
+}
+
+function calculateMsbStatsForAreas(features, areaFeatures) {
   let totalOoT = 0, totalBIB = 0, totalTr = 0, totalDr = 0;
   const respSamples = [];
 
@@ -885,34 +1008,43 @@ function calculateMsbStats(features, areaFeature) {
 
   for (const rawFeature of features) {
     const feature = turf.feature(rawFeature.geometry, rawFeature.properties || {});
-    let intersection = null;
-    try {
-      intersection = turf.intersect(feature, areaFeature);
-    } catch {
-      try { intersection = turf.intersect(turf.featureCollection([feature, areaFeature])); } catch { intersection = null; }
-    }
-    if (!intersection) continue;
-
     const wholeArea = turf.area(feature);
-    const cutArea = turf.area(intersection);
-    if (wholeArea <= 0 || cutArea <= 0) continue;
-    const ratio = Math.min(1, cutArea / wholeArea);
+    if (wholeArea <= 0) continue;
+
+    let cutAreaTotal = 0;
+    for (const areaFeature of areaFeatures) {
+      let intersection = null;
+      try {
+        intersection = turf.intersect(feature, areaFeature);
+      } catch {
+        try {
+          intersection = turf.intersect(turf.featureCollection([feature, areaFeature]));
+        } catch {
+          intersection = null;
+        }
+      }
+      if (!intersection) continue;
+      const cutArea = turf.area(intersection);
+      if (cutArea > 0) cutAreaTotal += cutArea;
+    }
+
+    if (cutAreaTotal <= 0) continue;
+    const ratio = Math.min(1, cutAreaTotal / wholeArea);
 
     const props = rawFeature.properties || {};
     const oot = safeParseFloat(props.Antal_OoT);
     const bib = safeParseFloat(props.Antal_BIB);
-    const tr  = safeParseFloat(props.Antal_tr);
-    const dr  = safeParseFloat(props.Antal_dr);
+    const tr = safeParseFloat(props.Antal_tr);
+    const dr = safeParseFloat(props.Antal_dr);
     const resp = safeParseFloat(props.RespM_1a);
 
-    if (oot  !== null) totalOoT += oot * ratio;
-    if (bib  !== null) totalBIB += bib * ratio;
-    if (tr   !== null) totalTr  += tr  * ratio;
-    if (dr   !== null) totalDr  += dr  * ratio;
+    if (oot !== null) totalOoT += oot * ratio;
+    if (bib !== null) totalBIB += bib * ratio;
+    if (tr !== null) totalTr += tr * ratio;
+    if (dr !== null) totalDr += dr * ratio;
     if (resp !== null && resp > 0) {
-      // Prefer incident-weighting for response time; fallback to overlap area where incident count is missing.
       const incidentWeight = oot !== null && oot > 0 ? oot * ratio : 0;
-      const sampleWeight = incidentWeight > 0 ? incidentWeight : cutArea;
+      const sampleWeight = incidentWeight > 0 ? incidentWeight : cutAreaTotal;
       respSamples.push({ value: resp, weight: sampleWeight });
     }
   }
@@ -924,6 +1056,140 @@ function calculateMsbStats(features, areaFeature) {
     : null;
 
   return { totalOoT, totalBIB, totalTr, totalDr, medianResp, meanResp };
+}
+
+function calculateMsbStats(features, areaFeature) {
+  return calculateMsbStatsForAreas(features, [areaFeature]);
+}
+
+function sumAreaFeaturesKm2(areaFeatures) {
+  if (!Array.isArray(areaFeatures) || !areaFeatures.length) return 0;
+  return areaFeatures.reduce((sum, feature) => sum + turf.area(feature), 0) / 1_000_000;
+}
+
+function formatSignedPercent(value) {
+  const rounded = Math.round(value * 10) / 10;
+  if (rounded > 0) return `+${rounded.toLocaleString("sv-SE", { maximumFractionDigits: 1 })}`;
+  return rounded.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+}
+
+function buildMsbRiskComparisonLines(areaStats, municipalityBaseline, areaPopulation, areaAreaKm2) {
+  if (!municipalityBaseline || !Number.isFinite(areaPopulation) || areaPopulation <= 0) return [];
+
+  const compareRows = [
+    { label: "Olyckor/tillbud", observed: areaStats.totalOoT, municipality: municipalityBaseline.stats.totalOoT },
+    { label: "Brand i byggnad", observed: areaStats.totalBIB, municipality: municipalityBaseline.stats.totalBIB },
+    { label: "Trafikolyckor", observed: areaStats.totalTr, municipality: municipalityBaseline.stats.totalTr },
+    { label: "Drunkningsolyckor", observed: areaStats.totalDr, municipality: municipalityBaseline.stats.totalDr },
+  ];
+
+  const lines = ["<span class=\"msb-stats-section-title\">Avvikelse mot kommunsnitt</span>"];
+
+  for (const row of compareRows) {
+    const expectedByPopulation = municipalityBaseline.populationTotal > 0
+      ? row.municipality * (areaPopulation / municipalityBaseline.populationTotal)
+      : 0;
+    const expectedByArea = municipalityBaseline.areaKm2 > 0
+      ? row.municipality * (areaAreaKm2 / municipalityBaseline.areaKm2)
+      : 0;
+
+    if (expectedByPopulation <= 0 && expectedByArea <= 0) continue;
+
+    const popDelta = expectedByPopulation > 0
+      ? ((row.observed / expectedByPopulation) - 1) * 100
+      : null;
+    const areaDelta = expectedByArea > 0
+      ? ((row.observed / expectedByArea) - 1) * 100
+      : null;
+
+    const parts = [];
+    if (popDelta !== null) {
+      parts.push(`${formatSignedPercent(popDelta)}% per 1 000 inv.`);
+    }
+    if (areaDelta !== null) {
+      parts.push(`${formatSignedPercent(areaDelta)}% per km²`);
+    }
+
+    if (parts.length) {
+      lines.push(`${row.label}: ${parts.join(" | ")}`);
+    }
+  }
+
+  if (lines.length === 1) {
+    return [];
+  }
+
+  lines.push("<span class=\"msb-stats-footnote\">Befolkningsjusterat först, yta som stöd.</span>");
+  return lines;
+}
+
+async function getMunicipalityPopulationBaseline(populationContext) {
+  const municipality = populationContext?.municipality;
+  if (!municipality?.areas?.length) return null;
+
+  const cacheKey = [
+    populationContext.layerName,
+    populationContext.populationField,
+    municipality.sourceLayer,
+    municipality.field,
+    municipality.value,
+  ].join("|");
+
+  const inMemory = municipalityPopulationBaselineCache.get(cacheKey);
+  if (inMemory) return inMemory;
+
+  const local = readLocalCache(`population:${cacheKey}`);
+  if (local) {
+    municipalityPopulationBaselineCache.set(cacheKey, local);
+    return local;
+  }
+
+  const municipalityBbox = turf.bbox(turf.featureCollection(municipality.areas));
+  const municipalityPopulationFeatures = await fetchFeaturesForBbox(populationContext.layerName, municipalityBbox, 50000);
+  const populationResult = calculatePopulationWithinAreas(
+    municipalityPopulationFeatures,
+    municipality.areas,
+    populationContext.populationField,
+  );
+
+  const value = {
+    populationTotal: populationResult.total,
+    featureCount: municipalityPopulationFeatures.length,
+  };
+  municipalityPopulationBaselineCache.set(cacheKey, value);
+  writeLocalCache(`population:${cacheKey}`, value);
+  return value;
+}
+
+async function getMunicipalityMsbBaseline(populationContext) {
+  const municipality = populationContext?.municipality;
+  if (!municipality?.areas?.length) return null;
+
+  const cacheKey = [municipality.sourceLayer, municipality.field, municipality.value].join("|");
+
+  const inMemory = municipalityMsbBaselineCache.get(cacheKey);
+  if (inMemory) return inMemory;
+
+  const local = readLocalCache(`msb:${cacheKey}`);
+  if (local) {
+    municipalityMsbBaselineCache.set(cacheKey, local);
+    return local;
+  }
+
+  const municipalityMsbFeatures = await fetchMsbStatsForAreas(municipality.areas);
+  const stats = calculateMsbStatsForAreas(municipalityMsbFeatures, municipality.areas);
+  const populationBaseline = await getMunicipalityPopulationBaseline(populationContext);
+  if (!populationBaseline || populationBaseline.populationTotal <= 0) return null;
+
+  const value = {
+    stats,
+    populationTotal: populationBaseline.populationTotal,
+    areaKm2: sumAreaFeaturesKm2(municipality.areas),
+  };
+
+  municipalityMsbBaselineCache.set(cacheKey, value);
+  writeLocalCache(`msb:${cacheKey}`, value);
+  return value;
 }
 
 async function getCapabilities() {
@@ -1215,6 +1481,7 @@ async function runPopulationEstimate(layer) {
   const bounds = layer.getBounds();
 
   const area = areaKm2(areaFeature);
+  currentPopulationContext = null;
   let layerName = await ensureLayerSelected();
 
   let evaluation = await evaluateLayerForPopulation(layerName, bounds, areaFeature);
@@ -1292,6 +1559,14 @@ async function runPopulationEstimate(layer) {
       if (adminMatch) {
         municipalityField = adminMatch.municipalityField;
         municipalityValue = adminMatch.municipalityValue;
+        municipalityAreas = adminMatch.municipalityAreas;
+        municipalitySourceLayer = adminMatch.adminLayer;
+      }
+    }
+
+    if (municipalityField && municipalityValue && (!municipalityAreas || !municipalityAreas.length)) {
+      const adminMatch = await findMunicipalityFromAdminLayers(areaFeature, bounds);
+      if (adminMatch && String(adminMatch.municipalityValue) === String(municipalityValue)) {
         municipalityAreas = adminMatch.municipalityAreas;
         municipalitySourceLayer = adminMatch.adminLayer;
       }
@@ -1384,6 +1659,7 @@ async function runPopulationEstimate(layer) {
             value: municipalityValue,
             features: municipalityFeatureCount,
             sourceLayer: municipalitySourceLayer,
+            areas: municipalityAreas || [],
           };
         } else {
           municipalityReason = "kommunfeatures saknar användbara könsvärden";
@@ -1422,6 +1698,16 @@ async function runPopulationEstimate(layer) {
     `Features som bidrog till summa: ${evaluation.matched}`,
     "Obs: Delvis överlapp viktas med areaandel.",
   ]);
+
+  currentPopulationContext = {
+    layerName: evaluation.layerName,
+    populationField: evaluation.field,
+    areaPopulation: evaluation.total,
+    areaKm2: area,
+    municipality: municipalityContext,
+  };
+
+  refreshMsbStatsForCurrentPolygon();
 }
 
 function initMapApp() {
@@ -1548,7 +1834,7 @@ function initMapApp() {
     msbLegendControl.addTo(map);
   }
 
-  function showMsbStats(stats) {
+  function showMsbStats(stats, comparisonLines = []) {
     if (!msbStatsBoxEl || !msbStatsContentEl) return;
     const fmt = (n) => Math.round(n).toLocaleString("sv-SE");
     const fmtF = (n) => n.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
@@ -1564,6 +1850,9 @@ function initMapApp() {
     if (stats.meanResp !== null) {
       lines.push(`Medel responstid 1:a resurs: <strong>${fmtF(stats.meanResp)} min</strong>`);
     }
+    if (comparisonLines.length) {
+      lines.push(...comparisonLines);
+    }
     msbStatsContentEl.innerHTML = lines.join("<br>");
     msbStatsBoxEl.classList.remove("hidden");
   }
@@ -1578,7 +1867,21 @@ function initMapApp() {
       const features = await fetchMsbStatsForPolygon(polygonFeature);
       if (!features.length) { hideMsbStats(); return; }
       const stats = calculateMsbStats(features, polygonFeature);
-      showMsbStats(stats);
+      let comparisonLines = [];
+      if (currentPopulationContext?.municipality?.areas?.length) {
+        try {
+          const municipalityBaseline = await getMunicipalityMsbBaseline(currentPopulationContext);
+          comparisonLines = buildMsbRiskComparisonLines(
+            stats,
+            municipalityBaseline,
+            currentPopulationContext.areaPopulation,
+            currentPopulationContext.areaKm2,
+          );
+        } catch (comparisonError) {
+          console.warn("Kunde inte räkna MSB kommunsnitt:", comparisonError);
+        }
+      }
+      showMsbStats(stats, comparisonLines);
     } catch (err) {
       console.error("MSB stats fel:", err);
       hideMsbStats();
@@ -1811,6 +2114,7 @@ function initMapApp() {
     drawnItems.clearLayers();
     drawnItems.addLayer(layer);
     applySelectedAreaStyle(layer);
+    currentPopulationContext = null;
     populationEl.textContent = "-";
     setBreakdown([]);
     setMeta([]);
@@ -1848,6 +2152,7 @@ function initMapApp() {
       drawnItems.clearLayers();
       drawnItems.addLayer(layer);
       applySelectedAreaStyle(layer);
+      currentPopulationContext = null;
       populationEl.textContent = "-";
 
       setMeta([
@@ -1890,6 +2195,7 @@ function initMapApp() {
     drawnItems.clearLayers();
     drawnItems.addLayer(layer);
     applySelectedAreaStyle(layer);
+    currentPopulationContext = null;
     populationEl.textContent = "-";
     setBreakdown([]);
 
@@ -2046,6 +2352,7 @@ function initMapApp() {
     drawnItems.clearLayers();
     lastTravelLatLng = null;
     currentDrawnPolygon = null;
+    currentPopulationContext = null;
     populationEl.textContent = "-";
     setBreakdown([]);
     setStatus(currentMode === "travel" ? "Klicka på kartan för att skapa ett restidsområde." : "Rita ett område på kartan.");

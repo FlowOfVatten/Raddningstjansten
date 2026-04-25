@@ -256,6 +256,20 @@ p {
   margin-bottom: 6px;
 }
 
+.msb-stats-section-title {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 600;
+  color: #7f1d1d;
+}
+
+.msb-stats-footnote {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 0.76rem;
+  color: #7c2d12;
+}
+
 .row {
   display: flex;
   gap: 8px;
