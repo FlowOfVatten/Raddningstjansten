@@ -82,6 +82,18 @@ p {
   margin-bottom: 8px;
 }
 
+.mode-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mode-title-row .mode-title {
+  margin-bottom: 0;
+}
+
 .mode-option {
   display: flex;
   align-items: center;
