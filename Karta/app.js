@@ -2055,9 +2055,18 @@ function initMapApp() {
 
           searchResultMarker.openPopup();
           setStatus(`Sökresultat: ${hit.label}`);
+          input.value = "";
         } catch (error) {
           console.error("Sökfel:", error);
           setStatus(`Fel vid sökning: ${error.message}`);
+        }
+      });
+
+      input.addEventListener("input", () => {
+        if (!input.value && searchResultMarker) {
+          map.removeLayer(searchResultMarker);
+          searchResultMarker = null;
+          setStatus("Sökmarkering borttagen.");
         }
       });
     }
@@ -2245,7 +2254,8 @@ function initMapApp() {
     try {
       const layerNames = await getCapabilities();
       const preferredLayer = chooseMunicipalityLayerName(layerNames);
-      const candidates = [preferredLayer, ...MUNICIPALITY_ADMIN_LAYERS].filter(Boolean);
+      const regsoLayers = MUNICIPALITY_ADMIN_LAYERS.filter(name => name.includes("RegSO"));
+      const candidates = [preferredLayer, ...regsoLayers].filter(Boolean);
 
       let features = [];
       let layerName = null;
