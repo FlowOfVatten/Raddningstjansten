@@ -140,6 +140,7 @@ let lastMetaLines = [];
 let currentMsbOverlayLabel = "";
 let currentAreaStyle = "fill";
 let currentPopulationContext = null;
+let refreshMsbStatsHandler = () => {};
 
 function setStatus(text) {
   if (statusEl) statusEl.textContent = text;
@@ -1707,7 +1708,7 @@ async function runPopulationEstimate(layer) {
     municipality: municipalityContext,
   };
 
-  refreshMsbStatsForCurrentPolygon();
+  refreshMsbStatsHandler();
 }
 
 function initMapApp() {
@@ -1898,6 +1899,8 @@ function initMapApp() {
       hideMsbStats();
     });
   }
+
+  refreshMsbStatsHandler = refreshMsbStatsForCurrentPolygon;
 
   async function renderMsbOverlay(overlayKey) {
     if (!overlayKey || overlayKey === "none") {
