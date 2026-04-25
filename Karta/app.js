@@ -125,6 +125,8 @@ const buildCoordinatesBtn = document.getElementById("build-coordinates-btn");
 const printBtn = document.getElementById("print-btn");
 const areaStyleInputs = Array.from(document.querySelectorAll('input[name="area-style"]'));
 const msbOverlaySelectEl = document.getElementById("msb-overlay-select");
+const msbStatsBoxEl = document.getElementById("msb-stats-box");
+const msbStatsContentEl = document.getElementById("msb-stats-content");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -730,7 +732,7 @@ function buildMsbLegendItems(overlayConfig) {
   return items;
 }
 
-async function fetchMsbFeaturesForBounds(bounds, overlayConfig) {
+async function fetchMsbFeaturesForBounds(bounds, overlayConfig, clipPolygon = null) {
   const geometry = {
     xmin: bounds.getWest(),
     ymin: bounds.getSouth(),
@@ -739,10 +741,13 @@ async function fetchMsbFeaturesForBounds(bounds, overlayConfig) {
     spatialReference: { wkid: 4326 },
   };
 
+  const statsFields = ["rut_id", "Antal_OoT", "Antal_BIB", "Antal_tr", "Antal_dr", "RespM_1a"];
+  if (!statsFields.includes(overlayConfig.field)) statsFields.push(overlayConfig.field);
+
   const params = new URLSearchParams({
     f: "geojson",
     where: overlayConfig.where,
-    outFields: `rut_id,${overlayConfig.field}`,
+    outFields: statsFields.join(","),
     geometry: JSON.stringify(geometry),
     geometryType: "esriGeometryEnvelope",
     inSR: "4326",
@@ -759,7 +764,97 @@ async function fetchMsbFeaturesForBounds(bounds, overlayConfig) {
   }
 
   const json = await res.json();
-  return Array.isArray(json?.features) ? json.features : [];
+  let features = Array.isArray(json?.features) ? json.features : [];
+
+  if (clipPolygon && features.length) {
+    features = features.filter((feature) => {
+      try {
+        const f = turf.feature(feature.geometry, feature.properties || {});
+        let ix = null;
+        try { ix = turf.intersect(f, clipPolygon); } catch { /* ignore */ }
+        if (!ix) try { ix = turf.intersect(turf.featureCollection([f, clipPolygon])); } catch { /* ignore */ }
+        return ix !== null;
+      } catch { return false; }
+    });
+  }
+
+  return features;
+}
+
+async function fetchMsbStatsForPolygon(polygonFeature) {
+  const [minLon, minLat, maxLon, maxLat] = turf.bbox(polygonFeature);
+  const geometry = { xmin: minLon, ymin: minLat, xmax: maxLon, ymax: maxLat, spatialReference: { wkid: 4326 } };
+
+  const params = new URLSearchParams({
+    f: "geojson",
+    where: "Antal_OoT > 0 OR Antal_BIB > 0 OR Antal_tr > 0 OR Antal_dr > 0 OR RespM_1a > 0",
+    outFields: "rut_id,Antal_OoT,Antal_BIB,Antal_tr,Antal_dr,RespM_1a",
+    geometry: JSON.stringify(geometry),
+    geometryType: "esriGeometryEnvelope",
+    inSR: "4326",
+    outSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    returnGeometry: "true",
+    resultRecordCount: "5000",
+  });
+
+  const url = `${MSB_FEATURE_SERVICE_URL}/query?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`MSB stats-anrop misslyckades: HTTP ${res.status}`);
+
+  const json = await res.json();
+  let features = Array.isArray(json?.features) ? json.features : [];
+
+  if (features.length) {
+    features = features.filter((feature) => {
+      try {
+        const f = turf.feature(feature.geometry, feature.properties || {});
+        let ix = null;
+        try { ix = turf.intersect(f, polygonFeature); } catch { /* ignore */ }
+        if (!ix) try { ix = turf.intersect(turf.featureCollection([f, polygonFeature])); } catch { /* ignore */ }
+        return ix !== null;
+      } catch { return false; }
+    });
+  }
+
+  return features;
+}
+
+function calculateMsbStats(features, areaFeature) {
+  let totalOoT = 0, totalBIB = 0, totalTr = 0, totalDr = 0;
+  let weightedRespSum = 0, respWeight = 0;
+
+  for (const rawFeature of features) {
+    const feature = turf.feature(rawFeature.geometry, rawFeature.properties || {});
+    let intersection = null;
+    try {
+      intersection = turf.intersect(feature, areaFeature);
+    } catch {
+      try { intersection = turf.intersect(turf.featureCollection([feature, areaFeature])); } catch { intersection = null; }
+    }
+    if (!intersection) continue;
+
+    const wholeArea = turf.area(feature);
+    const cutArea = turf.area(intersection);
+    if (wholeArea <= 0 || cutArea <= 0) continue;
+    const ratio = Math.min(1, cutArea / wholeArea);
+
+    const props = rawFeature.properties || {};
+    const oot = safeParseFloat(props.Antal_OoT);
+    const bib = safeParseFloat(props.Antal_BIB);
+    const tr  = safeParseFloat(props.Antal_tr);
+    const dr  = safeParseFloat(props.Antal_dr);
+    const resp = safeParseFloat(props.RespM_1a);
+
+    if (oot  !== null) totalOoT += oot * ratio;
+    if (bib  !== null) totalBIB += bib * ratio;
+    if (tr   !== null) totalTr  += tr  * ratio;
+    if (dr   !== null) totalDr  += dr  * ratio;
+    if (resp !== null && resp > 0) { weightedRespSum += resp * cutArea; respWeight += cutArea; }
+  }
+
+  const avgResp = respWeight > 0 ? weightedRespSum / respWeight : null;
+  return { totalOoT, totalBIB, totalTr, totalDr, avgResp };
 }
 
 async function getCapabilities() {
@@ -1270,6 +1365,7 @@ function initMapApp() {
 
   let msbOverlayLayer = null;
   let msbLegendControl = null;
+  let currentDrawnPolygon = null;
   let currentMode = "draw";
   let lastTravelLatLng = null;
   let printViewState = null;
@@ -1333,6 +1429,7 @@ function initMapApp() {
       msbLegendControl = null;
     }
     setCurrentMsbOverlayLabel("");
+    hideMsbStats();
   }
 
   function renderMsbLegend(overlayConfig) {
@@ -1366,6 +1463,40 @@ function initMapApp() {
     msbLegendControl.addTo(map);
   }
 
+  function showMsbStats(stats) {
+    if (!msbStatsBoxEl || !msbStatsContentEl) return;
+    const fmt = (n) => Math.round(n).toLocaleString("sv-SE");
+    const fmtF = (n) => n.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+    const lines = [
+      `Olyckor och tillbud: <strong>${fmt(stats.totalOoT)}</strong>`,
+      `Brand i byggnad: <strong>${fmt(stats.totalBIB)}</strong>`,
+      `Trafikolyckor: <strong>${fmt(stats.totalTr)}</strong>`,
+      `Drunkningsolyckor: <strong>${fmt(stats.totalDr)}</strong>`,
+    ];
+    if (stats.avgResp !== null) {
+      lines.push(`Medel responstid 1:a resurs: <strong>${fmtF(stats.avgResp)} min</strong>`);
+    }
+    msbStatsContentEl.innerHTML = lines.join("<br>");
+    msbStatsBoxEl.classList.remove("hidden");
+  }
+
+  function hideMsbStats() {
+    if (msbStatsBoxEl) msbStatsBoxEl.classList.add("hidden");
+  }
+
+  async function loadMsbStatsForPolygon(polygonFeature) {
+    if (!polygonFeature) { hideMsbStats(); return; }
+    try {
+      const features = await fetchMsbStatsForPolygon(polygonFeature);
+      if (!features.length) { hideMsbStats(); return; }
+      const stats = calculateMsbStats(features, polygonFeature);
+      showMsbStats(stats);
+    } catch (err) {
+      console.error("MSB stats fel:", err);
+      hideMsbStats();
+    }
+  }
+
   async function renderMsbOverlay(overlayKey) {
     if (!overlayKey || overlayKey === "none") {
       clearMsbOverlay();
@@ -1379,15 +1510,26 @@ function initMapApp() {
     }
 
     setStatus(`Laddar ${overlayConfig.title}...`);
-    const features = await fetchMsbFeaturesForBounds(map.getBounds(), overlayConfig);
+
+    const polygonToClip = currentDrawnPolygon;
+    let fetchBounds;
+    if (polygonToClip) {
+      const [minLon, minLat, maxLon, maxLat] = turf.bbox(polygonToClip);
+      fetchBounds = { getWest: () => minLon, getSouth: () => minLat, getEast: () => maxLon, getNorth: () => maxLat };
+    } else {
+      fetchBounds = map.getBounds();
+    }
+
+    const features = await fetchMsbFeaturesForBounds(fetchBounds, overlayConfig, polygonToClip);
     if (msbOverlayLayer) {
       map.removeLayer(msbOverlayLayer);
       msbOverlayLayer = null;
     }
 
     if (!features.length) {
-      setCurrentMsbOverlayLabel(`${overlayConfig.title} (0 objekt i vy)`);
-      setStatus(`${overlayConfig.title}: inga objekt i aktuell vy.`);
+      setCurrentMsbOverlayLabel(`${overlayConfig.title} (0 objekt${polygonToClip ? " i markerat område" : " i vy"})`);
+      setStatus(`${overlayConfig.title}: inga objekt${polygonToClip ? " i markerat område" : " i aktuell vy"}.`);
+      hideMsbStats();
       return;
     }
 
@@ -1411,8 +1553,14 @@ function initMapApp() {
 
     msbOverlayLayer.addTo(map);
     renderMsbLegend(overlayConfig);
-    setCurrentMsbOverlayLabel(`${overlayConfig.title} (${features.length} objekt i vy)`);
+    setCurrentMsbOverlayLabel(`${overlayConfig.title} (${features.length} objekt${polygonToClip ? "" : " i vy"})`);
     setStatus(`${overlayConfig.title} laddad.`);
+
+    if (polygonToClip) {
+      loadMsbStatsForPolygon(polygonToClip).catch((err) => console.error("MSB stats fel:", err));
+    } else {
+      hideMsbStats();
+    }
   }
 
   function useFilledArea() {
@@ -1563,6 +1711,17 @@ function initMapApp() {
     setBreakdown([]);
     setMeta([]);
 
+    const geo = layer.toGeoJSON ? layer.toGeoJSON() : null;
+    currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+
+    const msbKey = msbOverlaySelectEl?.value || "none";
+    if (msbKey !== "none") {
+      renderMsbOverlay(msbKey).catch((err) => {
+        console.error(err);
+        setStatus(`Fel vid MSB-overlay: ${err.message}`);
+      });
+    }
+
     runPopulationEstimate(layer).catch((err) => {
       console.error(err);
       setStatus(`Fel: ${err.message}`);
@@ -1593,6 +1752,17 @@ function initMapApp() {
 
       const polygonLayer = layer.getLayers()[0];
       if (polygonLayer) {
+        const geo = polygonLayer.toGeoJSON();
+        currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+
+        const msbKey = msbOverlaySelectEl?.value || "none";
+        if (msbKey !== "none") {
+          renderMsbOverlay(msbKey).catch((err) => {
+            console.error(err);
+            setStatus(`Fel vid MSB-overlay: ${err.message}`);
+          });
+        }
+
         runPopulationEstimate(polygonLayer).catch((err) => {
           console.error(err);
           setStatus(`Fel: ${err.message}`);
@@ -1624,6 +1794,17 @@ function initMapApp() {
 
     const polygonLayer = layer.getLayers()[0];
     if (polygonLayer) {
+      const geo = polygonLayer.toGeoJSON();
+      currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+
+      const msbKey = msbOverlaySelectEl?.value || "none";
+      if (msbKey !== "none") {
+        renderMsbOverlay(msbKey).catch((err) => {
+          console.error(err);
+          setStatus(`Fel vid MSB-overlay: ${err.message}`);
+        });
+      }
+
       runPopulationEstimate(polygonLayer).catch((err) => {
         console.error(err);
         setStatus(`Fel: ${err.message}`);
@@ -1761,10 +1942,12 @@ function initMapApp() {
   clearBtn.addEventListener("click", () => {
     drawnItems.clearLayers();
     lastTravelLatLng = null;
+    currentDrawnPolygon = null;
     populationEl.textContent = "-";
     setBreakdown([]);
     setStatus(currentMode === "travel" ? "Klicka på kartan för att skapa ett restidsområde." : "Rita ett område på kartan.");
     setMeta([]);
+    hideMsbStats();
   });
 
   if (msbOverlaySelectEl) {
@@ -1779,7 +1962,7 @@ function initMapApp() {
 
   map.on("moveend", () => {
     const selectedValue = msbOverlaySelectEl?.value || "none";
-    if (selectedValue === "none") return;
+    if (selectedValue === "none" || currentDrawnPolygon) return;
     renderMsbOverlay(selectedValue).catch((error) => {
       console.error(error);
       setStatus(`Fel vid uppdatering av MSB-overlay: ${error.message}`);
