@@ -2015,6 +2015,12 @@ function initMapApp() {
     return searchWithNominatim(query);
   }
 
+  const searchMarkerIcon = L.divIcon({
+    html: '<div style="background: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.5);"></div>',
+    iconSize: [16, 16],
+    className: 'custom-search-marker',
+  });
+
   const mapSearchControl = L.control({ position: "topright" });
   mapSearchControl.onAdd = () => {
     const container = L.DomUtil.create("div", "map-search-control map-search-wrapper");
@@ -2045,7 +2051,13 @@ function initMapApp() {
           if (searchResultMarker) {
             map.removeLayer(searchResultMarker);
           }
-          searchResultMarker = L.marker([hit.lat, hit.lon]).addTo(map).bindPopup(escapeHtml(hit.label));
+          searchResultMarker = L.marker([hit.lat, hit.lon], { icon: searchMarkerIcon }).addTo(map).bindPopup(escapeHtml(hit.label));
+          searchResultMarker.on('popupclose', () => {
+            if (searchResultMarker) {
+              map.removeLayer(searchResultMarker);
+              searchResultMarker = null;
+            }
+          });
 
           if (hit.bounds && hit.bounds.isValid()) {
             map.fitBounds(hit.bounds, { padding: [30, 30] });
@@ -2284,6 +2296,12 @@ function initMapApp() {
         const props = feature?.properties || {};
         const code = normalizeMunicipalityCode(props[codeField]);
         if (!code) continue;
+
+        const geometry = feature?.geometry;
+        if (!geometry) continue;
+        
+        const area = turf.area(feature);
+        if (area < 500000) continue;
 
         const maybeName = nameField ? String(props[nameField] || "").trim() : "";
         const current = byCode.get(code);
