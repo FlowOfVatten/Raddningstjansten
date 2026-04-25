@@ -4,6 +4,64 @@ const SCB_LAYER_NAME_OVERRIDE = "";
 // Azure Maps is configured in config.js
 const AZURE_MAPS_ISOCHRONE_URL = "https://atlas.microsoft.com/route/range/json";
 const AZURE_MAPS_TILE_URL = "https://atlas.microsoft.com/map/tile?api-version=2024-04-01&tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256&language=sv-SE&view=Auto&subscription-key=";
+const MSB_FEATURE_SERVICE_URL = "https://gisapp.msb.se/arcgis/rest/services/Raddningstjanst/Km2_statistik_2024/FeatureServer/0";
+
+const MSB_OVERLAY_CONFIGS = {
+  2: {
+    id: 2,
+    title: "Karta 2: Olyckor/tillbud per km2",
+    field: "Antal_OoT",
+    where: "Antal_OoT > 0",
+    unit: "antal/km2",
+    breaks: [1, 3, 5, 10],
+    colors: ["#fff3bf", "#ffec99", "#f59f00", "#f76707", "#d9480f"],
+  },
+  3: {
+    id: 3,
+    title: "Karta 3: Brand i byggnad per km2",
+    field: "Antal_BIB",
+    where: "Antal_BIB > 0",
+    unit: "antal/km2",
+    breaks: [1, 5, 10, 20],
+    colors: ["#ffe3e3", "#ffc9c9", "#ff8787", "#fa5252", "#c92a2a"],
+  },
+  4: {
+    id: 4,
+    title: "Karta 4: Trafikolyckor per km2",
+    field: "Antal_tr",
+    where: "Antal_tr > 0",
+    unit: "antal/km2",
+    breaks: [5, 10, 25, 50],
+    colors: ["#f3f0ff", "#e5dbff", "#b197fc", "#845ef7", "#5f3dc4"],
+  },
+  5: {
+    id: 5,
+    title: "Karta 5: Drunkningsolyckor per km2",
+    field: "Antal_dr",
+    where: "Antal_dr > 0",
+    unit: "antal/km2",
+    breaks: [1, 3, 5, 10],
+    colors: ["#e7f5ff", "#d0ebff", "#74c0fc", "#339af0", "#1864ab"],
+  },
+  6: {
+    id: 6,
+    title: "Karta 6: Responstid 1:a resurs (min)",
+    field: "RespM_1a",
+    where: "RespM_1a > 0",
+    unit: "min",
+    breaks: [10, 12.5, 17.5, 20],
+    colors: ["#d3f9d8", "#8ce99a", "#ffd43b", "#ffa94d", "#e03131"],
+  },
+  7: {
+    id: 7,
+    title: "Karta 7: Befolkning utan 10 min responstid",
+    field: "POP",
+    where: "RespM_1a > 10 AND POP > 0",
+    unit: "personer/km2",
+    breaks: [5, 10, 50, 100],
+    colors: ["#e6fcf5", "#c3fae8", "#63e6be", "#20c997", "#0b7285"],
+  },
+};
 
 const LAYER_NAME_HINTS = ["bef", "population", "deso", "regso", "ruta", "grid"];
 const POP_FIELD_HINTS = [
@@ -66,16 +124,30 @@ const downloadTemplateBtn = document.getElementById("download-template-btn");
 const buildCoordinatesBtn = document.getElementById("build-coordinates-btn");
 const printBtn = document.getElementById("print-btn");
 const areaStyleInputs = Array.from(document.querySelectorAll('input[name="area-style"]'));
+const msbOverlaySelectEl = document.getElementById("msb-overlay-select");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
+let lastMetaLines = [];
+let currentMsbOverlayLabel = "";
 
 function setStatus(text) {
   if (statusEl) statusEl.textContent = text;
 }
 
 function setMeta(lines) {
-  if (metaEl) metaEl.innerHTML = lines.join("<br>");
+  lastMetaLines = Array.isArray(lines) ? lines : [];
+  if (!metaEl) return;
+  const merged = [...lastMetaLines];
+  if (currentMsbOverlayLabel) {
+    merged.push(`MSB-overlay: ${currentMsbOverlayLabel}`);
+  }
+  metaEl.innerHTML = merged.join("<br>");
+}
+
+function setCurrentMsbOverlayLabel(label) {
+  currentMsbOverlayLabel = label || "";
+  setMeta(lastMetaLines);
 }
 
 function setBreakdown(lines) {
@@ -620,6 +692,76 @@ function formatSignedPe(value) {
   return rounded.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
 }
 
+function buildMsbColorScale(overlayConfig) {
+  const breaks = overlayConfig.breaks || [];
+  const colors = overlayConfig.colors || [];
+
+  return (value) => {
+    if (!Number.isFinite(value)) return "#d1d5db";
+    for (let i = 0; i < breaks.length; i += 1) {
+      if (value <= breaks[i]) return colors[i] || "#d1d5db";
+    }
+    return colors[colors.length - 1] || "#d1d5db";
+  };
+}
+
+function formatLegendValue(value) {
+  if (!Number.isFinite(value)) return "-";
+  if (Number.isInteger(value)) return String(value);
+  return value.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+}
+
+function buildMsbLegendItems(overlayConfig) {
+  const breaks = overlayConfig.breaks || [];
+  const colors = overlayConfig.colors || [];
+  const items = [];
+
+  if (!breaks.length || !colors.length) return items;
+
+  items.push({ label: `<= ${formatLegendValue(breaks[0])}`, color: colors[0] });
+  for (let i = 1; i < breaks.length; i += 1) {
+    items.push({
+      label: `${formatLegendValue(breaks[i - 1])}-${formatLegendValue(breaks[i])}`,
+      color: colors[i],
+    });
+  }
+  items.push({ label: `> ${formatLegendValue(breaks[breaks.length - 1])}`, color: colors[colors.length - 1] });
+
+  return items;
+}
+
+async function fetchMsbFeaturesForBounds(bounds, overlayConfig) {
+  const geometry = {
+    xmin: bounds.getWest(),
+    ymin: bounds.getSouth(),
+    xmax: bounds.getEast(),
+    ymax: bounds.getNorth(),
+    spatialReference: { wkid: 4326 },
+  };
+
+  const params = new URLSearchParams({
+    f: "geojson",
+    where: overlayConfig.where,
+    outFields: `rut_id,${overlayConfig.field}`,
+    geometry: JSON.stringify(geometry),
+    geometryType: "esriGeometryEnvelope",
+    inSR: "4326",
+    outSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    returnGeometry: "true",
+    resultRecordCount: "5000",
+  });
+
+  const url = `${MSB_FEATURE_SERVICE_URL}/query?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`MSB-anrop misslyckades: HTTP ${res.status}`);
+  }
+
+  const json = await res.json();
+  return Array.isArray(json?.features) ? json.features : [];
+}
+
 async function getCapabilities() {
   const url = `${SCB_WFS_URL}?service=WFS&version=1.1.0&request=GetCapabilities`;
   const res = await fetchDirect(url);
@@ -1123,6 +1265,11 @@ function initMapApp() {
   const mapEl = map.getContainer();
   const drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
+  map.createPane("msbOverlayPane");
+  map.getPane("msbOverlayPane").style.zIndex = "350";
+
+  let msbOverlayLayer = null;
+  let msbLegendControl = null;
   let currentMode = "draw";
   let lastTravelLatLng = null;
   let printViewState = null;
@@ -1175,6 +1322,98 @@ function initMapApp() {
     },
   });
   map.addControl(drawControl);
+
+  function clearMsbOverlay() {
+    if (msbOverlayLayer) {
+      map.removeLayer(msbOverlayLayer);
+      msbOverlayLayer = null;
+    }
+    if (msbLegendControl) {
+      map.removeControl(msbLegendControl);
+      msbLegendControl = null;
+    }
+    setCurrentMsbOverlayLabel("");
+  }
+
+  function renderMsbLegend(overlayConfig) {
+    if (msbLegendControl) {
+      map.removeControl(msbLegendControl);
+      msbLegendControl = null;
+    }
+
+    const items = buildMsbLegendItems(overlayConfig);
+    if (!items.length) return;
+
+    msbLegendControl = L.control({ position: "bottomright" });
+    msbLegendControl.onAdd = () => {
+      const container = L.DomUtil.create("div", "msb-legend");
+      const rows = items
+        .map(
+          (item) =>
+            `<div class="msb-legend-row"><span class="msb-legend-swatch" style="background:${item.color}"></span><span>${item.label}</span></div>`,
+        )
+        .join("");
+
+      container.innerHTML = `
+        <div class="msb-legend-title">${overlayConfig.title}</div>
+        <div class="msb-legend-unit">${overlayConfig.unit || ""}</div>
+        ${rows}
+      `;
+
+      return container;
+    };
+
+    msbLegendControl.addTo(map);
+  }
+
+  async function renderMsbOverlay(overlayKey) {
+    if (!overlayKey || overlayKey === "none") {
+      clearMsbOverlay();
+      return;
+    }
+
+    const overlayConfig = MSB_OVERLAY_CONFIGS[overlayKey];
+    if (!overlayConfig) {
+      clearMsbOverlay();
+      return;
+    }
+
+    setStatus(`Laddar ${overlayConfig.title}...`);
+    const features = await fetchMsbFeaturesForBounds(map.getBounds(), overlayConfig);
+    if (msbOverlayLayer) {
+      map.removeLayer(msbOverlayLayer);
+      msbOverlayLayer = null;
+    }
+
+    if (!features.length) {
+      setCurrentMsbOverlayLabel(`${overlayConfig.title} (0 objekt i vy)`);
+      setStatus(`${overlayConfig.title}: inga objekt i aktuell vy.`);
+      return;
+    }
+
+    const colorScale = buildMsbColorScale(overlayConfig);
+    msbOverlayLayer = L.geoJSON(
+      { type: "FeatureCollection", features },
+      {
+        pane: "msbOverlayPane",
+        interactive: false,
+        style: (feature) => {
+          const value = safeParseFloat(feature?.properties?.[overlayConfig.field]);
+          return {
+            color: "#6b7280",
+            weight: 0.35,
+            fillColor: colorScale(value),
+            fillOpacity: 0.45,
+          };
+        },
+      },
+    );
+
+    msbOverlayLayer.addTo(map);
+    renderMsbLegend(overlayConfig);
+    setCurrentMsbOverlayLabel(`${overlayConfig.title} (${features.length} objekt i vy)`);
+    setStatus(`${overlayConfig.title} laddad.`);
+  }
 
   function useFilledArea() {
     const selected = areaStyleInputs.find((input) => input.checked)?.value;
@@ -1526,6 +1765,25 @@ function initMapApp() {
     setBreakdown([]);
     setStatus(currentMode === "travel" ? "Klicka på kartan för att skapa ett restidsområde." : "Rita ett område på kartan.");
     setMeta([]);
+  });
+
+  if (msbOverlaySelectEl) {
+    msbOverlaySelectEl.addEventListener("change", () => {
+      const selectedValue = msbOverlaySelectEl.value;
+      renderMsbOverlay(selectedValue).catch((error) => {
+        console.error(error);
+        setStatus(`Fel vid laddning av MSB-overlay: ${error.message}`);
+      });
+    });
+  }
+
+  map.on("moveend", () => {
+    const selectedValue = msbOverlaySelectEl?.value || "none";
+    if (selectedValue === "none") return;
+    renderMsbOverlay(selectedValue).catch((error) => {
+      console.error(error);
+      setStatus(`Fel vid uppdatering av MSB-overlay: ${error.message}`);
+    });
   });
 
   setMode("draw");

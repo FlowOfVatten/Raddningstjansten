@@ -79,6 +79,17 @@ p {
   color: #4b5563;
 }
 
+.mode-box select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 0.9rem;
+  background: #ffffff;
+  color: #111827;
+  margin-top: 6px;
+}
+
 .travel-settings input {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -119,6 +130,47 @@ p {
 #map {
   width: 100%;
   height: 100%;
+}
+
+.msb-legend {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-width: 180px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.16);
+  font-size: 0.78rem;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.msb-legend-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.msb-legend-unit {
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.msb-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.msb-legend-row:last-child {
+  margin-bottom: 0;
+}
+
+.msb-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.25);
+  border-radius: 2px;
+  flex: 0 0 12px;
 }
 
 .row {

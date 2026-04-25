@@ -57,6 +57,21 @@
         </label>
       </div>
 
+      <div class="mode-box">
+        <div class="mode-title">MSB-karta (overlay)</div>
+        <label for="msb-overlay-select">Välj karta</label>
+        <select id="msb-overlay-select">
+          <option value="none" selected>Ingen</option>
+          <option value="2">Karta 2: Olyckor/tillbud per km2</option>
+          <option value="3">Karta 3: Brand i byggnad per km2</option>
+          <option value="4">Karta 4: Trafikolyckor per km2</option>
+          <option value="5">Karta 5: Drunkningsolyckor per km2</option>
+          <option value="6">Karta 6: Responstid 1:a resurs</option>
+          <option value="7">Karta 7: Befolkning utan 10 min responstid</option>
+        </select>
+        <div class="hint">Overlayn visas ovanpå baskartan men under ritat område.</div>
+      </div>
+
       <div class="row">
         <button id="clear-btn" type="button">Rensa ritning</button>
         <button id="print-btn" type="button">Skriv ut</button>
