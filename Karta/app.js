@@ -113,6 +113,112 @@ function keyTokens(key) {
     .filter(Boolean);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function normalizeMunicipalityCode(value) {
+  if (value === null || value === undefined) return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  const numeric = safeParseFloat(text);
+  if (numeric !== null && Number.isInteger(numeric)) {
+    return String(Math.trunc(numeric)).padStart(4, "0");
+  }
+  return text;
+}
+
+function detectMunicipalityNameField(features, excludedKeys = []) {
+  const excluded = new Set(excludedKeys.filter(Boolean));
+  const keyStats = new Map();
+
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    for (const [key, value] of Object.entries(props)) {
+      if (excluded.has(key)) continue;
+
+      const text = String(value ?? "").trim();
+      if (!text) continue;
+
+      if (!keyStats.has(key)) {
+        keyStats.set(key, {
+          count: 0,
+          textCount: 0,
+          avgLengthSum: 0,
+          distinctValues: new Set(),
+        });
+      }
+
+      const stat = keyStats.get(key);
+      stat.count += 1;
+
+      const numeric = safeParseFloat(text);
+      if (numeric === null) {
+        stat.textCount += 1;
+        stat.avgLengthSum += text.length;
+      }
+
+      stat.distinctValues.add(text);
+    }
+  }
+
+  let bestField = null;
+  let bestScore = -Infinity;
+
+  for (const [key, stat] of keyStats.entries()) {
+    if (stat.count < 5) continue;
+
+    const lc = key.toLowerCase();
+    let score = 0;
+
+    if (lc.includes("kommunnamn") || lc.includes("knnamn") || lc.includes("namn")) score += 18;
+    if (lc.includes("kommun") || lc.includes("muni")) score += 8;
+    if (lc.includes("kod") || lc.includes("id")) score -= 10;
+
+    const textRatio = stat.textCount / stat.count;
+    score += textRatio * 20;
+
+    const distinct = stat.distinctValues.size;
+    if (distinct > 40 && distinct < 400) score += 8;
+    if (distinct <= 3) score -= 20;
+
+    const avgTextLength = stat.textCount > 0 ? stat.avgLengthSum / stat.textCount : 0;
+    if (avgTextLength >= 4 && avgTextLength <= 22) score += 5;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestField = key;
+    }
+  }
+
+  return bestField;
+}
+
+function chooseMunicipalityLayerName(layerNames) {
+  if (!Array.isArray(layerNames) || !layerNames.length) return null;
+
+  const ranked = [...layerNames].sort((a, b) => {
+    const score = (name) => {
+      const lc = String(name || "").toLowerCase();
+      let s = 0;
+      if (lc.includes("kommun")) s += 120;
+      if (lc.includes("grans") || lc.includes("boundary")) s += 60;
+      if (lc.includes("yta") || lc.includes("polygon")) s += 20;
+      if (lc.includes("deso") || lc.includes("regso")) s -= 40;
+      if (lc.includes("ruta") || lc.includes("grid")) s -= 90;
+      return s;
+    };
+    return score(b) - score(a);
+  });
+
+  return ranked[0] || null;
+}
+
 const statusEl = document.getElementById("status");
 const populationEl = document.getElementById("population");
 const breakdownEl = document.getElementById("breakdown");
@@ -133,6 +239,11 @@ const msbStatsBoxEl = document.getElementById("msb-stats-box");
 const msbStatsContentEl = document.getElementById("msb-stats-content");
 const panelHelpLinkEl = document.getElementById("panel-help-link");
 const panelHelpPopupEl = document.getElementById("panel-help-popup");
+const municipalityDropdownToggleEl = document.getElementById("municipality-dropdown-toggle");
+const municipalityDropdownPanelEl = document.getElementById("municipality-dropdown-panel");
+const municipalityFilterInputEl = document.getElementById("municipality-filter-input");
+const municipalityCheckboxListEl = document.getElementById("municipality-checkbox-list");
+const municipalitySelectionSummaryEl = document.getElementById("municipality-selection-summary");
 
 let selectedLayerName = null;
 let selectedPopulationField = null;
@@ -141,6 +252,9 @@ let currentMsbOverlayLabel = "";
 let currentAreaStyle = "fill";
 let currentPopulationContext = null;
 let refreshMsbStatsHandler = () => {};
+let municipalityBoundaryMeta = null;
+let municipalityEntries = [];
+const selectedMunicipalityCodes = new Set();
 
 function setStatus(text) {
   if (statusEl) statusEl.textContent = text;
@@ -805,7 +919,7 @@ function buildMsbLegendItems(overlayConfig) {
   return items;
 }
 
-async function fetchMsbFeaturesForBounds(bounds, overlayConfig, clipPolygon = null) {
+async function fetchMsbFeaturesForBounds(bounds, overlayConfig, clipAreaFeatures = null) {
   const geometry = {
     xmin: bounds.getWest(),
     ymin: bounds.getSouth(),
@@ -839,14 +953,20 @@ async function fetchMsbFeaturesForBounds(bounds, overlayConfig, clipPolygon = nu
   const json = await res.json();
   let features = Array.isArray(json?.features) ? json.features : [];
 
-  if (clipPolygon && features.length) {
+  const clippingAreas = Array.isArray(clipAreaFeatures)
+    ? clipAreaFeatures.filter((feature) => feature?.geometry)
+    : (clipAreaFeatures?.geometry ? [clipAreaFeatures] : []);
+
+  if (clippingAreas.length && features.length) {
     features = features.filter((feature) => {
       try {
         const f = turf.feature(feature.geometry, feature.properties || {});
-        let ix = null;
-        try { ix = turf.intersect(f, clipPolygon); } catch { /* ignore */ }
-        if (!ix) try { ix = turf.intersect(turf.featureCollection([f, clipPolygon])); } catch { /* ignore */ }
-        return ix !== null;
+        return clippingAreas.some((areaFeature) => {
+          let ix = null;
+          try { ix = turf.intersect(f, areaFeature); } catch { /* ignore */ }
+          if (!ix) try { ix = turf.intersect(turf.featureCollection([f, areaFeature])); } catch { /* ignore */ }
+          return ix !== null;
+        });
       } catch { return false; }
     });
   }
@@ -1233,14 +1353,14 @@ function areaKm2(feature) {
   return turf.area(feature) / 1_000_000;
 }
 
-async function evaluateLayerForPopulation(layerName, bounds, areaFeature) {
+async function evaluateLayerForPopulation(layerName, bounds, areaFeatures) {
   const features = await fetchFeaturesForBounds(layerName, bounds);
   if (!features.length) return null;
 
   const field = choosePopulationFieldFromFeatures(features);
   if (!field) return null;
 
-  const result = calculatePopulationWithinPolygon(features, areaFeature, field);
+  const result = calculatePopulationWithinAreas(features, areaFeatures, field);
   return {
     layerName,
     field,
@@ -1475,17 +1595,20 @@ function calculatePopulationWithinPolygon(features, areaFeature, populationField
 
 async function runPopulationEstimate(layer) {
   const geo = layer.toGeoJSON();
-  const areaFeature = geo.type === "Feature" ? geo : geo.features?.[0];
-  if (!areaFeature) return;
+  const areaFeatures = geo.type === "FeatureCollection"
+    ? (geo.features || []).filter((feature) => feature?.geometry)
+    : (geo?.geometry ? [geo] : []);
+  if (!areaFeatures.length) return;
+  const primaryAreaFeature = areaFeatures[0];
 
   setStatus("Räknar befolkning inom området...");
   const bounds = layer.getBounds();
 
-  const area = areaKm2(areaFeature);
+  const area = sumAreaFeaturesKm2(areaFeatures);
   currentPopulationContext = null;
   let layerName = await ensureLayerSelected();
 
-  let evaluation = await evaluateLayerForPopulation(layerName, bounds, areaFeature);
+  let evaluation = await evaluateLayerForPopulation(layerName, bounds, areaFeatures);
   if (!evaluation) {
     populationEl.textContent = "0";
     setStatus("Inga SCB-features i valt bbox-område.");
@@ -1512,7 +1635,7 @@ async function runPopulationEstimate(layer) {
       .slice(0, 8);
 
     for (const candidate of alternatives) {
-      const candidateEvaluation = await evaluateLayerForPopulation(candidate, bounds, areaFeature);
+      const candidateEvaluation = await evaluateLayerForPopulation(candidate, bounds, areaFeatures);
       if (!candidateEvaluation) continue;
       const candidateDensity = area > 0 ? candidateEvaluation.total / area : 0;
       if (candidateDensity > initialDensity * 1.5 && candidateEvaluation.total > evaluation.total) {
@@ -1529,7 +1652,7 @@ async function runPopulationEstimate(layer) {
   populationEl.textContent = rounded.toLocaleString("sv-SE");
 
   const demographicFields = detectDemographicFields(evaluation.features, evaluation.field);
-  const breakdown = calculateDemographicBreakdown(evaluation.features, areaFeature, demographicFields);
+  const breakdown = calculateDemographicBreakdownForAreas(evaluation.features, areaFeatures, demographicFields);
   const breakdownLines = [];
 
   if (breakdown.male !== null || breakdown.female !== null) {
@@ -1544,19 +1667,20 @@ async function runPopulationEstimate(layer) {
     demographicFields.maleField &&
     demographicFields.femaleField &&
     breakdown.male !== null &&
-    breakdown.female !== null
+    breakdown.female !== null &&
+    areaFeatures.length === 1
   ) {
     let municipalityField = detectMunicipalityField(evaluation.features, [evaluation.field]);
     if (!municipalityField) {
       municipalityReason = "saknar kommunkod/kommunfält i valt lager, provar RegSO/DeSO";
     }
 
-    let municipalityValue = identifyMunicipalityValue(evaluation.features, areaFeature, municipalityField);
+    let municipalityValue = identifyMunicipalityValue(evaluation.features, primaryAreaFeature, municipalityField);
     let municipalityAreas = null;
     let municipalitySourceLayer = evaluation.layerName;
 
     if (!municipalityField || !municipalityValue) {
-      const adminMatch = await findMunicipalityFromAdminLayers(areaFeature, bounds);
+      const adminMatch = await findMunicipalityFromAdminLayers(primaryAreaFeature, bounds);
       if (adminMatch) {
         municipalityField = adminMatch.municipalityField;
         municipalityValue = adminMatch.municipalityValue;
@@ -1566,7 +1690,7 @@ async function runPopulationEstimate(layer) {
     }
 
     if (municipalityField && municipalityValue && (!municipalityAreas || !municipalityAreas.length)) {
-      const adminMatch = await findMunicipalityFromAdminLayers(areaFeature, bounds);
+      const adminMatch = await findMunicipalityFromAdminLayers(primaryAreaFeature, bounds);
       if (adminMatch && String(adminMatch.municipalityValue) === String(municipalityValue)) {
         municipalityAreas = adminMatch.municipalityAreas;
         municipalitySourceLayer = adminMatch.adminLayer;
@@ -1670,6 +1794,8 @@ async function runPopulationEstimate(layer) {
         console.warn("Kunde inte beräkna kommunsnitt:", error);
       }
     }
+  } else if (areaFeatures.length > 1) {
+    municipalityReason = "flera kommunytor valda";
   } else {
     municipalityReason = "saknar könsfält eller könsvärden i vald yta";
   }
@@ -1695,10 +1821,11 @@ async function runPopulationEstimate(layer) {
     municipalityContext
       ? `Kommunjämförelse: ${municipalityContext.field}=${municipalityContext.value} (${municipalityContext.features} features, källa ${municipalityContext.sourceLayer})`
       : `Kommunjämförelse: kunde inte beräknas (${municipalityReason})`,
+    areaFeatures.length > 1 ? `Valda kommunytor: ${areaFeatures.length}` : "",
     `Features i bbox: ${evaluation.featureCount}`,
     `Features som bidrog till summa: ${evaluation.matched}`,
     "Obs: Delvis överlapp viktas med areaandel.",
-  ]);
+  ].filter(Boolean));
 
   currentPopulationContext = {
     layerName: evaluation.layerName,
@@ -1722,9 +1849,12 @@ function initMapApp() {
   let msbOverlayLayer = null;
   let msbLegendControl = null;
   let currentDrawnPolygon = null;
+  let currentAreaFeatures = [];
   let currentMode = "draw";
   let lastTravelLatLng = null;
   let printViewState = null;
+  let municipalitySelectionLayer = null;
+  let searchResultMarker = null;
 
   const azureTileAttribution =
     '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
@@ -1762,6 +1892,125 @@ function initMapApp() {
   defaultBaseLayer.addTo(map);
   L.control.layers(baseLayers, null, { position: "topright", collapsed: true }).addTo(map);
 
+  async function searchWithAzureMaps(query) {
+    if (!AZURE_MAPS_KEY) return null;
+    const params = new URLSearchParams({
+      "api-version": "1.0",
+      query,
+      limit: "1",
+      countrySet: "SE",
+      "subscription-key": AZURE_MAPS_KEY,
+      language: "sv-SE",
+    });
+    const res = await fetch(`https://atlas.microsoft.com/search/address/json?${params.toString()}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const first = data?.results?.[0];
+    if (!first?.position) return null;
+
+    const lat = first.position.lat;
+    const lon = first.position.lon;
+    const viewport = first.viewport || null;
+    const bounds = viewport
+      ? L.latLngBounds(
+          [viewport.btmRightPoint.lat, viewport.topLeftPoint.lon],
+          [viewport.topLeftPoint.lat, viewport.btmRightPoint.lon],
+        )
+      : null;
+
+    return { lat, lon, label: first.address?.freeformAddress || query, bounds };
+  }
+
+  async function searchWithNominatim(query) {
+    const params = new URLSearchParams({
+      format: "jsonv2",
+      limit: "1",
+      countrycodes: "se",
+      q: query,
+    });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    if (!first) return null;
+
+    const lat = Number.parseFloat(first.lat);
+    const lon = Number.parseFloat(first.lon);
+    const bbox = Array.isArray(first.boundingbox) ? first.boundingbox : null;
+    const bounds = bbox && bbox.length === 4
+      ? L.latLngBounds(
+          [Number.parseFloat(bbox[0]), Number.parseFloat(bbox[2])],
+          [Number.parseFloat(bbox[1]), Number.parseFloat(bbox[3])],
+        )
+      : null;
+
+    return {
+      lat,
+      lon,
+      label: first.display_name || query,
+      bounds,
+    };
+  }
+
+  async function searchLocation(query) {
+    const azureResult = await searchWithAzureMaps(query);
+    if (azureResult) return azureResult;
+    return searchWithNominatim(query);
+  }
+
+  const mapSearchControl = L.control({ position: "topright" });
+  mapSearchControl.onAdd = () => {
+    const container = L.DomUtil.create("div", "map-search-control map-search-wrapper");
+    container.innerHTML = `
+      <form class="map-search-form">
+        <input type="search" placeholder="Sök plats på kartan" aria-label="Sök plats på kartan" />
+        <button type="submit">Sök</button>
+      </form>
+    `;
+
+    const form = container.querySelector("form");
+    const input = container.querySelector("input");
+
+    if (form && input) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const query = String(input.value || "").trim();
+        if (!query) return;
+
+        try {
+          setStatus(`Söker efter: ${query}...`);
+          const hit = await searchLocation(query);
+          if (!hit || !Number.isFinite(hit.lat) || !Number.isFinite(hit.lon)) {
+            setStatus(`Ingen träff för \"${query}\".`);
+            return;
+          }
+
+          if (searchResultMarker) {
+            map.removeLayer(searchResultMarker);
+          }
+          searchResultMarker = L.marker([hit.lat, hit.lon]).addTo(map).bindPopup(escapeHtml(hit.label));
+
+          if (hit.bounds && hit.bounds.isValid()) {
+            map.fitBounds(hit.bounds, { padding: [30, 30] });
+          } else {
+            map.setView([hit.lat, hit.lon], 13);
+          }
+
+          searchResultMarker.openPopup();
+          setStatus(`Sökresultat: ${hit.label}`);
+        } catch (error) {
+          console.error("Sökfel:", error);
+          setStatus(`Fel vid sökning: ${error.message}`);
+        }
+      });
+    }
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    return container;
+  };
+  mapSearchControl.addTo(map);
+
   const drawControl = new L.Control.Draw({
     edit: { featureGroup: drawnItems },
     draw: {
@@ -1791,6 +2040,266 @@ function initMapApp() {
   areaStyleControl.addTo(map);
 
   const areaStyleMapInputs = Array.from(document.querySelectorAll('input[name="area-style-map"]'));
+
+  function setCurrentAreaFromLayer(layer) {
+    const geo = layer?.toGeoJSON ? layer.toGeoJSON() : null;
+    const areaFeatures = geo?.type === "FeatureCollection"
+      ? (geo.features || []).filter((feature) => feature?.geometry)
+      : (geo?.geometry ? [geo] : []);
+
+    currentAreaFeatures = areaFeatures;
+    currentDrawnPolygon = areaFeatures[0] || null;
+  }
+
+  function updateMunicipalitySummary() {
+    if (!municipalitySelectionSummaryEl || !municipalityDropdownToggleEl) return;
+
+    if (!selectedMunicipalityCodes.size) {
+      municipalitySelectionSummaryEl.textContent = "Inga valda kommuner.";
+      municipalityDropdownToggleEl.textContent = "Välj kommuner";
+      return;
+    }
+
+    const selectedNames = municipalityEntries
+      .filter((entry) => selectedMunicipalityCodes.has(entry.code))
+      .map((entry) => entry.name);
+
+    municipalityDropdownToggleEl.textContent = `Valda kommuner (${selectedMunicipalityCodes.size})`;
+    const preview = selectedNames.slice(0, 3).join(", ");
+    municipalitySelectionSummaryEl.textContent = selectedNames.length > 3
+      ? `${preview} + ${selectedNames.length - 3} till.`
+      : preview;
+  }
+
+  function renderMunicipalitySelectionOnMap(options = {}) {
+    const shouldFitBounds = Boolean(options.fitBounds);
+
+    if (municipalitySelectionLayer) {
+      map.removeLayer(municipalitySelectionLayer);
+      municipalitySelectionLayer = null;
+    }
+
+    if (!municipalityBoundaryMeta || !selectedMunicipalityCodes.size) {
+      return null;
+    }
+
+    const selectedFeatures = [];
+    for (const code of selectedMunicipalityCodes) {
+      const group = municipalityBoundaryMeta.featuresByCode.get(code) || [];
+      selectedFeatures.push(...group);
+    }
+
+    if (!selectedFeatures.length) return null;
+
+    municipalitySelectionLayer = L.geoJSON(
+      { type: "FeatureCollection", features: selectedFeatures },
+      {
+        style: {
+          color: "#0b7285",
+          weight: 2,
+          fillColor: "#15aabf",
+          fillOpacity: 0.12,
+        },
+      },
+    ).addTo(map);
+
+    if (shouldFitBounds) {
+      const bounds = municipalitySelectionLayer.getBounds();
+      if (bounds?.isValid()) {
+        map.fitBounds(bounds, { padding: [25, 25] });
+      }
+    }
+
+    return municipalitySelectionLayer;
+  }
+
+  function resetResultBoxesForNewSelection() {
+    currentPopulationContext = null;
+    populationEl.textContent = "-";
+    setBreakdown([]);
+    setMeta([]);
+  }
+
+  function applyMunicipalitySelectionAsArea(options = {}) {
+    const selectedLayer = renderMunicipalitySelectionOnMap(options);
+    if (!selectedLayer) {
+      currentAreaFeatures = [];
+      currentDrawnPolygon = null;
+      resetResultBoxesForNewSelection();
+      hideMsbStats();
+      const msbKey = msbOverlaySelectEl?.value || "none";
+      if (msbKey !== "none") {
+        renderMsbOverlay(msbKey).catch((err) => {
+          console.error(err);
+          setStatus(`Fel vid MSB-overlay: ${err.message}`);
+        });
+      }
+      return;
+    }
+
+    setCurrentAreaFromLayer(selectedLayer);
+    resetResultBoxesForNewSelection();
+
+    const msbKey = msbOverlaySelectEl?.value || "none";
+    if (msbKey !== "none") {
+      renderMsbOverlay(msbKey).catch((err) => {
+        console.error(err);
+        setStatus(`Fel vid MSB-overlay: ${err.message}`);
+      });
+    } else {
+      refreshMsbStatsForCurrentPolygon();
+    }
+
+    runPopulationEstimate(selectedLayer).catch((err) => {
+      console.error(err);
+      setStatus(`Fel: ${err.message}`);
+      populationEl.textContent = "-";
+      setBreakdown([]);
+    });
+  }
+
+  function renderMunicipalityOptions(filterValue = "") {
+    if (!municipalityCheckboxListEl) return;
+    const filter = String(filterValue || "").trim().toLowerCase();
+
+    const visible = municipalityEntries.filter((entry) => {
+      if (!filter) return true;
+      return entry.name.toLowerCase().includes(filter) || entry.code.includes(filter);
+    });
+
+    if (!visible.length) {
+      municipalityCheckboxListEl.innerHTML = '<div class="hint">Inga kommuner matchar sökningen.</div>';
+      return;
+    }
+
+    municipalityCheckboxListEl.innerHTML = visible
+      .map(
+        (entry) =>
+          `<label class="municipality-option"><input type="checkbox" data-municipality-code="${escapeHtml(entry.code)}" ${selectedMunicipalityCodes.has(entry.code) ? "checked" : ""}> ${escapeHtml(entry.name)} (${escapeHtml(entry.code)})</label>`,
+      )
+      .join("");
+  }
+
+  async function loadMunicipalityOptions() {
+    if (!municipalityCheckboxListEl) return;
+
+    municipalityCheckboxListEl.innerHTML = '<div class="hint">Laddar kommuner...</div>';
+
+    try {
+      const layerNames = await getCapabilities();
+      const preferredLayer = chooseMunicipalityLayerName(layerNames);
+      const candidates = [preferredLayer, ...MUNICIPALITY_ADMIN_LAYERS].filter(Boolean);
+
+      let features = [];
+      let layerName = null;
+      let codeField = null;
+
+      for (const candidate of candidates) {
+        const loaded = await fetchFeaturesByFilter(candidate, null);
+        const candidateCodeField = detectMunicipalityField(loaded, []);
+        if (!loaded.length || !candidateCodeField) continue;
+        features = loaded;
+        layerName = candidate;
+        codeField = candidateCodeField;
+        break;
+      }
+
+      if (!features.length || !layerName || !codeField) {
+        municipalityCheckboxListEl.innerHTML = '<div class="hint">Kunde inte läsa in kommunlista.</div>';
+        return;
+      }
+
+      const nameField = detectMunicipalityNameField(features, [codeField]);
+      const byCode = new Map();
+      const featuresByCode = new Map();
+
+      for (const feature of features) {
+        const props = feature?.properties || {};
+        const code = normalizeMunicipalityCode(props[codeField]);
+        if (!code) continue;
+
+        const maybeName = nameField ? String(props[nameField] || "").trim() : "";
+        const current = byCode.get(code);
+        if (!current || maybeName.length > current.name.length) {
+          byCode.set(code, {
+            code,
+            name: maybeName || `Kommun ${code}`,
+          });
+        }
+
+        if (!featuresByCode.has(code)) {
+          featuresByCode.set(code, []);
+        }
+        featuresByCode.get(code).push(feature);
+      }
+
+      municipalityEntries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+      municipalityBoundaryMeta = {
+        layerName,
+        codeField,
+        nameField,
+        featuresByCode,
+      };
+
+      renderMunicipalityOptions("");
+      updateMunicipalitySummary();
+    } catch (error) {
+      console.error("Kunde inte läsa kommuner:", error);
+      municipalityCheckboxListEl.innerHTML = '<div class="hint">Fel vid hämtning av kommunlista.</div>';
+    }
+  }
+
+  function setupMunicipalityDropdown() {
+    if (!municipalityDropdownToggleEl || !municipalityDropdownPanelEl || !municipalityCheckboxListEl) return;
+
+    municipalityDropdownToggleEl.addEventListener("click", () => {
+      const willOpen = municipalityDropdownPanelEl.classList.contains("hidden");
+      municipalityDropdownPanelEl.classList.toggle("hidden", !willOpen);
+      municipalityDropdownToggleEl.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      if (willOpen && municipalityFilterInputEl) {
+        municipalityFilterInputEl.focus();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (municipalityDropdownPanelEl.contains(target) || municipalityDropdownToggleEl.contains(target)) return;
+      municipalityDropdownPanelEl.classList.add("hidden");
+      municipalityDropdownToggleEl.setAttribute("aria-expanded", "false");
+    });
+
+    municipalityCheckboxListEl.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (target.type !== "checkbox") return;
+
+      const code = target.dataset.municipalityCode || "";
+      if (!code) return;
+
+      if (target.checked) {
+        selectedMunicipalityCodes.add(code);
+      } else {
+        selectedMunicipalityCodes.delete(code);
+      }
+
+      updateMunicipalitySummary();
+      applyMunicipalitySelectionAsArea({ fitBounds: true });
+    });
+
+    if (municipalityFilterInputEl) {
+      municipalityFilterInputEl.addEventListener("input", () => {
+        renderMunicipalityOptions(municipalityFilterInputEl.value);
+      });
+    }
+
+    updateMunicipalitySummary();
+    loadMunicipalityOptions().catch((error) => {
+      console.error("Kommunlistan kunde inte startas:", error);
+    });
+  }
+
+  setupMunicipalityDropdown();
 
   function clearMsbOverlay() {
     if (msbOverlayLayer) {
@@ -1862,12 +2371,14 @@ function initMapApp() {
     if (msbStatsBoxEl) msbStatsBoxEl.classList.add("hidden");
   }
 
-  async function loadMsbStatsForPolygon(polygonFeature) {
-    if (!polygonFeature) { hideMsbStats(); return; }
+  async function loadMsbStatsForAreas(areaFeatures) {
+    if (!Array.isArray(areaFeatures) || !areaFeatures.length) { hideMsbStats(); return; }
     try {
-      const features = await fetchMsbStatsForPolygon(polygonFeature);
+      const features = areaFeatures.length === 1
+        ? await fetchMsbStatsForPolygon(areaFeatures[0])
+        : await fetchMsbStatsForAreas(areaFeatures);
       if (!features.length) { hideMsbStats(); return; }
-      const stats = calculateMsbStats(features, polygonFeature);
+      const stats = calculateMsbStatsForAreas(features, areaFeatures);
       let comparisonLines = [];
       if (currentPopulationContext?.municipality?.areas?.length) {
         try {
@@ -1890,11 +2401,11 @@ function initMapApp() {
   }
 
   function refreshMsbStatsForCurrentPolygon() {
-    if (!currentDrawnPolygon) {
+    if (!currentAreaFeatures.length) {
       hideMsbStats();
       return;
     }
-    loadMsbStatsForPolygon(currentDrawnPolygon).catch((err) => {
+    loadMsbStatsForAreas(currentAreaFeatures).catch((err) => {
       console.error("MSB stats fel:", err);
       hideMsbStats();
     });
@@ -1918,24 +2429,24 @@ function initMapApp() {
 
     setStatus(`Laddar ${overlayConfig.title}...`);
 
-    const polygonToClip = currentDrawnPolygon;
+    const areaFeaturesToClip = currentAreaFeatures;
     let fetchBounds;
-    if (polygonToClip) {
-      const [minLon, minLat, maxLon, maxLat] = turf.bbox(polygonToClip);
+    if (areaFeaturesToClip.length) {
+      const [minLon, minLat, maxLon, maxLat] = turf.bbox(turf.featureCollection(areaFeaturesToClip));
       fetchBounds = { getWest: () => minLon, getSouth: () => minLat, getEast: () => maxLon, getNorth: () => maxLat };
     } else {
       fetchBounds = map.getBounds();
     }
 
-    const features = await fetchMsbFeaturesForBounds(fetchBounds, overlayConfig, polygonToClip);
+    const features = await fetchMsbFeaturesForBounds(fetchBounds, overlayConfig, areaFeaturesToClip);
     if (msbOverlayLayer) {
       map.removeLayer(msbOverlayLayer);
       msbOverlayLayer = null;
     }
 
     if (!features.length) {
-      setCurrentMsbOverlayLabel(`${overlayConfig.title} (0 objekt${polygonToClip ? " i markerat område" : " i vy"})`);
-      setStatus(`${overlayConfig.title}: inga objekt${polygonToClip ? " i markerat område" : " i aktuell vy"}.`);
+      setCurrentMsbOverlayLabel(`${overlayConfig.title} (0 objekt${areaFeaturesToClip.length ? " i markerat område" : " i vy"})`);
+      setStatus(`${overlayConfig.title}: inga objekt${areaFeaturesToClip.length ? " i markerat område" : " i aktuell vy"}.`);
       refreshMsbStatsForCurrentPolygon();
       return;
     }
@@ -1960,7 +2471,7 @@ function initMapApp() {
 
     msbOverlayLayer.addTo(map);
     renderMsbLegend(overlayConfig);
-    setCurrentMsbOverlayLabel(`${overlayConfig.title} (${features.length} objekt${polygonToClip ? "" : " i vy"})`);
+    setCurrentMsbOverlayLabel(`${overlayConfig.title} (${features.length} objekt${areaFeaturesToClip.length ? "" : " i vy"})`);
     setStatus(`${overlayConfig.title} laddad.`);
     refreshMsbStatsForCurrentPolygon();
   }
@@ -2124,6 +2635,7 @@ function initMapApp() {
 
     const geo = layer.toGeoJSON ? layer.toGeoJSON() : null;
     currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+    setCurrentAreaFromLayer(layer);
     refreshMsbStatsForCurrentPolygon();
 
     const msbKey = msbOverlaySelectEl?.value || "none";
@@ -2165,8 +2677,7 @@ function initMapApp() {
 
       const polygonLayer = layer.getLayers()[0];
       if (polygonLayer) {
-        const geo = polygonLayer.toGeoJSON();
-        currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+        setCurrentAreaFromLayer(polygonLayer);
         refreshMsbStatsForCurrentPolygon();
 
         const msbKey = msbOverlaySelectEl?.value || "none";
@@ -2209,8 +2720,7 @@ function initMapApp() {
 
     const polygonLayer = layer.getLayers()[0];
     if (polygonLayer) {
-      const geo = polygonLayer.toGeoJSON();
-      currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
+      setCurrentAreaFromLayer(polygonLayer);
       refreshMsbStatsForCurrentPolygon();
 
       const msbKey = msbOverlaySelectEl?.value || "none";
@@ -2353,8 +2863,24 @@ function initMapApp() {
 
   clearBtn.addEventListener("click", () => {
     drawnItems.clearLayers();
+    if (municipalitySelectionLayer) {
+      map.removeLayer(municipalitySelectionLayer);
+      municipalitySelectionLayer = null;
+    }
+    selectedMunicipalityCodes.clear();
+    if (municipalityFilterInputEl) {
+      municipalityFilterInputEl.value = "";
+    }
+    if (municipalityDropdownPanelEl && municipalityDropdownToggleEl) {
+      municipalityDropdownPanelEl.classList.add("hidden");
+      municipalityDropdownToggleEl.setAttribute("aria-expanded", "false");
+    }
+    renderMunicipalityOptions("");
+    updateMunicipalitySummary();
+
     lastTravelLatLng = null;
     currentDrawnPolygon = null;
+    currentAreaFeatures = [];
     currentPopulationContext = null;
     populationEl.textContent = "-";
     setBreakdown([]);
@@ -2375,7 +2901,7 @@ function initMapApp() {
 
   map.on("moveend", () => {
     const selectedValue = msbOverlaySelectEl?.value || "none";
-    if (selectedValue === "none" || currentDrawnPolygon) return;
+    if (selectedValue === "none" || currentAreaFeatures.length) return;
     renderMsbOverlay(selectedValue).catch((error) => {
       console.error(error);
       setStatus(`Fel vid uppdatering av MSB-overlay: ${error.message}`);

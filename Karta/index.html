@@ -72,7 +72,20 @@
           <option value="6">Karta 6: Responstid 1:a resurs</option>
           <option value="7">Karta 7: Befolkning utan 10 min responstid</option>
         </select>
-        <div class="hint">Overlayn visas ovanpå baskartan men under ritat område.</div>
+      </div>
+
+      <div class="mode-box">
+        <div class="mode-title">Kommuner</div>
+        <button id="municipality-dropdown-toggle" type="button" class="multi-select-toggle" aria-expanded="false" aria-controls="municipality-dropdown-panel">
+          Välj kommuner
+        </button>
+        <div id="municipality-dropdown-panel" class="multi-select-panel hidden">
+          <input id="municipality-filter-input" type="search" placeholder="Sök kommun..." />
+          <div id="municipality-checkbox-list" class="municipality-checkbox-list">
+            <div class="hint">Laddar kommuner...</div>
+          </div>
+        </div>
+        <div id="municipality-selection-summary" class="hint">Inga valda kommuner.</div>
       </div>
 
       <div class="row">

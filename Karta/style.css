@@ -140,6 +140,83 @@ p {
   margin-top: 6px;
 }
 
+.multi-select-toggle {
+  width: 100%;
+  text-align: left;
+  margin-top: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.multi-select-panel {
+  margin-top: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px;
+}
+
+.multi-select-panel input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.88rem;
+}
+
+.municipality-checkbox-list {
+  margin-top: 8px;
+  max-height: 210px;
+  overflow: auto;
+  border-top: 1px dashed #d1d5db;
+  padding-top: 6px;
+}
+
+.municipality-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.86rem;
+  color: #1f2937;
+}
+
+.municipality-option:last-child {
+  margin-bottom: 0;
+}
+
+.map-search-control {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  padding: 6px;
+}
+
+.map-search-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-search-form input {
+  width: 190px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.84rem;
+}
+
+.map-search-form button {
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.leaflet-right .map-search-wrapper {
+  clear: none;
+}
+
 .travel-settings input {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -389,6 +466,10 @@ code {
 
   #map {
     min-height: 54dvh;
+  }
+
+  .map-search-form input {
+    width: 145px;
   }
 }
 
