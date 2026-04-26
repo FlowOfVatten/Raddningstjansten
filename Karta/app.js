@@ -199,6 +199,86 @@ function detectMunicipalityNameField(features, excludedKeys = []) {
   return bestField;
 }
 
+function detectMunicipalityNameFieldForCode(features, codeField, excludedKeys = []) {
+  const excluded = new Set([codeField, ...excludedKeys].filter(Boolean));
+  const fieldCodeNameCounts = new Map();
+
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    const code = normalizeMunicipalityCode(props[codeField]);
+    if (!code) continue;
+
+    for (const [key, value] of Object.entries(props)) {
+      if (excluded.has(key)) continue;
+
+      const text = String(value ?? "").trim();
+      if (!text) continue;
+      if (safeParseFloat(text) !== null) continue;
+
+      if (!fieldCodeNameCounts.has(key)) {
+        fieldCodeNameCounts.set(key, new Map());
+      }
+
+      const codeNameCounts = fieldCodeNameCounts.get(key);
+      if (!codeNameCounts.has(code)) {
+        codeNameCounts.set(code, new Map());
+      }
+
+      const nameCounts = codeNameCounts.get(code);
+      nameCounts.set(text, (nameCounts.get(text) || 0) + 1);
+    }
+  }
+
+  let bestField = null;
+  let bestScore = -Infinity;
+
+  for (const [field, codeNameCounts] of fieldCodeNameCounts.entries()) {
+    const codeCount = codeNameCounts.size;
+    if (codeCount < 100) continue;
+
+    const fieldLc = field.toLowerCase();
+    let consistentCodes = 0;
+    let dominantRatioSum = 0;
+    const globalNames = new Set();
+
+    for (const nameCounts of codeNameCounts.values()) {
+      let total = 0;
+      let maxCount = 0;
+
+      for (const [name, count] of nameCounts.entries()) {
+        globalNames.add(name);
+        total += count;
+        if (count > maxCount) maxCount = count;
+      }
+
+      if (nameCounts.size === 1) consistentCodes += 1;
+      if (total > 0) dominantRatioSum += maxCount / total;
+    }
+
+    const consistentRatio = consistentCodes / codeCount;
+    const dominantRatioAvg = dominantRatioSum / codeCount;
+    const distinctGlobal = globalNames.size;
+
+    let score = 0;
+    if (fieldLc.includes("kommunnamn") || fieldLc.includes("knnamn") || fieldLc.includes("mun_name")) score += 45;
+    if (fieldLc.includes("namn") || fieldLc.includes("name")) score += 18;
+
+    score += consistentRatio * 120;
+    score += dominantRatioAvg * 80;
+
+    if (distinctGlobal >= 250 && distinctGlobal <= 400) score += 30;
+    else if (distinctGlobal >= 180 && distinctGlobal <= 500) score += 12;
+    else if (distinctGlobal > 800) score -= 35;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestField = field;
+    }
+  }
+
+  return bestField;
+}
+
 function detectMunicipalityCodeFieldForList(features, excludedKeys = []) {
   const excluded = new Set(excludedKeys.filter(Boolean));
   const keyStats = new Map();
@@ -2311,8 +2391,9 @@ function initMapApp() {
         return;
       }
 
-      const nameField = detectMunicipalityNameField(features, [codeField]);
+      const nameField = detectMunicipalityNameFieldForCode(features, codeField, []) || detectMunicipalityNameField(features, [codeField]);
       const byCode = new Map();
+      const namesByCode = new Map();
       const featuresByCode = new Map();
 
       for (const feature of features) {
@@ -2323,18 +2404,34 @@ function initMapApp() {
         if (!feature?.geometry) continue;
 
         const maybeName = nameField ? String(props[nameField] || "").trim() : "";
-        const current = byCode.get(code);
-        if (!current || maybeName.length > current.name.length) {
-          byCode.set(code, {
-            code,
-            name: maybeName || `Kommun ${code}`,
-          });
+        if (maybeName) {
+          if (!namesByCode.has(code)) {
+            namesByCode.set(code, new Map());
+          }
+          const nameCounts = namesByCode.get(code);
+          nameCounts.set(maybeName, (nameCounts.get(maybeName) || 0) + 1);
         }
 
         if (!featuresByCode.has(code)) {
           featuresByCode.set(code, []);
         }
         featuresByCode.get(code).push(feature);
+      }
+
+      for (const code of featuresByCode.keys()) {
+        const nameCounts = namesByCode.get(code) || new Map();
+        let bestName = "";
+        let bestCount = -1;
+        for (const [name, count] of nameCounts.entries()) {
+          if (count > bestCount) {
+            bestCount = count;
+            bestName = name;
+          }
+        }
+        byCode.set(code, {
+          code,
+          name: bestName || `Kommun ${code}`,
+        });
       }
 
       municipalityEntries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
