@@ -676,8 +676,16 @@ function normalizeLocalMunicipalityIndexEntry(entry) {
 }
 
 async function loadMunicipalityIndexFromLocal() {
-  const res = await fetch(`${MUNICIPALITY_LOCAL_INDEX_URL}?v=1`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Kunde inte läsa ${MUNICIPALITY_LOCAL_INDEX_URL} (HTTP ${res.status}).`);
+  const candidates = [MUNICIPALITY_LOCAL_INDEX_URL, `Karta/${MUNICIPALITY_LOCAL_INDEX_URL}`];
+  let res = null;
+  for (const path of candidates) {
+    const attempt = await fetch(`${path}?v=1`, { cache: "no-store" });
+    if (attempt.ok) {
+      res = attempt;
+      break;
+    }
+  }
+  if (!res) throw new Error(`Kunde inte läsa ${MUNICIPALITY_LOCAL_INDEX_URL}.`);
   const json = await res.json();
   const rows = Array.isArray(json) ? json : Array.isArray(json?.municipalities) ? json.municipalities : [];
   const entries = rows
@@ -689,8 +697,16 @@ async function loadMunicipalityIndexFromLocal() {
 }
 
 async function loadMunicipalityIndexFromLocalDbf() {
-  const res = await fetch(`${MUNICIPALITY_LOCAL_DBF_URL}?v=1`, { cache: "force-cache" });
-  if (!res.ok) throw new Error(`Kunde inte läsa ${MUNICIPALITY_LOCAL_DBF_URL} (HTTP ${res.status}).`);
+  const candidates = [MUNICIPALITY_LOCAL_DBF_URL, `Karta/${MUNICIPALITY_LOCAL_DBF_URL}`];
+  let res = null;
+  for (const path of candidates) {
+    const attempt = await fetch(`${path}?v=1`, { cache: "force-cache" });
+    if (attempt.ok) {
+      res = attempt;
+      break;
+    }
+  }
+  if (!res) throw new Error(`Kunde inte läsa ${MUNICIPALITY_LOCAL_DBF_URL}.`);
 
   const dbfBuf = await res.arrayBuffer();
   const attrs = parseDbfRecords(dbfBuf);
@@ -881,13 +897,21 @@ function parseShpPolygonRecords(arrayBuffer) {
 }
 
 async function loadMunicipalityBoundariesFromLocalShapefile() {
-  const [shpRes, dbfRes] = await Promise.all([
-    fetch(`${MUNICIPALITY_LOCAL_SHP_URL}?v=1`, { cache: "force-cache" }),
-    fetch(`${MUNICIPALITY_LOCAL_DBF_URL}?v=1`, { cache: "force-cache" }),
-  ]);
+  const shpCandidates = [MUNICIPALITY_LOCAL_SHP_URL, `Karta/${MUNICIPALITY_LOCAL_SHP_URL}`];
+  const dbfCandidates = [MUNICIPALITY_LOCAL_DBF_URL, `Karta/${MUNICIPALITY_LOCAL_DBF_URL}`];
 
-  if (!shpRes.ok || !dbfRes.ok) {
-    throw new Error(`Kunde inte läsa lokal shape/dbf (${shpRes.status}/${dbfRes.status})`);
+  async function firstOk(paths) {
+    for (const path of paths) {
+      const res = await fetch(`${path}?v=1`, { cache: "force-cache" });
+      if (res.ok) return res;
+    }
+    return null;
+  }
+
+  const [shpRes, dbfRes] = await Promise.all([firstOk(shpCandidates), firstOk(dbfCandidates)]);
+
+  if (!shpRes || !dbfRes) {
+    throw new Error("Kunde inte läsa lokal shape/dbf.");
   }
 
   const [shpBuf, dbfBuf] = await Promise.all([shpRes.arrayBuffer(), dbfRes.arrayBuffer()]);
