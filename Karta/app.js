@@ -3063,11 +3063,18 @@ function initMapApp() {
       // 3) Fallback: network SCB when local data is incomplete.
       if (localEntries.length < 250) {
         setStatus("Laddar kommunlista från SCB (fallback)...");
-        const scb = await loadMunicipalityEntriesFromScb();
-        scbEntries = scb.entries;
-        scbFeaturesByCode = scb.featuresByCode;
-        scbLayerName = scb.layerName;
-        scbCodeField = scb.codeField;
+        try {
+          const scb = await loadMunicipalityEntriesFromScb();
+          scbEntries = scb.entries;
+          scbFeaturesByCode = scb.featuresByCode;
+          scbLayerName = scb.layerName;
+          scbCodeField = scb.codeField;
+        } catch (scbError) {
+          console.warn("SCB fallback misslyckades, använder lokal kommunlista:", scbError);
+          if (localEntries.length) {
+            setStatus("Visar lokal kommunlista (begränsad). SCB-fallback misslyckades.");
+          }
+        }
       }
 
       const mergedByCode = new Map();
