@@ -101,6 +101,8 @@ const MUNICIPALITY_BOUNDARY_CACHE_KEY = "karta-muni-bounds-v2";
 const MUNICIPALITY_BOUNDARY_CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 days
 const MUNICIPALITY_LOCAL_INDEX_URL = "data/municipality-index.json";
 const MUNICIPALITY_LOCAL_BOUNDARY_DIR = "data/municipalities";
+const MUNICIPALITY_LOCAL_SHP_URL = "data/shape_svenska_260225/kommun/Kommun_Sweref99TM.shp";
+const MUNICIPALITY_LOCAL_DBF_URL = "data/shape_svenska_260225/kommun/Kommun_Sweref99TM.dbf";
 const LOCAL_CACHE_PREFIX = "karta-msb-cache-v1";
 const LOCAL_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
@@ -684,6 +686,216 @@ async function loadMunicipalityIndexFromLocal() {
     .sort((a, b) => a.name.localeCompare(b.name, "sv"));
   if (!entries.length) throw new Error("Kommunindex är tomt.");
   return entries;
+}
+
+function sweref99TmToWgs84(north, east) {
+  const axis = 6378137.0;
+  const flattening = 1.0 / 298.257222101;
+  const centralMeridian = 15.0;
+  const scale = 0.9996;
+  const falseNorthing = 0.0;
+  const falseEasting = 500000.0;
+
+  const e2 = flattening * (2.0 - flattening);
+  const n = flattening / (2.0 - flattening);
+  const aRoof = axis / (1.0 + n) * (1.0 + (n * n) / 4.0 + (n ** 4) / 64.0);
+
+  const beta1 = n / 2.0 - (2.0 * n * n) / 3.0 + (5.0 * n ** 3) / 16.0 + (41.0 * n ** 4) / 180.0;
+  const beta2 = (13.0 * n * n) / 48.0 - (3.0 * n ** 3) / 5.0 + (557.0 * n ** 4) / 1440.0;
+  const beta3 = (61.0 * n ** 3) / 240.0 - (103.0 * n ** 4) / 140.0;
+  const beta4 = (49561.0 * n ** 4) / 161280.0;
+
+  const delta1 = n / 2.0 - (2.0 * n * n) / 3.0 + (37.0 * n ** 3) / 96.0 - (n ** 4) / 360.0;
+  const delta2 = (n * n) / 48.0 + (n ** 3) / 15.0 - (437.0 * n ** 4) / 1440.0;
+  const delta3 = (17.0 * n ** 3) / 480.0 - (37.0 * n ** 4) / 840.0;
+  const delta4 = (4397.0 * n ** 4) / 161280.0;
+
+  const x = (north - falseNorthing) / (aRoof * scale);
+  const y = (east - falseEasting) / (aRoof * scale);
+
+  const xPrim = x
+    - beta1 * Math.sin(2.0 * x) * Math.cosh(2.0 * y)
+    - beta2 * Math.sin(4.0 * x) * Math.cosh(4.0 * y)
+    - beta3 * Math.sin(6.0 * x) * Math.cosh(6.0 * y)
+    - beta4 * Math.sin(8.0 * x) * Math.cosh(8.0 * y);
+
+  const yPrim = y
+    - beta1 * Math.cos(2.0 * x) * Math.sinh(2.0 * y)
+    - beta2 * Math.cos(4.0 * x) * Math.sinh(4.0 * y)
+    - beta3 * Math.cos(6.0 * x) * Math.sinh(6.0 * y)
+    - beta4 * Math.cos(8.0 * x) * Math.sinh(8.0 * y);
+
+  const phiStar = Math.asin(Math.sin(xPrim) / Math.cosh(yPrim));
+  const deltaLambda = Math.atan(Math.sinh(yPrim) / Math.cos(xPrim));
+
+  const lonRadian = (centralMeridian * Math.PI) / 180.0 + deltaLambda;
+  const latRadian = phiStar + Math.sin(phiStar) * Math.cos(phiStar) * (
+    delta1 +
+    delta2 * Math.sin(phiStar) ** 2 +
+    delta3 * Math.sin(phiStar) ** 4 +
+    delta4 * Math.sin(phiStar) ** 6
+  );
+
+  return {
+    lat: (latRadian * 180.0) / Math.PI,
+    lon: (lonRadian * 180.0) / Math.PI,
+  };
+}
+
+function parseDbfRecords(arrayBuffer) {
+  const view = new DataView(arrayBuffer);
+  const decoder = new TextDecoder("latin1");
+  const recordCount = view.getUint32(4, true);
+  const headerLength = view.getUint16(8, true);
+  const recordLength = view.getUint16(10, true);
+
+  const fields = [];
+  let offset = 32;
+  while (offset < headerLength - 1) {
+    const firstByte = view.getUint8(offset);
+    if (firstByte === 0x0d) break;
+    const nameBytes = new Uint8Array(arrayBuffer, offset, 11);
+    const zero = nameBytes.indexOf(0);
+    const name = decoder.decode(zero >= 0 ? nameBytes.slice(0, zero) : nameBytes).trim();
+    const type = String.fromCharCode(view.getUint8(offset + 11));
+    const length = view.getUint8(offset + 16);
+    fields.push({ name, type, length });
+    offset += 32;
+  }
+
+  const records = [];
+  for (let i = 0; i < recordCount; i += 1) {
+    const recordStart = headerLength + i * recordLength;
+    if (view.getUint8(recordStart) === 0x2a) continue;
+
+    let pos = recordStart + 1;
+    const row = {};
+    for (const field of fields) {
+      const bytes = new Uint8Array(arrayBuffer, pos, field.length);
+      let text = decoder.decode(bytes).trim();
+      if (field.type === "N" || field.type === "F") {
+        const n = Number.parseFloat(text.replace(",", "."));
+        row[field.name] = Number.isFinite(n) ? n : text;
+      } else {
+        row[field.name] = text;
+      }
+      pos += field.length;
+    }
+    records.push(row);
+  }
+
+  return records;
+}
+
+function parseShpPolygonRecords(arrayBuffer) {
+  const view = new DataView(arrayBuffer);
+  let offset = 100;
+  const records = [];
+
+  while (offset + 8 <= view.byteLength) {
+    const contentLengthWords = view.getInt32(offset + 4, false);
+    const contentBytes = contentLengthWords * 2;
+    const contentStart = offset + 8;
+    const contentEnd = contentStart + contentBytes;
+    if (contentEnd > view.byteLength) break;
+
+    const shapeType = view.getInt32(contentStart, true);
+    if (shapeType === 5 || shapeType === 15) {
+      const numParts = view.getInt32(contentStart + 36, true);
+      const numPoints = view.getInt32(contentStart + 40, true);
+
+      const parts = [];
+      let pOff = contentStart + 44;
+      for (let i = 0; i < numParts; i += 1) {
+        parts.push(view.getInt32(pOff + i * 4, true));
+      }
+
+      const pointsStart = pOff + numParts * 4;
+      const points = [];
+      for (let i = 0; i < numPoints; i += 1) {
+        const xyOff = pointsStart + i * 16;
+        const east = view.getFloat64(xyOff, true);
+        const north = view.getFloat64(xyOff + 8, true);
+        const ll = sweref99TmToWgs84(north, east);
+        points.push([ll.lon, ll.lat]);
+      }
+
+      const rings = [];
+      for (let i = 0; i < parts.length; i += 1) {
+        const start = parts[i];
+        const end = i + 1 < parts.length ? parts[i + 1] : points.length;
+        const ring = points.slice(start, end);
+        if (ring.length >= 4) rings.push(ring);
+      }
+      records.push(rings);
+    }
+
+    offset = contentEnd;
+  }
+
+  return records;
+}
+
+async function loadMunicipalityBoundariesFromLocalShapefile() {
+  const [shpRes, dbfRes] = await Promise.all([
+    fetch(`${MUNICIPALITY_LOCAL_SHP_URL}?v=1`, { cache: "force-cache" }),
+    fetch(`${MUNICIPALITY_LOCAL_DBF_URL}?v=1`, { cache: "force-cache" }),
+  ]);
+
+  if (!shpRes.ok || !dbfRes.ok) {
+    throw new Error(`Kunde inte läsa lokal shape/dbf (${shpRes.status}/${dbfRes.status})`);
+  }
+
+  const [shpBuf, dbfBuf] = await Promise.all([shpRes.arrayBuffer(), dbfRes.arrayBuffer()]);
+  const records = parseShpPolygonRecords(shpBuf);
+  const attrs = parseDbfRecords(dbfBuf);
+
+  if (!records.length || !attrs.length) {
+    throw new Error("Tom shape/dbf-data.");
+  }
+
+  const sample = attrs.slice(0, 100);
+  const codeField = detectMunicipalityCodeFieldForList(sample.map((properties) => ({ properties }))) ||
+    Object.keys(attrs[0] || {}).find((k) => k.toLowerCase().includes("kod")) ||
+    "KOM_KOD";
+
+  const nameField =
+    detectMunicipalityNameFieldForCode(sample.map((properties) => ({ properties })), codeField, []) ||
+    Object.keys(attrs[0] || {}).find((k) => k.toLowerCase().includes("namn")) ||
+    "KOM_NAMN";
+
+  const featuresByCode = new Map();
+  const byCode = new Map();
+
+  const len = Math.min(records.length, attrs.length);
+  for (let i = 0; i < len; i += 1) {
+    const props = attrs[i] || {};
+    const code = normalizeMunicipalityCode(props[codeField]);
+    if (!code) continue;
+
+    const rawName = String(props[nameField] || "").trim();
+    const name = rawName || `Kommun ${code}`;
+
+    const rings = records[i] || [];
+    if (!rings.length) continue;
+
+    const geometry = rings.length === 1
+      ? { type: "Polygon", coordinates: [rings[0]] }
+      : { type: "MultiPolygon", coordinates: rings.map((r) => [r]) };
+
+    const feature = {
+      type: "Feature",
+      properties: { code, name },
+      geometry,
+    };
+
+    if (!featuresByCode.has(code)) featuresByCode.set(code, []);
+    featuresByCode.get(code).push(feature);
+    if (!byCode.has(code)) byCode.set(code, { code, name });
+  }
+
+  const entries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  return { entries, featuresByCode };
 }
 
 const statusEl = document.getElementById("status");
@@ -2808,6 +3020,31 @@ function initMapApp() {
     municipalityCheckboxListEl.innerHTML = '<div class="hint">Laddar kommuner...</div>';
 
     try {
+      // 1) Primary: fully local SCB shapefile (all municipalities + boundaries).
+      try {
+        setStatus("Läser lokala kommungränser...");
+        const localShape = await loadMunicipalityBoundariesFromLocalShapefile();
+        if (localShape.entries.length >= 250) {
+          municipalityEntries = localShape.entries;
+          municipalityBoundaryMeta = {
+            source: "local-shapefile",
+            boundaryPathByCode: new Map(),
+            layerName: null,
+            codeField: null,
+            featuresByCode: localShape.featuresByCode,
+            dissolvedByCode: new Map(),
+          };
+
+          renderMunicipalityOptions("");
+          updateMunicipalitySummary();
+          setStatus("Redo.");
+          return;
+        }
+      } catch (shapeError) {
+        console.warn("Kunde inte läsa lokal shapefile, använder fallback:", shapeError);
+      }
+
+      // 2) Secondary: local index + optional local boundary files.
       let localEntries = [];
       let boundaryPathByCode = new Map();
 
@@ -2823,7 +3060,7 @@ function initMapApp() {
       let scbLayerName = null;
       let scbCodeField = null;
 
-      // If local index is missing/incomplete, fill list from SCB so all kommuner can be selected.
+      // 3) Fallback: network SCB when local data is incomplete.
       if (localEntries.length < 250) {
         setStatus("Laddar kommunlista från SCB (fallback)...");
         const scb = await loadMunicipalityEntriesFromScb();
