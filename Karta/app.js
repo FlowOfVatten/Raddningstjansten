@@ -202,6 +202,16 @@ function detectMunicipalityNameField(features, excludedKeys = []) {
 function detectMunicipalityCodeFieldForList(features, excludedKeys = []) {
   const excluded = new Set(excludedKeys.filter(Boolean));
   const keyStats = new Map();
+  const preferredCodeFieldNames = [
+    "kommunkod",
+    "kommun_kod",
+    "komkod",
+    "kom_kod",
+    "knkod",
+    "kn_kod",
+    "municipalitycode",
+    "municipality_code",
+  ];
 
   for (const feature of features) {
     const props = feature?.properties || {};
@@ -224,6 +234,17 @@ function detectMunicipalityCodeFieldForList(features, excludedKeys = []) {
       if (safeParseFloat(text) !== null) stat.numericCount += 1;
       stat.distinctValues.add(normalizeMunicipalityCode(text));
     }
+  }
+
+  // Hard-prioritize common municipality code keys when they exist.
+  for (const key of keyStats.keys()) {
+    const lc = String(key).toLowerCase();
+    if (preferredCodeFieldNames.includes(lc)) return key;
+  }
+
+  for (const key of keyStats.keys()) {
+    const lc = String(key).toLowerCase();
+    if (preferredCodeFieldNames.some((name) => lc.includes(name))) return key;
   }
 
   let bestField = null;
@@ -2021,6 +2042,12 @@ function initMapApp() {
     className: 'custom-search-marker',
   });
 
+  function clearSearchResultMarker() {
+    if (!searchResultMarker) return;
+    map.removeLayer(searchResultMarker);
+    searchResultMarker = null;
+  }
+
   const mapSearchControl = L.control({ position: "topright" });
   mapSearchControl.onAdd = () => {
     const container = L.DomUtil.create("div", "map-search-control map-search-wrapper");
@@ -2048,15 +2075,12 @@ function initMapApp() {
             return;
           }
 
-          if (searchResultMarker) {
-            map.removeLayer(searchResultMarker);
-          }
+          clearSearchResultMarker();
           searchResultMarker = L.marker([hit.lat, hit.lon], { icon: searchMarkerIcon }).addTo(map).bindPopup(escapeHtml(hit.label));
-          searchResultMarker.on('popupclose', () => {
-            if (searchResultMarker) {
-              map.removeLayer(searchResultMarker);
-              searchResultMarker = null;
-            }
+          searchResultMarker.on("popupclose", (event) => {
+            if (event?.target !== searchResultMarker) return;
+            clearSearchResultMarker();
+            setStatus("Sökmarkering borttagen.");
           });
 
           if (hit.bounds && hit.bounds.isValid()) {
@@ -2076,8 +2100,7 @@ function initMapApp() {
 
       input.addEventListener("input", () => {
         if (!input.value && searchResultMarker) {
-          map.removeLayer(searchResultMarker);
-          searchResultMarker = null;
+          clearSearchResultMarker();
           setStatus("Sökmarkering borttagen.");
         }
       });
@@ -2265,9 +2288,9 @@ function initMapApp() {
 
     try {
       const layerNames = await getCapabilities();
-      const preferredLayer = chooseMunicipalityLayerName(layerNames);
-      const regsoLayers = MUNICIPALITY_ADMIN_LAYERS.filter(name => name.includes("RegSO"));
-      const candidates = [preferredLayer, ...regsoLayers].filter(Boolean);
+      const regsoLayers = MUNICIPALITY_ADMIN_LAYERS.filter((name) => name.includes("RegSO"));
+      const preferredRegsoLayer = chooseMunicipalityLayerName(layerNames.filter((name) => String(name).includes("RegSO")));
+      const candidates = [preferredRegsoLayer, ...regsoLayers].filter(Boolean);
 
       let features = [];
       let layerName = null;
@@ -2297,11 +2320,7 @@ function initMapApp() {
         const code = normalizeMunicipalityCode(props[codeField]);
         if (!code) continue;
 
-        const geometry = feature?.geometry;
-        if (!geometry) continue;
-        
-        const area = turf.area(feature);
-        if (area < 500000) continue;
+        if (!feature?.geometry) continue;
 
         const maybeName = nameField ? String(props[nameField] || "").trim() : "";
         const current = byCode.get(code);
