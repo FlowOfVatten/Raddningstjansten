@@ -271,6 +271,88 @@ p {
   clear: both;
 }
 
+.wildlife-map-control {
+  position: relative;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  min-width: 0;
+  box-shadow: none;
+  margin-top: 4px;
+  clear: both;
+}
+
+.wildlife-toggle {
+  width: 36px;
+  height: 36px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+  color: #111827;
+  padding: 0;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  display: grid;
+  place-items: center;
+}
+
+.wildlife-toggle:hover {
+  background: #f9fafb;
+}
+
+.wildlife-toggle[aria-expanded="true"] {
+  background: #ecfdf5;
+  border-color: rgba(22, 163, 74, 0.45);
+}
+
+.wildlife-panel {
+  position: absolute;
+  top: 0;
+  right: 52px;
+  width: 220px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  z-index: 650;
+}
+
+.wildlife-panel.hidden {
+  display: none;
+}
+
+.wildlife-map-control .title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.wildlife-list {
+  max-height: 210px;
+  overflow: auto;
+  border-top: 1px dashed #d1d5db;
+  padding-top: 6px;
+}
+
+.wildlife-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  color: #1f2937;
+}
+
+.wildlife-option:last-child {
+  margin-bottom: 0;
+}
+
 .area-style-toggle {
   width: 36px;
   height: 36px;
@@ -419,6 +501,14 @@ p {
   background: #fff5f5;
 }
 
+.wildlife-stats-box {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+}
+
 .msb-stats-title {
   font-size: 0.82rem;
   font-weight: 600;
@@ -438,6 +528,13 @@ p {
   margin-top: 2px;
   font-size: 0.76rem;
   color: #7c2d12;
+}
+
+.wildlife-stats-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #166534;
+  margin-bottom: 6px;
 }
 
 .row {
@@ -562,6 +659,16 @@ code {
     top: 52px;
     width: 186px;
   }
+
+  .wildlife-map-control {
+    margin-top: 6px;
+  }
+
+  .wildlife-panel {
+    right: 0;
+    top: 52px;
+    width: 200px;
+  }
 }
 
 @media print {
@@ -598,6 +705,10 @@ code {
   }
 
   .area-style-map-control {
+    display: none !important;
+  }
+
+  .wildlife-map-control {
     display: none !important;
   }
 

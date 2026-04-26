@@ -104,6 +104,7 @@ const MUNICIPALITY_LOCAL_BOUNDARY_DIR = "data/municipalities";
 const MUNICIPALITY_LOCAL_SHP_URL = "data/shape_svenska_260225/kommun/Kommun_Sweref99TM.shp";
 const MUNICIPALITY_LOCAL_DBF_URL = "data/shape_svenska_260225/kommun/Kommun_Sweref99TM.dbf";
 const MUNICIPALITY_ARCGIS_LAYER_URL = "https://services9.arcgis.com/BH6j7VrWdIXhhNYw/arcgis/rest/services/Kommungränser_Lantmäteriet/FeatureServer/0";
+const WILDLIFE_CSV_URL = "data/Rådata 2020-01-01 - 2024-02-29.csv";
 const LOCAL_CACHE_PREFIX = "karta-msb-cache-v1";
 const LOCAL_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
@@ -1142,6 +1143,8 @@ const printBtn = document.getElementById("print-btn");
 const msbOverlaySelectEl = document.getElementById("msb-overlay-select");
 const msbStatsBoxEl = document.getElementById("msb-stats-box");
 const msbStatsContentEl = document.getElementById("msb-stats-content");
+const wildlifeStatsBoxEl = document.getElementById("wildlife-stats-box");
+const wildlifeStatsContentEl = document.getElementById("wildlife-stats-content");
 const panelHelpLinkEl = document.getElementById("panel-help-link");
 const panelHelpPopupEl = document.getElementById("panel-help-popup");
 const municipalityDropdownToggleEl = document.getElementById("municipality-dropdown-toggle");
@@ -1222,6 +1225,59 @@ function writeLocalCache(cacheKey, value) {
   }
 }
 
+function normalizeHeaderKey(text) {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function parseDelimitedLine(line, delimiter = ";") {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === '"') {
+      const next = line[i + 1];
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (ch === delimiter && !inQuotes) {
+      result.push(current);
+      current = "";
+      continue;
+    }
+
+    current += ch;
+  }
+
+  result.push(current);
+  return result;
+}
+
+function parseSwedishDecimal(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const normalized = text.replace(/\s/g, "").replace(",", ".");
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
+function decodeCsvBuffer(arrayBuffer) {
+  const utf8Text = new TextDecoder("utf-8").decode(arrayBuffer);
+  if (!utf8Text.includes("\uFFFD")) return utf8Text;
+  return new TextDecoder("windows-1252").decode(arrayBuffer);
+}
+
 function setupPanelHelpPopup() {
   if (!panelHelpLinkEl || !panelHelpPopupEl) return;
 
@@ -1249,6 +1305,85 @@ function setupPanelHelpPopup() {
       closePopup();
     }
   });
+}
+
+function cleanWildlifeSpeciesName(value) {
+  const text = String(value ?? "").trim().replace(/\s+/g, " ");
+  return text || "Okänd art";
+}
+
+async function loadWildlifeAccidentData() {
+  const response = await fetch(`${WILDLIFE_CSV_URL}?v=1`, { cache: "force-cache" });
+  if (!response.ok) {
+    throw new Error(`Kunde inte läsa viltdata (HTTP ${response.status})`);
+  }
+
+  const csvText = decodeCsvBuffer(await response.arrayBuffer());
+  const lines = csvText.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (lines.length <= 1) {
+    return { records: [], speciesList: [] };
+  }
+
+  const header = parseDelimitedLine(lines[0], ";").map((cell) => String(cell || "").trim());
+  const normalizedHeader = header.map((cell) => normalizeHeaderKey(cell));
+
+  const speciesIndex = normalizedHeader.findIndex((key) => key.includes("viltslag"));
+  const latIndex = normalizedHeader.findIndex((key) => key.includes("latwgs84"));
+  const lonIndex = normalizedHeader.findIndex((key) => key.includes("longwgs84") || key.includes("lonwgs84"));
+
+  if (speciesIndex < 0 || latIndex < 0 || lonIndex < 0) {
+    throw new Error("Viltdata saknar nödvändiga kolumner (Viltslag, Lat WGS84, Long WGS84)");
+  }
+
+  const records = [];
+  const speciesSet = new Set();
+
+  for (let i = 1; i < lines.length; i += 1) {
+    const cells = parseDelimitedLine(lines[i], ";");
+    const lat = parseSwedishDecimal(cells[latIndex]);
+    const lon = parseSwedishDecimal(cells[lonIndex]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+
+    const species = cleanWildlifeSpeciesName(cells[speciesIndex]);
+    speciesSet.add(species);
+
+    records.push({
+      species,
+      lat,
+      lon,
+      point: turf.point([lon, lat]),
+    });
+  }
+
+  const speciesList = [...speciesSet].sort((a, b) => a.localeCompare(b, "sv"));
+  return { records, speciesList };
+}
+
+function summarizeWildlifeWithinAreas(records, areaFeatures) {
+  if (!Array.isArray(records) || !records.length || !Array.isArray(areaFeatures) || !areaFeatures.length) {
+    return { counts: new Map(), matchedRecords: [] };
+  }
+
+  const [minLon, minLat, maxLon, maxLat] = turf.bbox(turf.featureCollection(areaFeatures));
+  const counts = new Map();
+  const matchedRecords = [];
+
+  for (const record of records) {
+    if (!record || !Number.isFinite(record.lat) || !Number.isFinite(record.lon)) continue;
+    if (record.lon < minLon || record.lon > maxLon || record.lat < minLat || record.lat > maxLat) continue;
+
+    for (const areaFeature of areaFeatures) {
+      if (!areaFeature?.geometry) continue;
+      if (turf.booleanPointInPolygon(record.point, areaFeature)) {
+        matchedRecords.push(record);
+        counts.set(record.species, (counts.get(record.species) || 0) + 1);
+        break;
+      }
+    }
+  }
+
+  return { counts, matchedRecords };
 }
 
 function parseCoordinatesFromText(text) {
@@ -2762,6 +2897,16 @@ function initMapApp() {
   let printViewState = null;
   let municipalitySelectionLayer = null;
   let searchResultMarker = null;
+  let wildlifeDataPromise = null;
+  let wildlifeRecords = [];
+  let wildlifeSpecies = [];
+  let wildlifeInAreaCounts = new Map();
+  let wildlifeInAreaRecords = [];
+  const selectedWildlifeSpecies = new Set();
+  const wildlifeMarkersLayer = L.layerGroup().addTo(map);
+  let wildlifePanelEl = null;
+  let wildlifeToggleEl = null;
+  let wildlifeListEl = null;
 
   const azureTileAttribution =
     '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
@@ -2875,6 +3020,116 @@ function initMapApp() {
     if (!searchResultMarker) return;
     map.removeLayer(searchResultMarker);
     searchResultMarker = null;
+  }
+
+  function getWildlifeSpeciesColor(species) {
+    const palette = ["#14532d", "#1d4ed8", "#be123c", "#854d0e", "#6d28d9", "#0f766e", "#9f1239", "#1f2937"];
+    let hash = 0;
+    const text = String(species || "");
+    for (let i = 0; i < text.length; i += 1) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return palette[Math.abs(hash) % palette.length];
+  }
+
+  function hideWildlifeStats() {
+    wildlifeInAreaCounts = new Map();
+    wildlifeInAreaRecords = [];
+    wildlifeMarkersLayer.clearLayers();
+    if (wildlifeStatsBoxEl) wildlifeStatsBoxEl.classList.add("hidden");
+    if (wildlifeStatsContentEl) wildlifeStatsContentEl.innerHTML = "";
+  }
+
+  function renderWildlifeStats() {
+    if (!wildlifeStatsBoxEl || !wildlifeStatsContentEl) return;
+    if (!wildlifeInAreaCounts.size) {
+      wildlifeStatsContentEl.innerHTML = "Inga viltolyckor hittades i markerat område.";
+      wildlifeStatsBoxEl.classList.remove("hidden");
+      return;
+    }
+
+    const rows = [...wildlifeInAreaCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "sv"))
+      .map(([species, count]) => `${escapeHtml(species)}: <strong>${count.toLocaleString("sv-SE")}</strong>`);
+
+    wildlifeStatsContentEl.innerHTML = rows.join("<br>");
+    wildlifeStatsBoxEl.classList.remove("hidden");
+  }
+
+  function renderWildlifeMarkersForSelection() {
+    wildlifeMarkersLayer.clearLayers();
+    if (!wildlifeInAreaRecords.length || !selectedWildlifeSpecies.size) return;
+
+    const selectedRecords = wildlifeInAreaRecords.filter((record) => selectedWildlifeSpecies.has(record.species));
+    for (const record of selectedRecords) {
+      L.circleMarker([record.lat, record.lon], {
+        radius: 4,
+        weight: 1,
+        color: "#ffffff",
+        fillColor: getWildlifeSpeciesColor(record.species),
+        fillOpacity: 0.88,
+      })
+        .bindPopup(`<strong>${escapeHtml(record.species)}</strong><br>Lat: ${record.lat.toFixed(5)}<br>Lon: ${record.lon.toFixed(5)}`)
+        .addTo(wildlifeMarkersLayer);
+    }
+  }
+
+  function renderWildlifeFilterOptions() {
+    if (!wildlifeListEl) return;
+    if (!wildlifeSpecies.length) {
+      wildlifeListEl.innerHTML = '<div class="hint">Ingen viltdata laddad.</div>';
+      return;
+    }
+
+    wildlifeListEl.innerHTML = wildlifeSpecies
+      .map((species) => {
+        const checked = selectedWildlifeSpecies.has(species) ? "checked" : "";
+        return `<label class="wildlife-option"><input type="checkbox" data-wildlife-species="${escapeHtml(species)}" ${checked}> ${escapeHtml(species)}</label>`;
+      })
+      .join("");
+  }
+
+  async function ensureWildlifeDataLoaded() {
+    if (wildlifeRecords.length) return;
+    if (!wildlifeDataPromise) {
+      wildlifeDataPromise = loadWildlifeAccidentData()
+        .then((data) => {
+          wildlifeRecords = data.records;
+          wildlifeSpecies = data.speciesList;
+          selectedWildlifeSpecies.clear();
+          for (const species of wildlifeSpecies) {
+            selectedWildlifeSpecies.add(species);
+          }
+          renderWildlifeFilterOptions();
+        })
+        .catch((error) => {
+          wildlifeDataPromise = null;
+          throw error;
+        });
+    }
+    await wildlifeDataPromise;
+  }
+
+  async function refreshWildlifeForCurrentArea() {
+    if (!Array.isArray(currentAreaFeatures) || !currentAreaFeatures.length) {
+      hideWildlifeStats();
+      return;
+    }
+
+    try {
+      await ensureWildlifeDataLoaded();
+      const summary = summarizeWildlifeWithinAreas(wildlifeRecords, currentAreaFeatures);
+      wildlifeInAreaCounts = summary.counts;
+      wildlifeInAreaRecords = summary.matchedRecords;
+      renderWildlifeStats();
+      renderWildlifeMarkersForSelection();
+    } catch (error) {
+      console.error("Fel vid viltdata:", error);
+      wildlifeMarkersLayer.clearLayers();
+      if (wildlifeStatsBoxEl) wildlifeStatsBoxEl.classList.add("hidden");
+      setStatus(`Fel vid viltdata: ${error.message}`);
+    }
   }
 
   const mapSearchControl = L.control({ position: "topright" });
@@ -3001,6 +3256,62 @@ function initMapApp() {
   };
   areaStyleControl.addTo(map);
 
+  const wildlifeControl = L.control({ position: "topright" });
+  wildlifeControl.onAdd = () => {
+    const container = L.DomUtil.create("div", "wildlife-map-control");
+    container.innerHTML = `
+      <button type="button" class="wildlife-toggle" aria-expanded="false" aria-controls="wildlife-panel-map" title="Viltolyckor" aria-label="Viltolyckor">V</button>
+      <div id="wildlife-panel-map" class="wildlife-panel hidden">
+        <div class="title">Viltolyckor</div>
+        <div class="hint">Välj vilka djurarter som ska visas på kartan.</div>
+        <div class="wildlife-list"><div class="hint">Läser viltdata...</div></div>
+      </div>
+    `;
+
+    wildlifePanelEl = container.querySelector("#wildlife-panel-map");
+    wildlifeToggleEl = container.querySelector(".wildlife-toggle");
+    wildlifeListEl = container.querySelector(".wildlife-list");
+
+    if (wildlifeToggleEl && wildlifePanelEl) {
+      wildlifeToggleEl.addEventListener("click", async () => {
+        const willOpen = wildlifePanelEl.classList.contains("hidden");
+        wildlifePanelEl.classList.toggle("hidden", !willOpen);
+        wildlifeToggleEl.setAttribute("aria-expanded", willOpen ? "true" : "false");
+        if (!willOpen) return;
+
+        try {
+          await ensureWildlifeDataLoaded();
+          renderWildlifeFilterOptions();
+          renderWildlifeMarkersForSelection();
+        } catch (error) {
+          if (wildlifeListEl) {
+            wildlifeListEl.innerHTML = `<div class="hint">Fel: ${escapeHtml(error.message)}</div>`;
+          }
+        }
+      });
+    }
+
+    if (wildlifeListEl) {
+      wildlifeListEl.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (target.type !== "checkbox") return;
+        const species = target.dataset.wildlifeSpecies || "";
+        if (!species) return;
+
+        if (target.checked) selectedWildlifeSpecies.add(species);
+        else selectedWildlifeSpecies.delete(species);
+
+        renderWildlifeMarkersForSelection();
+      });
+    }
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    return container;
+  };
+  wildlifeControl.addTo(map);
+
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Node)) return;
@@ -3008,6 +3319,15 @@ function initMapApp() {
     if (areaStylePanelEl.contains(target) || areaStyleToggleEl.contains(target)) return;
     areaStylePanelEl.classList.add("hidden");
     areaStyleToggleEl.setAttribute("aria-expanded", "false");
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (!wildlifePanelEl || !wildlifeToggleEl) return;
+    if (wildlifePanelEl.contains(target) || wildlifeToggleEl.contains(target)) return;
+    wildlifePanelEl.classList.add("hidden");
+    wildlifeToggleEl.setAttribute("aria-expanded", "false");
   });
 
   function setCurrentAreaFromLayer(layer) {
@@ -3179,6 +3499,7 @@ function initMapApp() {
       currentDrawnPolygon = null;
       resetResultBoxesForNewSelection();
       hideMsbStats();
+      hideWildlifeStats();
       const msbKey = msbOverlaySelectEl?.value || "none";
       if (msbKey !== "none") {
         renderMsbOverlay(msbKey).catch((err) => {
@@ -3191,6 +3512,9 @@ function initMapApp() {
 
     setCurrentAreaFromLayer(selectedLayer);
     resetResultBoxesForNewSelection();
+    refreshWildlifeForCurrentArea().catch((err) => {
+      console.error("Viltdatafel:", err);
+    });
 
     const msbKey = msbOverlaySelectEl?.value || "none";
     if (msbKey !== "none") {
@@ -3792,6 +4116,9 @@ function initMapApp() {
     currentDrawnPolygon = geo?.type === "Feature" ? geo : (geo?.features?.[0] || null);
     setCurrentAreaFromLayer(layer);
     refreshMsbStatsForCurrentPolygon();
+    refreshWildlifeForCurrentArea().catch((err) => {
+      console.error("Viltdatafel:", err);
+    });
 
     const msbKey = msbOverlaySelectEl?.value || "none";
     if (msbKey !== "none") {
@@ -3834,6 +4161,9 @@ function initMapApp() {
       if (polygonLayer) {
         setCurrentAreaFromLayer(polygonLayer);
         refreshMsbStatsForCurrentPolygon();
+        refreshWildlifeForCurrentArea().catch((err) => {
+          console.error("Viltdatafel:", err);
+        });
 
         const msbKey = msbOverlaySelectEl?.value || "none";
         if (msbKey !== "none") {
@@ -3877,6 +4207,9 @@ function initMapApp() {
     if (polygonLayer) {
       setCurrentAreaFromLayer(polygonLayer);
       refreshMsbStatsForCurrentPolygon();
+      refreshWildlifeForCurrentArea().catch((err) => {
+        console.error("Viltdatafel:", err);
+      });
 
       const msbKey = msbOverlaySelectEl?.value || "none";
       if (msbKey !== "none") {
@@ -4046,6 +4379,7 @@ function initMapApp() {
     setStatus(currentMode === "travel" ? "Klicka på kartan för att skapa ett restidsområde." : "Rita ett område på kartan.");
     setMeta([]);
     hideMsbStats();
+    hideWildlifeStats();
   });
 
   if (msbOverlaySelectEl) {
