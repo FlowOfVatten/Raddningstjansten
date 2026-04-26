@@ -3130,62 +3130,34 @@ function initMapApp() {
         console.warn("Kunde inte läsa lokal DBF-index, använder fallback:", shapeIndexError);
       }
 
-      // 2) Secondary: local index + optional local boundary files.
-      let localEntries = [];
-      let boundaryPathByCode = new Map();
-
+      // 3) Last local fallback: parse full local SHP/DBF (heavier, but still offline/local).
       try {
-        localEntries = await loadMunicipalityIndexFromLocal();
-        boundaryPathByCode = new Map(localEntries.map((entry) => [entry.code, entry.boundaryPath]));
-      } catch (localError) {
-        console.warn("Lokal kommunindex kunde inte läsas, använder SCB fallback:", localError);
-      }
+        setStatus("Läser lokala kommungränser (full data)...");
+        const localShape = await loadMunicipalityBoundariesFromLocalShapefile();
+        if (localShape.entries.length >= 250) {
+          municipalityEntries = localShape.entries;
+          municipalityBoundaryMeta = {
+            source: "local-shapefile",
+            boundaryPathByCode: new Map(),
+            layerName: null,
+            codeField: null,
+            featuresByCode: localShape.featuresByCode,
+            dissolvedByCode: new Map(),
+            localShapeLoaded: true,
+          };
 
-      let scbEntries = [];
-      let scbFeaturesByCode = new Map();
-      let scbLayerName = null;
-      let scbCodeField = null;
-
-      // 3) Fallback: network SCB when local data is incomplete.
-      if (localEntries.length < 250) {
-        setStatus("Laddar kommunlista från SCB (fallback)...");
-        try {
-          const scb = await loadMunicipalityEntriesFromScb();
-          scbEntries = scb.entries;
-          scbFeaturesByCode = scb.featuresByCode;
-          scbLayerName = scb.layerName;
-          scbCodeField = scb.codeField;
-        } catch (scbError) {
-          console.warn("SCB fallback misslyckades, använder lokal kommunlista:", scbError);
-          if (localEntries.length) {
-            setStatus("Visar lokal kommunlista (begränsad). SCB-fallback misslyckades.");
-          }
+          renderMunicipalityOptions("");
+          updateMunicipalitySummary();
+          setStatus("Redo.");
+          return;
         }
+      } catch (localShapeError) {
+        console.warn("Kunde inte läsa lokal shapefile som fallback:", localShapeError);
       }
 
-      const mergedByCode = new Map();
-      for (const entry of scbEntries) mergedByCode.set(entry.code, { code: entry.code, name: entry.name });
-      for (const entry of localEntries) mergedByCode.set(entry.code, { code: entry.code, name: entry.name });
-
-      const mergedEntries = [...mergedByCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
-      if (!mergedEntries.length) {
-        municipalityCheckboxListEl.innerHTML = '<div class="hint">Kunde inte läsa in kommunlista.</div>';
-        return;
-      }
-
-      municipalityEntries = mergedEntries;
-      municipalityBoundaryMeta = {
-        source: boundaryPathByCode.size ? "hybrid-local-scb" : "scb-wfs",
-        boundaryPathByCode,
-        layerName: scbLayerName,
-        codeField: scbCodeField,
-        featuresByCode: scbFeaturesByCode,
-        dissolvedByCode: new Map(),
-      };
-
-      renderMunicipalityOptions("");
-      updateMunicipalitySummary();
-      setStatus("Redo.");
+      municipalityCheckboxListEl.innerHTML = '<div class="hint">Kunde inte läsa lokal kommunlista. Kontrollera data-filerna i data/shape_svenska_260225/kommun.</div>';
+      setStatus("Fel: lokal kommundata saknas eller kunde inte läsas.");
+      return;
     } catch (error) {
       console.error("Kunde inte läsa kommuner:", error);
       municipalityCheckboxListEl.innerHTML = '<div class="hint">Fel vid hämtning av kommunlista.</div>';
