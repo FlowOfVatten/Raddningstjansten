@@ -1,0 +1,14 @@
+{
+  "municipalities": [
+    {
+      "code": "0380",
+      "name": "Uppsala",
+      "boundaryPath": "data/municipalities/0380.geojson"
+    },
+    {
+      "code": "0382",
+      "name": "Osthammar",
+      "boundaryPath": "data/municipalities/0382.geojson"
+    }
+  ]
+}
