@@ -2422,16 +2422,37 @@ function initMapApp() {
       return null;
     }
 
-    const selectedFeatures = [];
+    const dissolvedFeatures = [];
     for (const code of selectedMunicipalityCodes) {
+      // Use cached dissolved polygon if available.
+      if (municipalityBoundaryMeta.dissolvedByCode.has(code)) {
+        dissolvedFeatures.push(municipalityBoundaryMeta.dissolvedByCode.get(code));
+        continue;
+      }
+
       const group = municipalityBoundaryMeta.featuresByCode.get(code) || [];
-      selectedFeatures.push(...group);
+      if (!group.length) continue;
+
+      // Dissolve all sub-areas for this municipality into one polygon.
+      let dissolved = null;
+      for (const feature of group) {
+        if (!feature?.geometry) continue;
+        try {
+          dissolved = dissolved ? turf.union(dissolved, feature) : feature;
+        } catch {
+          // If union fails for this feature, skip it.
+        }
+      }
+      if (dissolved) {
+        municipalityBoundaryMeta.dissolvedByCode.set(code, dissolved);
+        dissolvedFeatures.push(dissolved);
+      }
     }
 
-    if (!selectedFeatures.length) return null;
+    if (!dissolvedFeatures.length) return null;
 
     municipalitySelectionLayer = L.geoJSON(
-      { type: "FeatureCollection", features: selectedFeatures },
+      { type: "FeatureCollection", features: dissolvedFeatures },
       {
         style: {
           color: "#0b7285",
@@ -2641,6 +2662,7 @@ function initMapApp() {
         codeField,
         nameField,
         featuresByCode,
+        dissolvedByCode: new Map(), // cache for dissolved municipality polygons
       };
 
       renderMunicipalityOptions("");
