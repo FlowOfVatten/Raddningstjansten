@@ -1155,6 +1155,8 @@ let selectedPopulationField = null;
 let lastMetaLines = [];
 let currentMsbOverlayLabel = "";
 let currentAreaStyle = "fill";
+let currentAreaStrokeColor = "#0f766e";
+let currentAreaFillColor = "#14b8a6";
 let currentPopulationContext = null;
 let refreshMsbStatsHandler = () => {};
 let municipalityBoundaryMeta = null;
@@ -2952,14 +2954,39 @@ function initMapApp() {
   });
   map.addControl(drawControl);
 
-  const areaStyleControl = L.control({ position: "topleft" });
+  const areaStyleControl = L.control({ position: "topright" });
+  let areaStylePanelEl = null;
+  let areaStyleToggleEl = null;
+  let areaStyleMapInputs = [];
+  let areaStrokeColorInputEl = null;
+  let areaFillColorInputEl = null;
+
   areaStyleControl.onAdd = () => {
     const container = L.DomUtil.create("div", "area-style-map-control");
     container.innerHTML = `
-      <div class="title">Områdesstil</div>
-      <label><input type="radio" name="area-style-map" value="fill" checked> Fyllnad</label>
-      <label><input type="radio" name="area-style-map" value="outline"> Kantlinje</label>
+      <button type="button" class="area-style-toggle" aria-expanded="false" aria-controls="area-style-panel-map">Områdesstil</button>
+      <div id="area-style-panel-map" class="area-style-panel hidden">
+        <div class="title">Områdesstil</div>
+        <label><input type="radio" name="area-style-map" value="fill" checked> Fyllnad</label>
+        <label><input type="radio" name="area-style-map" value="outline"> Kantlinje</label>
+        <label class="color-picker-row">Kantfarg <input type="color" id="area-stroke-color-map" value="#0f766e" aria-label="Valj kantfarg" /></label>
+        <label class="color-picker-row">Fyllfarg <input type="color" id="area-fill-color-map" value="#14b8a6" aria-label="Valj fyllfarg" /></label>
+      </div>
     `;
+
+    areaStylePanelEl = container.querySelector("#area-style-panel-map");
+    areaStyleToggleEl = container.querySelector(".area-style-toggle");
+    areaStyleMapInputs = Array.from(container.querySelectorAll('input[name="area-style-map"]'));
+    areaStrokeColorInputEl = container.querySelector("#area-stroke-color-map");
+    areaFillColorInputEl = container.querySelector("#area-fill-color-map");
+
+    if (areaStyleToggleEl && areaStylePanelEl) {
+      areaStyleToggleEl.addEventListener("click", () => {
+        const willOpen = areaStylePanelEl.classList.contains("hidden");
+        areaStylePanelEl.classList.toggle("hidden", !willOpen);
+        areaStyleToggleEl.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      });
+    }
 
     L.DomEvent.disableClickPropagation(container);
     L.DomEvent.disableScrollPropagation(container);
@@ -2967,7 +2994,14 @@ function initMapApp() {
   };
   areaStyleControl.addTo(map);
 
-  const areaStyleMapInputs = Array.from(document.querySelectorAll('input[name="area-style-map"]'));
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (!areaStylePanelEl || !areaStyleToggleEl) return;
+    if (areaStylePanelEl.contains(target) || areaStyleToggleEl.contains(target)) return;
+    areaStylePanelEl.classList.add("hidden");
+    areaStyleToggleEl.setAttribute("aria-expanded", "false");
+  });
 
   function setCurrentAreaFromLayer(layer) {
     const geo = layer?.toGeoJSON ? layer.toGeoJSON() : null;
@@ -3105,10 +3139,11 @@ function initMapApp() {
       { type: "FeatureCollection", features: selectedFeatures },
       {
         style: {
-          color: "#0b7285",
-          weight: 2,
-          fillColor: "#15aabf",
-          fillOpacity: 0.12,
+          color: currentAreaStrokeColor,
+          weight: 2.5,
+          fillColor: currentAreaFillColor,
+          fillOpacity: useFilledArea() ? 0.2 : 0,
+          opacity: 1,
         },
       },
     ).addTo(map);
@@ -3545,9 +3580,9 @@ function initMapApp() {
     if (!layer) return;
 
     const style = {
-      color: "#0f766e",
+      color: currentAreaStrokeColor,
       weight: 2.5,
-      fillColor: "#14b8a6",
+      fillColor: currentAreaFillColor,
       fillOpacity: useFilledArea() ? 0.2 : 0,
       opacity: 1,
     };
@@ -3567,6 +3602,9 @@ function initMapApp() {
 
   function refreshCurrentAreaStyle() {
     drawnItems.eachLayer((layer) => applySelectedAreaStyle(layer));
+    if (municipalitySelectionLayer) {
+      applySelectedAreaStyle(municipalitySelectionLayer);
+    }
   }
 
   for (const input of areaStyleMapInputs) {
@@ -3575,6 +3613,22 @@ function initMapApp() {
         currentAreaStyle = input.value;
         refreshCurrentAreaStyle();
       }
+    });
+  }
+
+  if (areaStrokeColorInputEl) {
+    areaStrokeColorInputEl.value = currentAreaStrokeColor;
+    areaStrokeColorInputEl.addEventListener("input", () => {
+      currentAreaStrokeColor = areaStrokeColorInputEl.value || "#0f766e";
+      refreshCurrentAreaStyle();
+    });
+  }
+
+  if (areaFillColorInputEl) {
+    areaFillColorInputEl.value = currentAreaFillColor;
+    areaFillColorInputEl.addEventListener("input", () => {
+      currentAreaFillColor = areaFillColorInputEl.value || "#14b8a6";
+      refreshCurrentAreaStyle();
     });
   }
 

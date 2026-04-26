@@ -263,17 +263,37 @@ p {
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  padding: 8px 10px;
-  min-width: 150px;
+  padding: 6px;
+  min-width: 0;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
-  margin-top: 6px;
+  margin-top: 8px;
+}
+
+.area-style-toggle {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #111827;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.area-style-panel {
+  margin-top: 8px;
+  border-top: 1px dashed #d1d5db;
+  padding-top: 8px;
+  display: grid;
+  gap: 6px;
 }
 
 .area-style-map-control .title {
   font-size: 0.76rem;
   font-weight: 600;
   color: #111827;
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .area-style-map-control label {
@@ -287,6 +307,20 @@ p {
 
 .area-style-map-control label:last-child {
   margin-bottom: 0;
+}
+
+.area-style-map-control .color-picker-row {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.area-style-map-control input[type="color"] {
+  width: 34px;
+  height: 22px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #ffffff;
+  padding: 0;
 }
 
 .msb-legend {
@@ -470,6 +504,10 @@ code {
 
   .map-search-form input {
     width: 145px;
+  }
+
+  .area-style-map-control {
+    max-width: 168px;
   }
 }
 
