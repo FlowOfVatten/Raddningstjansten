@@ -2965,7 +2965,7 @@ function initMapApp() {
   areaStyleControl.onAdd = () => {
     const container = L.DomUtil.create("div", "area-style-map-control");
     container.innerHTML = `
-      <button type="button" class="area-style-toggle" aria-expanded="false" aria-controls="area-style-panel-map" title="Omradesstil" aria-label="Omradesstil">Stil</button>
+      <button type="button" class="area-style-toggle" aria-expanded="false" aria-controls="area-style-panel-map" title="Omradesstil" aria-label="Omradesstil"><span aria-hidden="true">&#x1F58C;</span></button>
       <div id="area-style-panel-map" class="area-style-panel hidden">
         <div class="title">Områdesstil</div>
         <label><input type="radio" name="area-style-map" value="fill" checked> Fyllnad</label>
