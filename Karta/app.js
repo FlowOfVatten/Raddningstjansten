@@ -97,6 +97,8 @@ const NON_POP_FIELD_HINTS = [
 ];
 const NON_POP_FIELD_HINT_SET = new Set(NON_POP_FIELD_HINTS);
 const MUNICIPALITY_ADMIN_LAYERS = ["stat:RegSO_2025", "stat:RegSO_2020", "stat:DeSO_2025", "stat:DeSO_2018"];
+const MUNICIPALITY_BOUNDARY_CACHE_KEY = "karta-muni-bounds-v2";
+const MUNICIPALITY_BOUNDARY_CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 days
 const LOCAL_CACHE_PREFIX = "karta-msb-cache-v1";
 const LOCAL_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
@@ -533,6 +535,131 @@ function scoreMunicipalityLayerCandidate(layerName, features, codeField, nameFie
     averageFeaturesPerCode,
     nameFieldQuality,
   };
+}
+
+function approxEqualCoords(a, b) {
+  return Math.abs(a[0] - b[0]) < 1e-7 && Math.abs(a[1] - b[1]) < 1e-7;
+}
+
+function assembleOsmRings(ways) {
+  const rings = [];
+  if (!ways.length) return rings;
+  const remaining = ways.map((w) => w.slice());
+
+  while (remaining.length > 0) {
+    let ring = remaining.splice(0, 1)[0];
+    let grew = true;
+    while (grew && remaining.length > 0) {
+      grew = false;
+      for (let i = 0; i < remaining.length; i++) {
+        const way = remaining[i];
+        const tail = ring[ring.length - 1];
+        const head = ring[0];
+        if (approxEqualCoords(tail, way[0])) {
+          ring = ring.concat(way.slice(1));
+          remaining.splice(i, 1);
+          grew = true;
+          break;
+        }
+        if (approxEqualCoords(tail, way[way.length - 1])) {
+          ring = ring.concat(way.slice().reverse().slice(1));
+          remaining.splice(i, 1);
+          grew = true;
+          break;
+        }
+        if (approxEqualCoords(head, way[way.length - 1])) {
+          ring = way.concat(ring.slice(1));
+          remaining.splice(i, 1);
+          grew = true;
+          break;
+        }
+        if (approxEqualCoords(head, way[0])) {
+          ring = way.slice().reverse().concat(ring.slice(1));
+          remaining.splice(i, 1);
+          grew = true;
+          break;
+        }
+      }
+    }
+    if (ring.length >= 4) {
+      if (!approxEqualCoords(ring[0], ring[ring.length - 1])) ring.push(ring[0]);
+      rings.push(ring);
+    }
+  }
+  return rings;
+}
+
+async function loadMunicipalityBoundariesFromOverpass() {
+  const query = `[out:json][timeout:90];
+rel[boundary=administrative][admin_level=7]["ref:se:kommunid"](55.0,10.0,70.0,25.0);
+out geom;`;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+  const data = await res.json();
+
+  const entries = [];
+  const featuresByCode = new Map();
+
+  for (const element of data.elements || []) {
+    if (element.type !== "relation") continue;
+    const code = normalizeMunicipalityCode(element.tags?.["ref:se:kommunid"] || "");
+    if (!code) continue;
+    const name = String(element.tags?.["name"] || "")
+      .replace(/ kommun$/i, "")
+      .trim() || `Kommun ${code}`;
+
+    const outerWays = (element.members || [])
+      .filter((m) => m.type === "way" && m.role === "outer" && Array.isArray(m.geometry) && m.geometry.length >= 2)
+      .map((m) => m.geometry.map((p) => [p.lon, p.lat]));
+    if (!outerWays.length) continue;
+
+    const rings = assembleOsmRings(outerWays);
+    if (!rings.length) continue;
+
+    const geometry =
+      rings.length === 1
+        ? { type: "Polygon", coordinates: [rings[0]] }
+        : { type: "MultiPolygon", coordinates: rings.map((r) => [r]) };
+
+    const feature = { type: "Feature", geometry, properties: { code, name } };
+    entries.push({ code, name });
+    featuresByCode.set(code, [feature]);
+  }
+
+  entries.sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  return { entries, featuresByCode };
+}
+
+function readMunicipalityBoundaryCache() {
+  try {
+    const raw = localStorage.getItem(MUNICIPALITY_BOUNDARY_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.savedAt || Date.now() - parsed.savedAt > MUNICIPALITY_BOUNDARY_CACHE_TTL) {
+      localStorage.removeItem(MUNICIPALITY_BOUNDARY_CACHE_KEY);
+      return null;
+    }
+    const featuresByCode = new Map(Object.entries(parsed.featuresByCode || {}));
+    return { entries: parsed.entries || [], featuresByCode };
+  } catch {
+    return null;
+  }
+}
+
+function writeMunicipalityBoundaryCache(entries, featuresByCode) {
+  try {
+    const fbcObj = {};
+    for (const [code, features] of featuresByCode.entries()) {
+      fbcObj[code] = features;
+    }
+    localStorage.setItem(
+      MUNICIPALITY_BOUNDARY_CACHE_KEY,
+      JSON.stringify({ savedAt: Date.now(), entries, featuresByCode: fbcObj }),
+    );
+  } catch {
+    // Ignore quota/private-mode errors.
+  }
 }
 
 const statusEl = document.getElementById("status");
@@ -2546,127 +2673,97 @@ function initMapApp() {
     municipalityCheckboxListEl.innerHTML = '<div class="hint">Laddar kommuner...</div>';
 
     try {
-      const layerNames = await getCapabilities();
-      const preferredLayer = chooseMunicipalityLayerName(layerNames);
-      const candidates = [preferredLayer, ...getMunicipalityLayerCandidates(layerNames)].filter(Boolean);
+      let entries = [];
+      let featuresByCode = new Map();
 
-      let bestStrictCandidate = null;
-      let bestFallbackCandidate = null;
-
-      for (const candidate of candidates) {
-        const loaded = await fetchFeaturesByFilter(candidate, null);
-        const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
-        if (!loaded.length || !candidateCodeField) continue;
-
-        const candidateNameField =
-          detectMunicipalityNameFieldForCode(loaded, candidateCodeField, []) ||
-          detectMunicipalityNameField(loaded, [candidateCodeField]);
-
-        const metrics = scoreMunicipalityLayerCandidate(candidate, loaded, candidateCodeField, candidateNameField);
-        const candidateResult = {
-          features: loaded,
-          layerName: candidate,
-          codeField: candidateCodeField,
-          nameField: candidateNameField,
-          metrics,
-        };
-
-        if (metrics.strictMunicipalityMatch) {
-          if (!bestStrictCandidate || metrics.score > bestStrictCandidate.metrics.score) {
-            bestStrictCandidate = candidateResult;
+      // Fast path: use localStorage-cached boundaries (7-day TTL).
+      const cached = readMunicipalityBoundaryCache();
+      if (cached && cached.entries.length >= 200) {
+        entries = cached.entries;
+        featuresByCode = cached.featuresByCode;
+      } else {
+        // Primary: OpenStreetMap Overpass API – proper municipality polygons, no auth.
+        try {
+          setStatus("Hämtar kommungränser från OpenStreetMap... (ca 20-40 sek)");
+          const result = await loadMunicipalityBoundariesFromOverpass();
+          if (result.entries.length >= 200) {
+            entries = result.entries;
+            featuresByCode = result.featuresByCode;
+            writeMunicipalityBoundaryCache(entries, featuresByCode);
           }
+        } catch (overpassErr) {
+          console.warn("Overpass misslyckades, försöker SCB WFS:", overpassErr);
         }
 
-        if (!bestFallbackCandidate || metrics.score > bestFallbackCandidate.metrics.score) {
-          bestFallbackCandidate = candidateResult;
+        // Fallback: SCB WFS (loads DeSO cells, dissolve on render).
+        if (entries.length < 200) {
+          setStatus("Hämtar kommunkoder från SCB WFS...");
+          const layerNames = await getCapabilities();
+          const preferredLayer = chooseMunicipalityLayerName(layerNames);
+          const candidates = [preferredLayer, ...getMunicipalityLayerCandidates(layerNames)].filter(Boolean);
+
+          let bestCandidate = null;
+          for (const candidate of candidates) {
+            const loaded = await fetchFeaturesByFilter(candidate, null);
+            const codeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
+            if (!loaded.length || !codeField) continue;
+            const nameField =
+              detectMunicipalityNameFieldForCode(loaded, codeField, []) ||
+              detectMunicipalityNameField(loaded, [codeField]);
+            const metrics = scoreMunicipalityLayerCandidate(candidate, loaded, codeField, nameField);
+            if (!bestCandidate || metrics.score > bestCandidate.metrics.score) {
+              bestCandidate = { features: loaded, codeField, nameField, metrics };
+            }
+          }
+
+          if (bestCandidate) {
+            const { features, codeField, nameField } = bestCandidate;
+            const namesByCode = new Map();
+            const fbc = new Map();
+            for (const feature of features) {
+              const props = feature?.properties || {};
+              const code = normalizeMunicipalityCode(props[codeField]);
+              if (!code || !feature?.geometry) continue;
+              const rawName = nameField ? String(props[nameField] || "").trim() : "";
+              const name = scoreMunicipalityNameValue(rawName) >= 5
+                ? rawName
+                : extractBestMunicipalityNameFromProps(props, [codeField]);
+              if (name) {
+                if (!namesByCode.has(code)) namesByCode.set(code, new Map());
+                const nc = namesByCode.get(code);
+                nc.set(name, (nc.get(name) || 0) + 1);
+              }
+              if (!fbc.has(code)) fbc.set(code, []);
+              fbc.get(code).push(feature);
+            }
+            for (const [code, nc] of namesByCode.entries()) {
+              let bestName = "";
+              let bestCount = -1;
+              for (const [n, c] of nc.entries()) {
+                if (c > bestCount) { bestCount = c; bestName = n; }
+              }
+              entries.push({ code, name: bestName || `Kommun ${code}` });
+            }
+            entries.sort((a, b) => a.name.localeCompare(b.name, "sv"));
+            featuresByCode = fbc;
+          }
         }
       }
 
-      const selectedCandidate = bestStrictCandidate || bestFallbackCandidate;
-      const features = selectedCandidate?.features || [];
-      const layerName = selectedCandidate?.layerName || null;
-      const codeField = selectedCandidate?.codeField || null;
-
-      if (!features.length || !layerName || !codeField) {
+      if (!entries.length) {
         municipalityCheckboxListEl.innerHTML = '<div class="hint">Kunde inte läsa in kommunlista.</div>';
         return;
       }
 
-      const nameField =
-        selectedCandidate?.nameField ||
-        detectMunicipalityNameFieldForCode(features, codeField, []) ||
-        detectMunicipalityNameField(features, [codeField]);
-      const byCode = new Map();
-      const namesByCode = new Map();
-      const featuresByCode = new Map();
-
-      for (const feature of features) {
-        const props = feature?.properties || {};
-        const code = normalizeMunicipalityCode(props[codeField]);
-        if (!code) continue;
-
-        if (!feature?.geometry) continue;
-
-        const maybeNameRaw = nameField ? String(props[nameField] || "").trim() : "";
-        const maybeName =
-          scoreMunicipalityNameValue(maybeNameRaw) >= 5
-            ? maybeNameRaw
-            : extractBestMunicipalityNameFromProps(props, [codeField]);
-        if (maybeName) {
-          if (!namesByCode.has(code)) {
-            namesByCode.set(code, new Map());
-          }
-          const nameCounts = namesByCode.get(code);
-          nameCounts.set(maybeName, (nameCounts.get(maybeName) || 0) + 1);
-        }
-
-        if (!featuresByCode.has(code)) {
-          featuresByCode.set(code, []);
-        }
-        featuresByCode.get(code).push(feature);
-      }
-
-      for (const code of featuresByCode.keys()) {
-        const nameCounts = namesByCode.get(code) || new Map();
-        let bestName = "";
-        let bestCount = -1;
-        for (const [name, count] of nameCounts.entries()) {
-          if (count > bestCount) {
-            bestCount = count;
-            bestName = name;
-          }
-        }
-        byCode.set(code, {
-          code,
-          name: bestName || `Kommun ${code}`,
-        });
-      }
-
-      municipalityEntries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
-      if (municipalityEntries.length < 200) {
-        console.warn("Kommunlista verkar ofullständig:", municipalityEntries.length, "poster", "layer:", layerName, "fält:", codeField);
-      }
-      if (selectedCandidate?.metrics) {
-        console.info("Vald kommunkälla:", {
-          layer: layerName,
-          codeField,
-          nameField,
-          distinctCodeCount: selectedCandidate.metrics.distinctCodeCount,
-          averageFeaturesPerCode: selectedCandidate.metrics.averageFeaturesPerCode,
-          nameFieldQuality: selectedCandidate.metrics.nameFieldQuality,
-          score: selectedCandidate.metrics.score,
-        });
-      }
+      municipalityEntries = entries;
       municipalityBoundaryMeta = {
-        layerName,
-        codeField,
-        nameField,
         featuresByCode,
-        dissolvedByCode: new Map(), // cache for dissolved municipality polygons
+        dissolvedByCode: new Map(),
       };
 
       renderMunicipalityOptions("");
       updateMunicipalitySummary();
+      setStatus("Redo.");
     } catch (error) {
       console.error("Kunde inte läsa kommuner:", error);
       municipalityCheckboxListEl.innerHTML = '<div class="hint">Fel vid hämtning av kommunlista.</div>';
