@@ -2580,10 +2580,12 @@ function initMapApp() {
             : [];
         if (!loadedFeatures.length) {
           setStatus(`Ingen geometri i lokal fil för kommun ${code}.`);
+          // Fall through to SCB fetch below when local file is empty.
+        } else {
+          municipalityBoundaryMeta.featuresByCode.set(code, loadedFeatures);
+          municipalityBoundaryMeta.dissolvedByCode.delete(code);
+          return loadedFeatures;
         }
-        municipalityBoundaryMeta.featuresByCode.set(code, loadedFeatures);
-        municipalityBoundaryMeta.dissolvedByCode.delete(code);
-        return loadedFeatures;
       } catch (error) {
         console.warn(`Kunde inte läsa lokal kommunfil för ${code}:`, localBoundaryPath, error);
         setStatus(`Saknar lokal kommunfil: ${localBoundaryPath}`);
@@ -2592,7 +2594,7 @@ function initMapApp() {
       setStatus(`Saknar sökväg för lokal kommunfil: ${code}`);
     }
 
-    if (municipalityBoundaryMeta.source !== "scb-wfs") return cached;
+    if (municipalityBoundaryMeta.source !== "scb-wfs" && municipalityBoundaryMeta.source !== "hybrid-local-scb") return cached;
     if (!municipalityBoundaryMeta.layerName || !municipalityBoundaryMeta.codeField) return cached;
 
     try {
@@ -2620,37 +2622,19 @@ function initMapApp() {
       return null;
     }
 
-    const dissolvedFeatures = [];
+    const selectedFeatures = [];
     for (const code of selectedMunicipalityCodes) {
-      // Use cached dissolved polygon if available.
-      if (municipalityBoundaryMeta.dissolvedByCode.has(code)) {
-        dissolvedFeatures.push(municipalityBoundaryMeta.dissolvedByCode.get(code));
-        continue;
-      }
-
       const group = await ensureMunicipalityFeaturesForCode(code);
       if (!group.length) continue;
 
-      // Dissolve all sub-areas for this municipality into one polygon.
-      let dissolved = null;
-      for (const feature of group) {
-        if (!feature?.geometry) continue;
-        try {
-          dissolved = dissolved ? turf.union(dissolved, feature) : feature;
-        } catch {
-          // If union fails for this feature, skip it.
-        }
-      }
-      if (dissolved) {
-        municipalityBoundaryMeta.dissolvedByCode.set(code, dissolved);
-        dissolvedFeatures.push(dissolved);
-      }
+      // Render all municipality sub-areas directly to avoid geometry loss from union failures.
+      selectedFeatures.push(...group.filter((feature) => feature?.geometry));
     }
 
-    if (!dissolvedFeatures.length) return null;
+    if (!selectedFeatures.length) return null;
 
     municipalitySelectionLayer = L.geoJSON(
-      { type: "FeatureCollection", features: dissolvedFeatures },
+      { type: "FeatureCollection", features: selectedFeatures },
       {
         style: {
           color: "#0b7285",
@@ -2738,20 +2722,134 @@ function initMapApp() {
       .join("");
   }
 
+  async function loadMunicipalityEntriesFromScb() {
+    const layerNames = await getCapabilities();
+    const preferredLayer = chooseMunicipalityLayerName(layerNames);
+    const candidates = [preferredLayer, ...getMunicipalityLayerCandidates(layerNames)].filter(Boolean);
+
+    let bestCandidate = null;
+    for (const candidate of candidates) {
+      const loaded = await fetchFeaturesByFilter(candidate, null);
+      const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
+      if (!loaded.length || !candidateCodeField) continue;
+
+      const candidateNameField =
+        detectMunicipalityNameFieldForCode(loaded, candidateCodeField, []) ||
+        detectMunicipalityNameField(loaded, [candidateCodeField]);
+
+      const metrics = scoreMunicipalityLayerCandidate(candidate, loaded, candidateCodeField, candidateNameField);
+      if (!bestCandidate || metrics.score > bestCandidate.metrics.score) {
+        bestCandidate = {
+          features: loaded,
+          layerName: candidate,
+          codeField: candidateCodeField,
+          nameField: candidateNameField,
+          metrics,
+        };
+      }
+    }
+
+    if (!bestCandidate) {
+      return {
+        entries: [],
+        featuresByCode: new Map(),
+        layerName: null,
+        codeField: null,
+      };
+    }
+
+    const byCode = new Map();
+    const namesByCode = new Map();
+    const featuresByCode = new Map();
+
+    for (const feature of bestCandidate.features) {
+      const props = feature?.properties || {};
+      const code = normalizeMunicipalityCode(props[bestCandidate.codeField]);
+      if (!code || !feature?.geometry) continue;
+
+      const rawName = bestCandidate.nameField ? String(props[bestCandidate.nameField] || "").trim() : "";
+      const name = scoreMunicipalityNameValue(rawName) >= 5
+        ? rawName
+        : extractBestMunicipalityNameFromProps(props, [bestCandidate.codeField]);
+
+      if (name) {
+        if (!namesByCode.has(code)) namesByCode.set(code, new Map());
+        const nameCounts = namesByCode.get(code);
+        nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+      }
+
+      if (!featuresByCode.has(code)) featuresByCode.set(code, []);
+      featuresByCode.get(code).push(feature);
+    }
+
+    for (const [code, nameCounts] of namesByCode.entries()) {
+      let bestName = "";
+      let bestCount = -1;
+      for (const [name, count] of nameCounts.entries()) {
+        if (count > bestCount) {
+          bestCount = count;
+          bestName = name;
+        }
+      }
+      byCode.set(code, { code, name: bestName || `Kommun ${code}` });
+    }
+
+    return {
+      entries: [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv")),
+      featuresByCode,
+      layerName: bestCandidate.layerName,
+      codeField: bestCandidate.codeField,
+    };
+  }
+
   async function loadMunicipalityOptions() {
     if (!municipalityCheckboxListEl) return;
 
     municipalityCheckboxListEl.innerHTML = '<div class="hint">Laddar kommuner...</div>';
 
     try {
-      const entries = await loadMunicipalityIndexFromLocal();
-      municipalityEntries = entries.map(({ code, name }) => ({ code, name }));
+      let localEntries = [];
+      let boundaryPathByCode = new Map();
 
-      const boundaryPathByCode = new Map(entries.map((entry) => [entry.code, entry.boundaryPath]));
+      try {
+        localEntries = await loadMunicipalityIndexFromLocal();
+        boundaryPathByCode = new Map(localEntries.map((entry) => [entry.code, entry.boundaryPath]));
+      } catch (localError) {
+        console.warn("Lokal kommunindex kunde inte läsas, använder SCB fallback:", localError);
+      }
+
+      let scbEntries = [];
+      let scbFeaturesByCode = new Map();
+      let scbLayerName = null;
+      let scbCodeField = null;
+
+      // If local index is missing/incomplete, fill list from SCB so all kommuner can be selected.
+      if (localEntries.length < 250) {
+        setStatus("Laddar kommunlista från SCB (fallback)...");
+        const scb = await loadMunicipalityEntriesFromScb();
+        scbEntries = scb.entries;
+        scbFeaturesByCode = scb.featuresByCode;
+        scbLayerName = scb.layerName;
+        scbCodeField = scb.codeField;
+      }
+
+      const mergedByCode = new Map();
+      for (const entry of scbEntries) mergedByCode.set(entry.code, { code: entry.code, name: entry.name });
+      for (const entry of localEntries) mergedByCode.set(entry.code, { code: entry.code, name: entry.name });
+
+      const mergedEntries = [...mergedByCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+      if (!mergedEntries.length) {
+        municipalityCheckboxListEl.innerHTML = '<div class="hint">Kunde inte läsa in kommunlista.</div>';
+        return;
+      }
+
+      municipalityEntries = mergedEntries;
       municipalityBoundaryMeta = {
-        source: "local-static",
+        source: boundaryPathByCode.size ? "hybrid-local-scb" : "scb-wfs",
         boundaryPathByCode,
-        featuresByCode: new Map(),
+        layerName: scbLayerName,
+        codeField: scbCodeField,
+        featuresByCode: scbFeaturesByCode,
         dissolvedByCode: new Map(),
       };
 
@@ -2760,7 +2858,7 @@ function initMapApp() {
       setStatus("Redo.");
     } catch (error) {
       console.error("Kunde inte läsa kommuner:", error);
-      municipalityCheckboxListEl.innerHTML = '<div class="hint">Fel vid hämtning av lokal kommunlista. Kontrollera data/municipality-index.json.</div>';
+      municipalityCheckboxListEl.innerHTML = '<div class="hint">Fel vid hämtning av kommunlista.</div>';
     }
   }
 
