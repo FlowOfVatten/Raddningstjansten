@@ -2960,6 +2960,7 @@ function initMapApp() {
   let areaStyleMapInputs = [];
   let areaStrokeColorInputEl = null;
   let areaFillColorInputEl = null;
+  let areaStylePresetButtons = [];
 
   areaStyleControl.onAdd = () => {
     const container = L.DomUtil.create("div", "area-style-map-control");
@@ -2969,6 +2970,11 @@ function initMapApp() {
         <div class="title">Områdesstil</div>
         <label><input type="radio" name="area-style-map" value="fill" checked> Fyllnad</label>
         <label><input type="radio" name="area-style-map" value="outline"> Kantlinje</label>
+        <div class="area-style-presets">
+          <button type="button" class="area-style-preset-btn" data-preset="soft">Diskret</button>
+          <button type="button" class="area-style-preset-btn" data-preset="contrast">Kontrast</button>
+          <button type="button" class="area-style-preset-btn" data-preset="print">Printvanlig</button>
+        </div>
         <label class="color-picker-row">Kantfarg <input type="color" id="area-stroke-color-map" value="#0f766e" aria-label="Valj kantfarg" /></label>
         <label class="color-picker-row">Fyllfarg <input type="color" id="area-fill-color-map" value="#14b8a6" aria-label="Valj fyllfarg" /></label>
       </div>
@@ -2979,6 +2985,7 @@ function initMapApp() {
     areaStyleMapInputs = Array.from(container.querySelectorAll('input[name="area-style-map"]'));
     areaStrokeColorInputEl = container.querySelector("#area-stroke-color-map");
     areaFillColorInputEl = container.querySelector("#area-fill-color-map");
+    areaStylePresetButtons = Array.from(container.querySelectorAll(".area-style-preset-btn"));
 
     if (areaStyleToggleEl && areaStylePanelEl) {
       areaStyleToggleEl.addEventListener("click", () => {
@@ -3576,6 +3583,32 @@ function initMapApp() {
     return currentAreaStyle !== "outline";
   }
 
+  function setAreaModeInput(mode) {
+    for (const input of areaStyleMapInputs) {
+      input.checked = input.value === mode;
+    }
+  }
+
+  function applyAreaStylePreset(presetKey) {
+    const presets = {
+      soft: { stroke: "#0f766e", fill: "#14b8a6", mode: "fill" },
+      contrast: { stroke: "#9f1239", fill: "#f59e0b", mode: "fill" },
+      print: { stroke: "#111827", fill: "#ffffff", mode: "outline" },
+    };
+
+    const preset = presets[presetKey];
+    if (!preset) return;
+
+    currentAreaStrokeColor = preset.stroke;
+    currentAreaFillColor = preset.fill;
+    currentAreaStyle = preset.mode;
+
+    if (areaStrokeColorInputEl) areaStrokeColorInputEl.value = currentAreaStrokeColor;
+    if (areaFillColorInputEl) areaFillColorInputEl.value = currentAreaFillColor;
+    setAreaModeInput(currentAreaStyle);
+    refreshCurrentAreaStyle();
+  }
+
   function applySelectedAreaStyle(layer) {
     if (!layer) return;
 
@@ -3613,6 +3646,13 @@ function initMapApp() {
         currentAreaStyle = input.value;
         refreshCurrentAreaStyle();
       }
+    });
+  }
+
+  for (const btn of areaStylePresetButtons) {
+    btn.addEventListener("click", () => {
+      const preset = btn.dataset.preset || "";
+      applyAreaStylePreset(preset);
     });
   }
 

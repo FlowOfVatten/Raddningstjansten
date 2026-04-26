@@ -289,6 +289,27 @@ p {
   gap: 6px;
 }
 
+.area-style-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.area-style-preset-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.area-style-preset-btn:hover {
+  background: #f3f4f6;
+}
+
 .area-style-map-control .title {
   font-size: 0.76rem;
   font-weight: 600;
