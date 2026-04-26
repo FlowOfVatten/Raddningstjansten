@@ -103,6 +103,7 @@ const MUNICIPALITY_LOCAL_INDEX_URL = "data/municipality-index.json";
 const MUNICIPALITY_LOCAL_BOUNDARY_DIR = "data/municipalities";
 const MUNICIPALITY_LOCAL_SHP_URL = "data/shape_svenska_260225/kommun/Kommun_Sweref99TM.shp";
 const MUNICIPALITY_LOCAL_DBF_URL = "data/shape_svenska_260225/kommun/Kommun_Sweref99TM.dbf";
+const MUNICIPALITY_ARCGIS_LAYER_URL = "https://services9.arcgis.com/BH6j7VrWdIXhhNYw/arcgis/rest/services/Kommungränser_Lantmäteriet/FeatureServer/0";
 const LOCAL_CACHE_PREFIX = "karta-msb-cache-v1";
 const LOCAL_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 
@@ -746,6 +747,87 @@ async function loadMunicipalityIndexFromLocalDbf() {
   const entries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
   if (!entries.length) throw new Error("Kunde inte bygga kommunlista från DBF.");
   return entries;
+}
+
+async function queryArcGisMunicipalities(params) {
+  const url = `${MUNICIPALITY_ARCGIS_LAYER_URL}/query?${new URLSearchParams(params).toString()}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`ArcGIS kommunanrop misslyckades: HTTP ${res.status}`);
+  const json = await res.json();
+  if (json?.error) {
+    throw new Error(`ArcGIS kommunanrop fel: ${json.error.message || "okänt fel"}`);
+  }
+  return json;
+}
+
+async function loadMunicipalityIndexFromArcGis() {
+  const pageSize = 2000;
+  let offset = 0;
+  const byCode = new Map();
+
+  while (true) {
+    const json = await queryArcGisMunicipalities({
+      f: "json",
+      where: "1=1",
+      outFields: "KOMMUNNAMN,KOM_KOD,KOMMUNKOD",
+      returnGeometry: "false",
+      orderByFields: "KOMMUNNAMN ASC",
+      resultOffset: String(offset),
+      resultRecordCount: String(pageSize),
+    });
+
+    const features = Array.isArray(json?.features) ? json.features : [];
+    for (const feature of features) {
+      const attrs = feature?.attributes || {};
+      const code = normalizeMunicipalityCode(attrs.KOM_KOD ?? attrs.KOMMUNKOD);
+      const name = String(attrs.KOMMUNNAMN || "").trim();
+      if (!code || !name) continue;
+      if (!byCode.has(code)) byCode.set(code, { code, name });
+    }
+
+    if (features.length < pageSize || !json?.exceededTransferLimit) break;
+    offset += features.length;
+  }
+
+  const entries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  if (!entries.length) throw new Error("ArcGIS kommunindex är tomt.");
+  return entries;
+}
+
+async function loadMunicipalityFeaturesForCodeFromArcGis(code) {
+  const normalizedCode = normalizeMunicipalityCode(code);
+  if (!normalizedCode) return [];
+
+  const numericCode = Number.parseInt(normalizedCode, 10);
+  const where = Number.isFinite(numericCode)
+    ? `(KOM_KOD='${normalizedCode}' OR KOMMUNKOD=${numericCode})`
+    : `KOM_KOD='${String(normalizedCode).replace(/'/g, "''")}'`;
+
+  const json = await queryArcGisMunicipalities({
+    f: "geojson",
+    where,
+    outFields: "KOMMUNNAMN,KOM_KOD,KOMMUNKOD,LANSNAMN,LANSKOD",
+    outSR: "4326",
+    returnGeometry: "true",
+  });
+
+  const features = Array.isArray(json?.features)
+    ? json.features.filter((feature) => feature?.geometry)
+    : [];
+
+  for (const feature of features) {
+    feature.properties = feature.properties || {};
+    if (!feature.properties.code) {
+      feature.properties.code = normalizeMunicipalityCode(
+        feature.properties.KOM_KOD ?? feature.properties.KOMMUNKOD ?? normalizedCode,
+      );
+    }
+    if (!feature.properties.name) {
+      feature.properties.name = String(feature.properties.KOMMUNNAMN || `Kommun ${normalizedCode}`);
+    }
+  }
+
+  return features;
 }
 
 function sweref99TmToWgs84(north, east) {
@@ -2968,6 +3050,18 @@ function initMapApp() {
       setStatus(`Saknar sökväg för lokal kommunfil: ${code}`);
     }
 
+    if (municipalityBoundaryMeta.source === "arcgis-feature-service") {
+      try {
+        const features = await loadMunicipalityFeaturesForCodeFromArcGis(code);
+        municipalityBoundaryMeta.featuresByCode.set(code, features);
+        municipalityBoundaryMeta.dissolvedByCode.delete(code);
+        return features;
+      } catch (error) {
+        console.warn(`Kunde inte hämta kommungeometri från ArcGIS för ${code}:`, error);
+        return cached;
+      }
+    }
+
     if (municipalityBoundaryMeta.source !== "scb-wfs" && municipalityBoundaryMeta.source !== "hybrid-local-scb") return cached;
     if (!municipalityBoundaryMeta.layerName || !municipalityBoundaryMeta.codeField) return cached;
 
@@ -3102,6 +3196,31 @@ function initMapApp() {
     municipalityCheckboxListEl.innerHTML = '<div class="hint">Läser lokal kommundata...</div>';
 
     try {
+      // 0) Primary source: ArcGIS kommungränser (Lantmäteriet).
+      try {
+        municipalityCheckboxListEl.innerHTML = '<div class="hint">Läser kommunlista från ArcGIS...</div>';
+        const arcgisEntries = await loadMunicipalityIndexFromArcGis();
+        if (arcgisEntries.length >= 250) {
+          municipalityEntries = arcgisEntries;
+          municipalityBoundaryMeta = {
+            source: "arcgis-feature-service",
+            boundaryPathByCode: new Map(),
+            layerName: null,
+            codeField: null,
+            featuresByCode: new Map(),
+            dissolvedByCode: new Map(),
+            localShapeLoaded: false,
+          };
+
+          renderMunicipalityOptions("");
+          updateMunicipalitySummary();
+          setStatus("Redo.");
+          return;
+        }
+      } catch (arcgisError) {
+        console.warn("Kunde inte läsa kommunlista från ArcGIS, provar lokal data:", arcgisError);
+      }
+
       // 1) Fast path: local index file with all municipality names.
       try {
         const localIndex = await loadMunicipalityIndexFromLocal();
