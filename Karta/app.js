@@ -2537,7 +2537,29 @@ function initMapApp() {
       : preview;
   }
 
-  function renderMunicipalitySelectionOnMap(options = {}) {
+  async function ensureMunicipalityFeaturesForCode(code) {
+    if (!municipalityBoundaryMeta || !code) return [];
+
+    const cached = municipalityBoundaryMeta.featuresByCode.get(code) || [];
+    if (cached.length) return cached;
+
+    if (municipalityBoundaryMeta.source !== "scb-wfs") return cached;
+    if (!municipalityBoundaryMeta.layerName || !municipalityBoundaryMeta.codeField) return cached;
+
+    try {
+      const filter = buildMunicipalityFilter(municipalityBoundaryMeta.codeField, code);
+      const fetched = await fetchFeaturesByFilter(municipalityBoundaryMeta.layerName, filter);
+      const valid = fetched.filter((feature) => feature?.geometry);
+      municipalityBoundaryMeta.featuresByCode.set(code, valid);
+      municipalityBoundaryMeta.dissolvedByCode.delete(code);
+      return valid;
+    } catch (error) {
+      console.warn(`Kunde inte hämta full kommungeometri för ${code}:`, error);
+      return cached;
+    }
+  }
+
+  async function renderMunicipalitySelectionOnMap(options = {}) {
     const shouldFitBounds = Boolean(options.fitBounds);
 
     if (municipalitySelectionLayer) {
@@ -2557,7 +2579,7 @@ function initMapApp() {
         continue;
       }
 
-      const group = municipalityBoundaryMeta.featuresByCode.get(code) || [];
+      const group = await ensureMunicipalityFeaturesForCode(code);
       if (!group.length) continue;
 
       // Dissolve all sub-areas for this municipality into one polygon.
@@ -2607,8 +2629,8 @@ function initMapApp() {
     setMeta([]);
   }
 
-  function applyMunicipalitySelectionAsArea(options = {}) {
-    const selectedLayer = renderMunicipalitySelectionOnMap(options);
+  async function applyMunicipalitySelectionAsArea(options = {}) {
+    const selectedLayer = await renderMunicipalitySelectionOnMap(options);
     if (!selectedLayer) {
       currentAreaFeatures = [];
       currentDrawnPolygon = null;
@@ -2675,12 +2697,17 @@ function initMapApp() {
     try {
       let entries = [];
       let featuresByCode = new Map();
+      let source = "unknown";
+      let layerName = null;
+      let codeField = null;
+      let nameField = null;
 
       // Fast path: use localStorage-cached boundaries (7-day TTL).
       const cached = readMunicipalityBoundaryCache();
       if (cached && cached.entries.length >= 200) {
         entries = cached.entries;
         featuresByCode = cached.featuresByCode;
+        source = "overpass-cache";
       } else {
         // Primary: OpenStreetMap Overpass API – proper municipality polygons, no auth.
         try {
@@ -2690,6 +2717,7 @@ function initMapApp() {
             entries = result.entries;
             featuresByCode = result.featuresByCode;
             writeMunicipalityBoundaryCache(entries, featuresByCode);
+            source = "overpass-api";
           }
         } catch (overpassErr) {
           console.warn("Overpass misslyckades, försöker SCB WFS:", overpassErr);
@@ -2712,22 +2740,26 @@ function initMapApp() {
               detectMunicipalityNameField(loaded, [codeField]);
             const metrics = scoreMunicipalityLayerCandidate(candidate, loaded, codeField, nameField);
             if (!bestCandidate || metrics.score > bestCandidate.metrics.score) {
-              bestCandidate = { features: loaded, codeField, nameField, metrics };
+              bestCandidate = { features: loaded, layerName: candidate, codeField, nameField, metrics };
             }
           }
 
           if (bestCandidate) {
-            const { features, codeField, nameField } = bestCandidate;
+            const { features, codeField: selectedCodeField, nameField: selectedNameField, layerName: selectedLayerName } = bestCandidate;
+            layerName = selectedLayerName || null;
+            codeField = selectedCodeField || null;
+            nameField = selectedNameField || null;
+            source = "scb-wfs";
             const namesByCode = new Map();
             const fbc = new Map();
             for (const feature of features) {
               const props = feature?.properties || {};
-              const code = normalizeMunicipalityCode(props[codeField]);
+              const code = normalizeMunicipalityCode(props[selectedCodeField]);
               if (!code || !feature?.geometry) continue;
-              const rawName = nameField ? String(props[nameField] || "").trim() : "";
+              const rawName = selectedNameField ? String(props[selectedNameField] || "").trim() : "";
               const name = scoreMunicipalityNameValue(rawName) >= 5
                 ? rawName
-                : extractBestMunicipalityNameFromProps(props, [codeField]);
+                : extractBestMunicipalityNameFromProps(props, [selectedCodeField]);
               if (name) {
                 if (!namesByCode.has(code)) namesByCode.set(code, new Map());
                 const nc = namesByCode.get(code);
@@ -2757,6 +2789,10 @@ function initMapApp() {
 
       municipalityEntries = entries;
       municipalityBoundaryMeta = {
+        source,
+        layerName,
+        codeField,
+        nameField,
         featuresByCode,
         dissolvedByCode: new Map(),
       };
@@ -2805,7 +2841,9 @@ function initMapApp() {
       }
 
       updateMunicipalitySummary();
-      applyMunicipalitySelectionAsArea({ fitBounds: true });
+      applyMunicipalitySelectionAsArea({ fitBounds: true }).catch((error) => {
+        console.error("Kunde inte applicera kommunval:", error);
+      });
     });
 
     if (municipalityFilterInputEl) {
