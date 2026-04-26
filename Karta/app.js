@@ -377,6 +377,43 @@ function chooseMunicipalityLayerName(layerNames) {
   return ranked[0] || null;
 }
 
+function getMunicipalityLayerCandidates(layerNames) {
+  if (!Array.isArray(layerNames) || !layerNames.length) return [...MUNICIPALITY_ADMIN_LAYERS];
+
+  const score = (name) => {
+    const lc = String(name || "").toLowerCase();
+    let s = 0;
+
+    if (lc.includes("kommun")) s += 250;
+    if (lc.includes("grans") || lc.includes("boundary") || lc.includes("polygon") || lc.includes("yta")) s += 120;
+    if (lc.includes("admin") || lc.includes("administr")) s += 70;
+    if (lc.includes("regso") || lc.includes("deso")) s -= 140;
+    if (lc.includes("ruta") || lc.includes("grid")) s -= 220;
+    if (lc.includes("tatort") || lc.includes("sm") || lc.includes("omr")) s -= 80;
+
+    return s;
+  };
+
+  const dynamic = [...layerNames]
+    .sort((a, b) => score(b) - score(a))
+    .slice(0, 15);
+
+  const merged = [...dynamic, ...MUNICIPALITY_ADMIN_LAYERS];
+  return [...new Set(merged)];
+}
+
+function countDistinctValuesForField(features, field) {
+  if (!Array.isArray(features) || !field) return 0;
+  const distinct = new Set();
+  for (const feature of features) {
+    const props = feature?.properties || {};
+    const value = normalizeMunicipalityCode(props[field]);
+    if (!value) continue;
+    distinct.add(value);
+  }
+  return distinct.size;
+}
+
 const statusEl = document.getElementById("status");
 const populationEl = document.getElementById("population");
 const breakdownEl = document.getElementById("breakdown");
@@ -2368,22 +2405,37 @@ function initMapApp() {
 
     try {
       const layerNames = await getCapabilities();
-      const regsoLayers = MUNICIPALITY_ADMIN_LAYERS.filter((name) => name.includes("RegSO"));
-      const preferredRegsoLayer = chooseMunicipalityLayerName(layerNames.filter((name) => String(name).includes("RegSO")));
-      const candidates = [preferredRegsoLayer, ...regsoLayers].filter(Boolean);
+      const preferredLayer = chooseMunicipalityLayerName(layerNames);
+      const candidates = [preferredLayer, ...getMunicipalityLayerCandidates(layerNames)].filter(Boolean);
 
       let features = [];
       let layerName = null;
       let codeField = null;
 
+      // Pass 1: strict municipality match, expecting ~290 distinct municipality codes.
       for (const candidate of candidates) {
         const loaded = await fetchFeaturesByFilter(candidate, null);
         const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
         if (!loaded.length || !candidateCodeField) continue;
+        const distinctCodeCount = countDistinctValuesForField(loaded, candidateCodeField);
+        if (distinctCodeCount < 200 || distinctCodeCount > 400) continue;
         features = loaded;
         layerName = candidate;
         codeField = candidateCodeField;
         break;
+      }
+
+      // Pass 2 fallback: keep previous behavior if strict municipality match was not found.
+      if (!features.length || !layerName || !codeField) {
+        for (const candidate of candidates) {
+          const loaded = await fetchFeaturesByFilter(candidate, null);
+          const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
+          if (!loaded.length || !candidateCodeField) continue;
+          features = loaded;
+          layerName = candidate;
+          codeField = candidateCodeField;
+          break;
+        }
       }
 
       if (!features.length || !layerName || !codeField) {
