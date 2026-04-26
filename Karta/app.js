@@ -2996,90 +2996,10 @@ function initMapApp() {
       .join("");
   }
 
-  async function loadMunicipalityEntriesFromScb() {
-    const layerNames = await getCapabilities();
-    const preferredLayer = chooseMunicipalityLayerName(layerNames);
-    const candidates = [preferredLayer, ...getMunicipalityLayerCandidates(layerNames)].filter(Boolean);
-
-    let bestCandidate = null;
-    for (const candidate of candidates) {
-      const loaded = await fetchFeaturesByFilter(candidate, null);
-      const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
-      if (!loaded.length || !candidateCodeField) continue;
-
-      const candidateNameField =
-        detectMunicipalityNameFieldForCode(loaded, candidateCodeField, []) ||
-        detectMunicipalityNameField(loaded, [candidateCodeField]);
-
-      const metrics = scoreMunicipalityLayerCandidate(candidate, loaded, candidateCodeField, candidateNameField);
-      if (!bestCandidate || metrics.score > bestCandidate.metrics.score) {
-        bestCandidate = {
-          features: loaded,
-          layerName: candidate,
-          codeField: candidateCodeField,
-          nameField: candidateNameField,
-          metrics,
-        };
-      }
-    }
-
-    if (!bestCandidate) {
-      return {
-        entries: [],
-        featuresByCode: new Map(),
-        layerName: null,
-        codeField: null,
-      };
-    }
-
-    const byCode = new Map();
-    const namesByCode = new Map();
-    const featuresByCode = new Map();
-
-    for (const feature of bestCandidate.features) {
-      const props = feature?.properties || {};
-      const code = normalizeMunicipalityCode(props[bestCandidate.codeField]);
-      if (!code || !feature?.geometry) continue;
-
-      const rawName = bestCandidate.nameField ? String(props[bestCandidate.nameField] || "").trim() : "";
-      const name = scoreMunicipalityNameValue(rawName) >= 5
-        ? rawName
-        : extractBestMunicipalityNameFromProps(props, [bestCandidate.codeField]);
-
-      if (name) {
-        if (!namesByCode.has(code)) namesByCode.set(code, new Map());
-        const nameCounts = namesByCode.get(code);
-        nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
-      }
-
-      if (!featuresByCode.has(code)) featuresByCode.set(code, []);
-      featuresByCode.get(code).push(feature);
-    }
-
-    for (const [code, nameCounts] of namesByCode.entries()) {
-      let bestName = "";
-      let bestCount = -1;
-      for (const [name, count] of nameCounts.entries()) {
-        if (count > bestCount) {
-          bestCount = count;
-          bestName = name;
-        }
-      }
-      byCode.set(code, { code, name: bestName || `Kommun ${code}` });
-    }
-
-    return {
-      entries: [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv")),
-      featuresByCode,
-      layerName: bestCandidate.layerName,
-      codeField: bestCandidate.codeField,
-    };
-  }
-
   async function loadMunicipalityOptions() {
     if (!municipalityCheckboxListEl) return;
 
-    municipalityCheckboxListEl.innerHTML = '<div class="hint">Laddar kommuner...</div>';
+    municipalityCheckboxListEl.innerHTML = '<div class="hint">Läser lokal kommundata...</div>';
 
     try {
       // 1) Fast path: local index file with all municipality names.
