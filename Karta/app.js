@@ -3098,9 +3098,6 @@ function initMapApp() {
           wildlifeRecords = data.records;
           wildlifeSpecies = data.speciesList;
           selectedWildlifeSpecies.clear();
-          for (const species of wildlifeSpecies) {
-            selectedWildlifeSpecies.add(species);
-          }
           renderWildlifeFilterOptions();
         })
         .catch((error) => {
