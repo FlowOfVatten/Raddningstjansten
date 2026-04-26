@@ -896,6 +896,81 @@ function parseShpPolygonRecords(arrayBuffer) {
   return records;
 }
 
+function closeRingIfNeeded(ring) {
+  if (!Array.isArray(ring) || ring.length < 3) return null;
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] === last[0] && first[1] === last[1]) return ring;
+  return [...ring, first];
+}
+
+function ringSignedArea(ring) {
+  let sum = 0;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[i + 1];
+    sum += x1 * y2 - x2 * y1;
+  }
+  return sum / 2;
+}
+
+function pointInRing(point, ring) {
+  const [x, y] = point;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    const intersects = (yi > y) !== (yj > y) &&
+      x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function buildPolygonCoordinatesFromRings(rawRings) {
+  const prepared = rawRings
+    .map(closeRingIfNeeded)
+    .filter((ring) => Array.isArray(ring) && ring.length >= 4)
+    .map((ring) => ({ ring, area: ringSignedArea(ring) }));
+
+  if (!prepared.length) return [];
+
+  // Esri shapefiler använder normalt medurs för ytterringar och moturs för hål.
+  const outers = prepared.filter((item) => item.area < 0);
+  const holes = prepared.filter((item) => item.area >= 0);
+
+  if (!outers.length) {
+    // Fallback om orientering saknas: behandla alla ringar som separata yttre delar.
+    return prepared.map((item) => [item.ring]);
+  }
+
+  const polygons = outers.map((outer) => ({ outer: outer.ring, holes: [] }));
+
+  for (const hole of holes) {
+    const holePoint = hole.ring[0];
+    let bestMatch = null;
+    let bestArea = Number.POSITIVE_INFINITY;
+    for (const polygon of polygons) {
+      if (!pointInRing(holePoint, polygon.outer)) continue;
+      const area = Math.abs(ringSignedArea(polygon.outer));
+      if (area < bestArea) {
+        bestArea = area;
+        bestMatch = polygon;
+      }
+    }
+
+    if (bestMatch) {
+      bestMatch.holes.push(hole.ring);
+    } else {
+      polygons.push({ outer: hole.ring, holes: [] });
+    }
+  }
+
+  return polygons.map((poly) => [poly.outer, ...poly.holes]);
+}
+
 async function loadMunicipalityBoundariesFromLocalShapefile() {
   const shpCandidates = [MUNICIPALITY_LOCAL_SHP_URL, `Karta/${MUNICIPALITY_LOCAL_SHP_URL}`];
   const dbfCandidates = [MUNICIPALITY_LOCAL_DBF_URL, `Karta/${MUNICIPALITY_LOCAL_DBF_URL}`];
@@ -945,11 +1020,12 @@ async function loadMunicipalityBoundariesFromLocalShapefile() {
     const name = rawName || `Kommun ${code}`;
 
     const rings = records[i] || [];
-    if (!rings.length) continue;
+    const polygons = buildPolygonCoordinatesFromRings(rings);
+    if (!polygons.length) continue;
 
-    const geometry = rings.length === 1
-      ? { type: "Polygon", coordinates: [rings[0]] }
-      : { type: "MultiPolygon", coordinates: rings.map((r) => [r]) };
+    const geometry = polygons.length === 1
+      ? { type: "Polygon", coordinates: polygons[0] }
+      : { type: "MultiPolygon", coordinates: polygons };
 
     const feature = {
       type: "Feature",
