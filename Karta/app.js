@@ -199,6 +199,95 @@ function detectMunicipalityNameField(features, excludedKeys = []) {
   return bestField;
 }
 
+function scoreMunicipalityNameValue(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return -100;
+
+  const lc = text.toLowerCase();
+  let score = 0;
+
+  if (/^se_[a-z0-9_]+$/i.test(text)) score -= 140;
+  if (lc.includes("crs") || lc.includes("res") || lc.includes("grid") || lc.includes("ruta")) score -= 80;
+  if (text.includes("_")) score -= 30;
+
+  const digitCount = (text.match(/\d/g) || []).length;
+  if (digitCount > 0) score -= Math.min(90, digitCount * 8);
+
+  if (/[a-zA-ZåäöÅÄÖ]/.test(text)) score += 20;
+  if (text.includes(" ")) score += 8;
+  if (/^[A-Za-zÅÄÖåäö][A-Za-zÅÄÖåäö\-\s]{1,40}$/.test(text)) score += 55;
+  if (text.length > 40) score -= 40;
+
+  return score;
+}
+
+function extractBestMunicipalityNameFromProps(props, excludedKeys = []) {
+  const excluded = new Set(excludedKeys.filter(Boolean));
+  let bestName = "";
+  let bestScore = -Infinity;
+
+  for (const [key, value] of Object.entries(props || {})) {
+    if (excluded.has(key)) continue;
+
+    const text = String(value ?? "").trim();
+    if (!text) continue;
+    if (safeParseFloat(text) !== null) continue;
+
+    const keyLc = String(key).toLowerCase();
+    let score = scoreMunicipalityNameValue(text);
+
+    if (keyLc.includes("kommunnamn") || keyLc.includes("knnamn")) score += 35;
+    else if (keyLc.includes("namn") || keyLc.includes("name")) score += 12;
+    if (keyLc.includes("id") || keyLc.includes("uuid") || keyLc.includes("code") || keyLc.includes("kod")) score -= 20;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestName = text;
+    }
+  }
+
+  return bestScore >= 5 ? bestName : "";
+}
+
+function estimateMunicipalityNameFieldQuality(features, codeField, nameField) {
+  if (!Array.isArray(features) || !features.length || !codeField || !nameField) return -100;
+
+  const codeNameCounts = new Map();
+  let seen = 0;
+
+  for (const feature of features) {
+    if (seen >= 5000) break;
+    const props = feature?.properties || {};
+    const code = normalizeMunicipalityCode(props[codeField]);
+    if (!code) continue;
+
+    const name = String(props[nameField] ?? "").trim();
+    if (!name) continue;
+
+    if (!codeNameCounts.has(code)) {
+      codeNameCounts.set(code, new Map());
+    }
+    const nameCounts = codeNameCounts.get(code);
+    nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+    seen += 1;
+  }
+
+  if (!codeNameCounts.size) return -100;
+
+  let weightedScoreSum = 0;
+  let weightedCount = 0;
+
+  for (const nameCounts of codeNameCounts.values()) {
+    for (const [name, count] of nameCounts.entries()) {
+      weightedScoreSum += scoreMunicipalityNameValue(name) * count;
+      weightedCount += count;
+    }
+  }
+
+  if (!weightedCount) return -100;
+  return weightedScoreSum / weightedCount;
+}
+
 function detectMunicipalityNameFieldForCode(features, codeField, excludedKeys = []) {
   const excluded = new Set([codeField, ...excludedKeys].filter(Boolean));
   const fieldCodeNameCounts = new Map();
@@ -412,6 +501,38 @@ function countDistinctValuesForField(features, field) {
     distinct.add(value);
   }
   return distinct.size;
+}
+
+function scoreMunicipalityLayerCandidate(layerName, features, codeField, nameField) {
+  const distinctCodeCount = countDistinctValuesForField(features, codeField);
+  const averageFeaturesPerCode = distinctCodeCount > 0 ? features.length / distinctCodeCount : Number.POSITIVE_INFINITY;
+  const nameFieldQuality = estimateMunicipalityNameFieldQuality(features, codeField, nameField);
+
+  const lc = String(layerName || "").toLowerCase();
+  let score = 0;
+
+  score += Math.max(0, 80 - Math.abs(290 - distinctCodeCount) * 0.6);
+  score += Math.max(-200, 80 - averageFeaturesPerCode * 3);
+  score += nameFieldQuality * 1.8;
+
+  if (lc.includes("kommun")) score += 80;
+  if (lc.includes("grans") || lc.includes("boundary") || lc.includes("polygon")) score += 50;
+  if (lc.includes("regso") || lc.includes("deso")) score -= 45;
+  if (lc.includes("ruta") || lc.includes("grid")) score -= 120;
+
+  const strictMunicipalityMatch =
+    distinctCodeCount >= 200 &&
+    distinctCodeCount <= 400 &&
+    averageFeaturesPerCode <= 30 &&
+    nameFieldQuality >= 5;
+
+  return {
+    score,
+    strictMunicipalityMatch,
+    distinctCodeCount,
+    averageFeaturesPerCode,
+    nameFieldQuality,
+  };
 }
 
 const statusEl = document.getElementById("status");
@@ -2408,42 +2529,52 @@ function initMapApp() {
       const preferredLayer = chooseMunicipalityLayerName(layerNames);
       const candidates = [preferredLayer, ...getMunicipalityLayerCandidates(layerNames)].filter(Boolean);
 
-      let features = [];
-      let layerName = null;
-      let codeField = null;
+      let bestStrictCandidate = null;
+      let bestFallbackCandidate = null;
 
-      // Pass 1: strict municipality match, expecting ~290 distinct municipality codes.
       for (const candidate of candidates) {
         const loaded = await fetchFeaturesByFilter(candidate, null);
         const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
         if (!loaded.length || !candidateCodeField) continue;
-        const distinctCodeCount = countDistinctValuesForField(loaded, candidateCodeField);
-        if (distinctCodeCount < 200 || distinctCodeCount > 400) continue;
-        features = loaded;
-        layerName = candidate;
-        codeField = candidateCodeField;
-        break;
-      }
 
-      // Pass 2 fallback: keep previous behavior if strict municipality match was not found.
-      if (!features.length || !layerName || !codeField) {
-        for (const candidate of candidates) {
-          const loaded = await fetchFeaturesByFilter(candidate, null);
-          const candidateCodeField = detectMunicipalityCodeFieldForList(loaded, []) || detectMunicipalityField(loaded, []);
-          if (!loaded.length || !candidateCodeField) continue;
-          features = loaded;
-          layerName = candidate;
-          codeField = candidateCodeField;
-          break;
+        const candidateNameField =
+          detectMunicipalityNameFieldForCode(loaded, candidateCodeField, []) ||
+          detectMunicipalityNameField(loaded, [candidateCodeField]);
+
+        const metrics = scoreMunicipalityLayerCandidate(candidate, loaded, candidateCodeField, candidateNameField);
+        const candidateResult = {
+          features: loaded,
+          layerName: candidate,
+          codeField: candidateCodeField,
+          nameField: candidateNameField,
+          metrics,
+        };
+
+        if (metrics.strictMunicipalityMatch) {
+          if (!bestStrictCandidate || metrics.score > bestStrictCandidate.metrics.score) {
+            bestStrictCandidate = candidateResult;
+          }
+        }
+
+        if (!bestFallbackCandidate || metrics.score > bestFallbackCandidate.metrics.score) {
+          bestFallbackCandidate = candidateResult;
         }
       }
+
+      const selectedCandidate = bestStrictCandidate || bestFallbackCandidate;
+      const features = selectedCandidate?.features || [];
+      const layerName = selectedCandidate?.layerName || null;
+      const codeField = selectedCandidate?.codeField || null;
 
       if (!features.length || !layerName || !codeField) {
         municipalityCheckboxListEl.innerHTML = '<div class="hint">Kunde inte läsa in kommunlista.</div>';
         return;
       }
 
-      const nameField = detectMunicipalityNameFieldForCode(features, codeField, []) || detectMunicipalityNameField(features, [codeField]);
+      const nameField =
+        selectedCandidate?.nameField ||
+        detectMunicipalityNameFieldForCode(features, codeField, []) ||
+        detectMunicipalityNameField(features, [codeField]);
       const byCode = new Map();
       const namesByCode = new Map();
       const featuresByCode = new Map();
@@ -2455,7 +2586,11 @@ function initMapApp() {
 
         if (!feature?.geometry) continue;
 
-        const maybeName = nameField ? String(props[nameField] || "").trim() : "";
+        const maybeNameRaw = nameField ? String(props[nameField] || "").trim() : "";
+        const maybeName =
+          scoreMunicipalityNameValue(maybeNameRaw) >= 5
+            ? maybeNameRaw
+            : extractBestMunicipalityNameFromProps(props, [codeField]);
         if (maybeName) {
           if (!namesByCode.has(code)) {
             namesByCode.set(code, new Map());
@@ -2489,6 +2624,17 @@ function initMapApp() {
       municipalityEntries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
       if (municipalityEntries.length < 200) {
         console.warn("Kommunlista verkar ofullständig:", municipalityEntries.length, "poster", "layer:", layerName, "fält:", codeField);
+      }
+      if (selectedCandidate?.metrics) {
+        console.info("Vald kommunkälla:", {
+          layer: layerName,
+          codeField,
+          nameField,
+          distinctCodeCount: selectedCandidate.metrics.distinctCodeCount,
+          averageFeaturesPerCode: selectedCandidate.metrics.averageFeaturesPerCode,
+          nameFieldQuality: selectedCandidate.metrics.nameFieldQuality,
+          score: selectedCandidate.metrics.score,
+        });
       }
       municipalityBoundaryMeta = {
         layerName,
