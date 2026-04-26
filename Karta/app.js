@@ -688,6 +688,50 @@ async function loadMunicipalityIndexFromLocal() {
   return entries;
 }
 
+async function loadMunicipalityIndexFromLocalDbf() {
+  const res = await fetch(`${MUNICIPALITY_LOCAL_DBF_URL}?v=1`, { cache: "force-cache" });
+  if (!res.ok) throw new Error(`Kunde inte läsa ${MUNICIPALITY_LOCAL_DBF_URL} (HTTP ${res.status}).`);
+
+  const dbfBuf = await res.arrayBuffer();
+  const attrs = parseDbfRecords(dbfBuf);
+  if (!attrs.length) throw new Error("DBF innehåller inga poster.");
+
+  const sample = attrs.slice(0, 250).map((properties) => ({ properties }));
+  const codeField =
+    detectMunicipalityCodeFieldForList(sample, []) ||
+    Object.keys(attrs[0] || {}).find((k) => k.toLowerCase().includes("kod")) ||
+    "KOM_KOD";
+  const nameField =
+    detectMunicipalityNameFieldForCode(sample, codeField, []) ||
+    detectMunicipalityNameField(sample, [codeField]) ||
+    Object.keys(attrs[0] || {}).find((k) => k.toLowerCase().includes("namn")) ||
+    "KOM_NAMN";
+
+  const byCode = new Map();
+  for (const row of attrs) {
+    const code = normalizeMunicipalityCode(row[codeField]);
+    if (!code) continue;
+
+    const rawName = String(row[nameField] || "").trim();
+    const fallbackName = Object.values(row)
+      .map((v) => String(v || "").trim())
+      .find((txt) => scoreMunicipalityNameValue(txt) >= 5) || "";
+    const name = rawName || fallbackName || `Kommun ${code}`;
+
+    if (!byCode.has(code)) {
+      byCode.set(code, {
+        code,
+        name,
+        boundaryPath: `${MUNICIPALITY_LOCAL_BOUNDARY_DIR}/${code}.geojson`,
+      });
+    }
+  }
+
+  const entries = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  if (!entries.length) throw new Error("Kunde inte bygga kommunlista från DBF.");
+  return entries;
+}
+
 function sweref99TmToWgs84(north, east) {
   const axis = 6378137.0;
   const flattening = 1.0 / 298.257222101;
@@ -2779,6 +2823,24 @@ function initMapApp() {
     const cached = municipalityBoundaryMeta.featuresByCode.get(code) || [];
     if (cached.length) return cached;
 
+    if (
+      (municipalityBoundaryMeta.source === "local-shapefile" || municipalityBoundaryMeta.source === "local-shapefile-lazy") &&
+      !municipalityBoundaryMeta.localShapeLoaded
+    ) {
+      try {
+        setStatus("Läser lokal kommungeometri...");
+        const localShape = await loadMunicipalityBoundariesFromLocalShapefile();
+        for (const [shapeCode, features] of localShape.featuresByCode.entries()) {
+          municipalityBoundaryMeta.featuresByCode.set(shapeCode, features);
+        }
+        municipalityBoundaryMeta.localShapeLoaded = true;
+        const ready = municipalityBoundaryMeta.featuresByCode.get(code) || [];
+        if (ready.length) return ready;
+      } catch (error) {
+        console.warn("Kunde inte läsa lokal shapefile-geometri:", error);
+      }
+    }
+
     const localBoundaryPath = municipalityBoundaryMeta.boundaryPathByCode?.get(code);
     if (localBoundaryPath) {
       try {
@@ -3020,19 +3082,19 @@ function initMapApp() {
     municipalityCheckboxListEl.innerHTML = '<div class="hint">Laddar kommuner...</div>';
 
     try {
-      // 1) Primary: fully local SCB shapefile (all municipalities + boundaries).
+      // 1) Fast path: local index file with all municipality names.
       try {
-        setStatus("Läser lokala kommungränser...");
-        const localShape = await loadMunicipalityBoundariesFromLocalShapefile();
-        if (localShape.entries.length >= 250) {
-          municipalityEntries = localShape.entries;
+        const localIndex = await loadMunicipalityIndexFromLocal();
+        if (localIndex.length >= 250) {
+          municipalityEntries = localIndex.map(({ code, name }) => ({ code, name }));
           municipalityBoundaryMeta = {
-            source: "local-shapefile",
-            boundaryPathByCode: new Map(),
+            source: "local-index-files",
+            boundaryPathByCode: new Map(localIndex.map((entry) => [entry.code, entry.boundaryPath])),
             layerName: null,
             codeField: null,
-            featuresByCode: localShape.featuresByCode,
+            featuresByCode: new Map(),
             dissolvedByCode: new Map(),
+            localShapeLoaded: false,
           };
 
           renderMunicipalityOptions("");
@@ -3040,8 +3102,32 @@ function initMapApp() {
           setStatus("Redo.");
           return;
         }
-      } catch (shapeError) {
-        console.warn("Kunde inte läsa lokal shapefile, använder fallback:", shapeError);
+      } catch (localIndexError) {
+        console.warn("Kunde inte läsa komplett lokal kommunindex:", localIndexError);
+      }
+
+      // 2) Fast fallback: parse local DBF for names only (quick), defer geometry parsing.
+      try {
+        const dbfEntries = await loadMunicipalityIndexFromLocalDbf();
+        if (dbfEntries.length >= 250) {
+          municipalityEntries = dbfEntries.map(({ code, name }) => ({ code, name }));
+          municipalityBoundaryMeta = {
+            source: "local-shapefile-lazy",
+            boundaryPathByCode: new Map(dbfEntries.map((entry) => [entry.code, entry.boundaryPath])),
+            layerName: null,
+            codeField: null,
+            featuresByCode: new Map(),
+            dissolvedByCode: new Map(),
+            localShapeLoaded: false,
+          };
+
+          renderMunicipalityOptions("");
+          updateMunicipalitySummary();
+          setStatus("Redo.");
+          return;
+        }
+      } catch (shapeIndexError) {
+        console.warn("Kunde inte läsa lokal DBF-index, använder fallback:", shapeIndexError);
       }
 
       // 2) Secondary: local index + optional local boundary files.
