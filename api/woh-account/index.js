@@ -84,6 +84,23 @@ function asDateISO(value, fieldName) {
   return String(value);
 }
 
+function assertBreakfastKey(value) {
+  const breakfastKey = String(value || "").trim();
+  const allowed = new Set([
+    "frukost-omelett",
+    "frukost-kvarg",
+    "frukost-gröt",
+    "frukost-agg-kalkon",
+    "frukost-yoghurt",
+  ]);
+
+  if (!allowed.has(breakfastKey)) {
+    throw new Error("Välj ett giltigt frukostalternativ.");
+  }
+
+  return breakfastKey;
+}
+
 function hashPassword(password, saltHex) {
   return crypto.pbkdf2Sync(password, saltHex, 120000, 64, "sha512").toString("hex");
 }
@@ -188,6 +205,7 @@ module.exports = async function (context, req) {
       const startWeightKg = asNumber(data.startWeightKg, "Startvikt");
       const startWaistCm = asNumber(data.startWaistCm, "Midjemått");
       const startDate = asDateISO(data.startDate, "Startdatum");
+      const breakfastKey = assertBreakfastKey(data.breakfastKey);
 
       const existing = await loadUser(pool, username);
       if (existing) {
@@ -197,7 +215,7 @@ module.exports = async function (context, req) {
       const salt = crypto.randomBytes(16).toString("hex");
       const token = newToken();
       const now = new Date().toISOString();
-      const profile = { heightCm, startWeightKg, startWaistCm, startDate };
+      const profile = { heightCm, startWeightKg, startWaistCm, startDate, breakfastKey };
       const initialCheckin = {
         weekIndex: 0,
         date: startDate,
@@ -320,6 +338,7 @@ module.exports = async function (context, req) {
         startWeightKg: asNumber(data.startWeightKg, "Startvikt"),
         startWaistCm: asNumber(data.startWaistCm, "Midjemått"),
         startDate: asDateISO(data.startDate, "Startdatum"),
+        breakfastKey: assertBreakfastKey(data.breakfastKey),
       };
       user.updatedAt = new Date().toISOString();
 

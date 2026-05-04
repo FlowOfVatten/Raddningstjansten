@@ -43,6 +43,16 @@ const breakfasts = [
       { name: "Knäckebröd", amount: 2, unit: "st" },
     ],
   },
+  {
+    key: "frukost-yoghurt",
+    text: "Frukost: grekisk yoghurt med granola, hallon och pumpakärnor",
+    ingredients: [
+      { name: "Grekisk yoghurt", amount: 250, unit: "g" },
+      { name: "Granola", amount: 45, unit: "g" },
+      { name: "Hallon", amount: 80, unit: "g" },
+      { name: "Pumpakärnor", amount: 15, unit: "g" },
+    ],
+  },
 ];
 
 const lunches = [
@@ -165,6 +175,8 @@ const state = {
   startDate: null,
   currentMonth: firstDayOfMonth(new Date()),
   selectedDate: stripTime(new Date()),
+  authMode: "chooser",
+  showRecovery: false,
   auth: {
     username: "",
     token: "",
@@ -174,9 +186,16 @@ const state = {
 };
 
 const dom = {
-  startDate: document.getElementById("startDate"),
-  saveStart: document.getElementById("saveStart"),
-  clearStart: document.getElementById("clearStart"),
+  accountSection: document.getElementById("accountSection"),
+  authChooser: document.getElementById("authChooser"),
+  showLoginBtn: document.getElementById("showLoginBtn"),
+  showRegisterBtn: document.getElementById("showRegisterBtn"),
+  loginView: document.getElementById("loginView"),
+  registerView: document.getElementById("registerView"),
+  memberView: document.getElementById("memberView"),
+  plannerLayout: document.getElementById("plannerLayout"),
+  backFromLoginBtn: document.getElementById("backFromLoginBtn"),
+  backFromRegisterBtn: document.getElementById("backFromRegisterBtn"),
   startInfo: document.getElementById("startInfo"),
   monthLabel: document.getElementById("monthLabel"),
   weekdayRow: document.getElementById("weekdayRow"),
@@ -187,15 +206,18 @@ const dom = {
   detailsSubtitle: document.getElementById("detailsSubtitle"),
   trainingList: document.getElementById("trainingList"),
   foodList: document.getElementById("foodList"),
-  focusList: document.getElementById("focusList"),
   exportWeekPdf: document.getElementById("exportWeekPdf"),
   shoppingDays: document.getElementById("shoppingDays"),
   generateShopping: document.getElementById("generateShopping"),
   shoppingInfo: document.getElementById("shoppingInfo"),
   shoppingList: document.getElementById("shoppingList"),
   authStatus: document.getElementById("authStatus"),
-  authUsername: document.getElementById("authUsername"),
-  authPassword: document.getElementById("authPassword"),
+  loginUsername: document.getElementById("loginUsername"),
+  loginPassword: document.getElementById("loginPassword"),
+  registerUsername: document.getElementById("registerUsername"),
+  registerPassword: document.getElementById("registerPassword"),
+  registerStartDate: document.getElementById("registerStartDate"),
+  registerBreakfast: document.getElementById("registerBreakfast"),
   securityQuestion: document.getElementById("securityQuestion"),
   securityAnswer: document.getElementById("securityAnswer"),
   registerBtn: document.getElementById("registerBtn"),
@@ -208,9 +230,14 @@ const dom = {
   recoverPasswordBtn: document.getElementById("recoverPasswordBtn"),
   recoveryStatus: document.getElementById("recoveryStatus"),
   profilePanel: document.getElementById("profilePanel"),
+  profileStartDate: document.getElementById("profileStartDate"),
   profileHeight: document.getElementById("profileHeight"),
   profileWeight: document.getElementById("profileWeight"),
   profileWaist: document.getElementById("profileWaist"),
+  memberBreakfast: document.getElementById("memberBreakfast"),
+  memberHeight: document.getElementById("memberHeight"),
+  memberWeight: document.getElementById("memberWeight"),
+  memberWaist: document.getElementById("memberWaist"),
   saveProfileBtn: document.getElementById("saveProfileBtn"),
   checkinDate: document.getElementById("checkinDate"),
   checkinWeight: document.getElementById("checkinWeight"),
@@ -218,11 +245,13 @@ const dom = {
   saveCheckinBtn: document.getElementById("saveCheckinBtn"),
   checkinInfo: document.getElementById("checkinInfo"),
   checkinList: document.getElementById("checkinList"),
+  progressGraph: document.getElementById("progressGraph"),
 };
 
 init();
 
 function init() {
+  populateBreakfastOptions();
   renderWeekdays();
   bindEvents();
 
@@ -232,7 +261,6 @@ function init() {
     if (parsed) {
       state.startDate = parsed;
       state.currentMonth = firstDayOfMonth(parsed);
-      dom.startDate.value = saved;
       const today = stripTime(new Date());
       state.selectedDate = isBetweenProgramDates(today) ? today : stripTime(parsed);
     }
@@ -244,7 +272,7 @@ function init() {
       const parsed = JSON.parse(rawAuth);
       state.auth.username = String(parsed.username || "");
       state.auth.token = String(parsed.token || "");
-      dom.authUsername.value = state.auth.username;
+      dom.loginUsername.value = state.auth.username;
     } catch (_err) {
       localStorage.removeItem(AUTH_STORAGE_KEY);
     }
@@ -258,30 +286,10 @@ function init() {
 }
 
 function bindEvents() {
-  dom.saveStart.addEventListener("click", () => {
-    const raw = dom.startDate.value;
-    const picked = parseDateInput(raw);
-
-    if (!picked) {
-      dom.startInfo.textContent = "Välj ett giltigt datum för att starta.";
-      return;
-    }
-
-    state.startDate = picked;
-    state.currentMonth = firstDayOfMonth(picked);
-    state.selectedDate = stripTime(picked);
-    localStorage.setItem(STORAGE_KEY, formatDateInput(picked));
-    renderAll();
-  });
-
-  dom.clearStart.addEventListener("click", () => {
-    state.startDate = null;
-    state.currentMonth = firstDayOfMonth(new Date());
-    state.selectedDate = stripTime(new Date());
-    dom.startDate.value = "";
-    localStorage.removeItem(STORAGE_KEY);
-    renderAll();
-  });
+  dom.showLoginBtn.addEventListener("click", () => setAuthMode("login"));
+  dom.showRegisterBtn.addEventListener("click", () => setAuthMode("register"));
+  dom.backFromLoginBtn.addEventListener("click", () => setAuthMode("chooser"));
+  dom.backFromRegisterBtn.addEventListener("click", () => setAuthMode("chooser"));
 
   dom.prevMonth.addEventListener("click", () => {
     state.currentMonth = addMonths(state.currentMonth, -1);
@@ -312,10 +320,29 @@ function renderAll() {
   renderCalendar();
   renderDetails();
   renderShoppingList();
+  renderProgressGraph();
+}
+
+function populateBreakfastOptions() {
+  const selects = [dom.registerBreakfast, dom.memberBreakfast];
+
+  selects.forEach((select) => {
+    if (!select) {
+      return;
+    }
+
+    select.innerHTML = "";
+    breakfasts.forEach((breakfast) => {
+      const option = document.createElement("option");
+      option.value = breakfast.key;
+      option.textContent = breakfast.text.replace("Frukost: ", "");
+      select.appendChild(option);
+    });
+  });
 }
 
 function renderStartInfo() {
-  if (!state.startDate) {
+  if (!state.startDate || !isLoggedIn()) {
     dom.startInfo.textContent = "Ingen start vald ännu.";
     return;
   }
@@ -323,6 +350,20 @@ function renderStartInfo() {
   const start = formatLongDate(state.startDate);
   const end = formatLongDate(addDays(state.startDate, PROGRAM_DAYS - 1));
   dom.startInfo.textContent = `Programperiod: ${start} till ${end}. Kostläge: normal.`;
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode;
+  state.showRecovery = false;
+  if (mode === "register" && !dom.registerStartDate.value) {
+    dom.registerStartDate.value = state.startDate
+      ? formatDateInput(state.startDate)
+      : formatDateInput(stripTime(new Date()));
+  }
+  dom.recoveryQuestion.textContent = "";
+  dom.recoveryStatus.textContent = "";
+  dom.recoveryAnswer.value = "";
+  renderAccountSection();
 }
 
 function renderWeekdays() {
@@ -427,7 +468,6 @@ function renderDetails() {
     dom.detailsSubtitle.textContent = "Kalendern fylls när programmet är startat.";
     addListItem(dom.trainingList, "Ingen plan ännu.");
     addListItem(dom.foodList, "Välj datum för att skapa kostplan.");
-    addListItem(dom.focusList, "Planera handling och meal prep för veckan.");
     return;
   }
 
@@ -438,7 +478,6 @@ function renderDetails() {
     dom.detailsSubtitle.textContent = "Programmet har inte startat denna dag.";
     addListItem(dom.trainingList, "Vila eller valfri lätt promenad.");
     addListItem(dom.foodList, "Förbered matlådor och inköpslista.");
-    addListItem(dom.focusList, "Sov 7-8 timmar och planera starten.");
     return;
   }
 
@@ -446,7 +485,6 @@ function renderDetails() {
     dom.detailsSubtitle.textContent = "16 veckor är genomförda. Bra jobbat!";
     addListItem(dom.trainingList, "Återhämtning eller fortsättningsprogram.");
     addListItem(dom.foodList, "Behåll dina basrutiner med hög proteinnivå.");
-    addListItem(dom.focusList, "Utvärdera resultat och sätt nya mål.");
     return;
   }
 
@@ -454,7 +492,6 @@ function renderDetails() {
   dom.detailsSubtitle.textContent = `Vecka ${plan.week} av 16 · Dag ${dayIndex + 1}`;
   plan.training.forEach((entry) => addListItem(dom.trainingList, entry));
   plan.food.forEach((entry) => addListItem(dom.foodList, entry));
-  plan.focus.forEach((entry) => addListItem(dom.focusList, entry));
 }
 
 function getDailyPlan(dayIndex, date) {
@@ -475,14 +512,12 @@ function getDailyPlan(dayIndex, date) {
   const workoutType = programByDay[dayInWeek];
   const training = buildTraining(workoutType, phase, week);
   const foodPlan = buildFood(dayIndex, workoutType, phase);
-  const focus = buildFocus(week, date, workoutType, phase);
 
   return {
     week,
     training,
     food: foodPlan.lines,
     mealKeys: foodPlan.mealKeys,
-    focus,
   };
 }
 
@@ -574,6 +609,8 @@ function buildTraining(type, phase, week) {
 }
 
 function getDailyMeals(dayIndex) {
+  const breakfastKey = state.auth.profile?.breakfastKey || breakfasts[0].key;
+  const selectedBreakfast = breakfasts.find((item) => item.key === breakfastKey) || breakfasts[0];
   const lunchMeal = lunches[(dayIndex + 1) % lunches.length];
   const dinnerMeal = {
     key: `${lunchMeal.key}-samma-som-lunch`,
@@ -582,7 +619,7 @@ function getDailyMeals(dayIndex) {
   };
 
   return {
-    breakfast: breakfasts[dayIndex % breakfasts.length],
+    breakfast: selectedBreakfast,
     lunch: lunchMeal,
     dinner: dinnerMeal,
     snack: snacks[(dayIndex + 3) % snacks.length],
@@ -618,35 +655,9 @@ function buildFood(dayIndex, workoutType, phase) {
       carbRule,
       fatGuide,
       hydration,
-      "Basregler: hög proteinmängd, minimera socker och alkohol (normal kost)",
-      "Offentlig 16WOH-princip: ät inte mindre än rekommenderad mängd, justera vid behov",
     ],
     mealKeys: [meals.breakfast.key, meals.lunch.key, meals.dinner.key, meals.snack.key],
   };
-}
-
-function buildFocus(week, date, workoutType, phase) {
-  const weekday = new Intl.DateTimeFormat("sv-SE", { weekday: "long" }).format(date);
-  const focus = [
-    `Dagens fokus (${weekday}): håll måltiderna jämna och planerade`,
-    "Meal prep: laga minst 2 mål extra till nästa dag",
-    "Sömn: sikta på 7.5+ timmar inatt",
-    "Inga exakta klockslag behövs, följ ordningen morgon -> pass -> måltider",
-  ];
-
-  if (workoutType === "återhämtning") {
-    focus.push("Återhämtning: prioritera rörlighet och stressreducering");
-  }
-
-  if (phase === "final") {
-    focus.push("Finalfas: var extra noga med teknik och återhämtning");
-  }
-
-  if (week % 4 === 0) {
-    focus.push("Veckocheck: mät framsteg och justera inköpslista");
-  }
-
-  return focus;
 }
 
 function isLoggedIn() {
@@ -671,15 +682,17 @@ function applyUserData(user) {
 
   if (state.auth.profile) {
     const p = state.auth.profile;
-    dom.profileHeight.value = p.heightCm ?? "";
-    dom.profileWeight.value = p.startWeightKg ?? "";
-    dom.profileWaist.value = p.startWaistCm ?? "";
+    dom.memberBreakfast.value = p.breakfastKey || breakfasts[0].key;
+    dom.memberHeight.value = p.heightCm ?? "";
+    dom.memberWeight.value = p.startWeightKg ?? "";
+    dom.memberWaist.value = p.startWaistCm ?? "";
+    dom.profileStartDate.value = p.startDate ?? "";
 
     if (p.startDate) {
       const parsed = parseDateInput(p.startDate);
       if (parsed) {
         state.startDate = parsed;
-        dom.startDate.value = p.startDate;
+        dom.registerStartDate.value = p.startDate;
         localStorage.setItem(STORAGE_KEY, p.startDate);
         if (!sameDate(state.selectedDate, parsed) && diffDays(parsed, state.selectedDate) < 0) {
           state.selectedDate = parsed;
@@ -718,9 +731,11 @@ async function refreshSession() {
     });
     applyUserData(result.user || {});
     dom.authStatus.textContent = `Inloggad som ${state.auth.username}.`;
+    state.authMode = "member";
   } catch (err) {
     state.auth = { username: "", token: "", profile: null, checkins: [] };
     persistAuth();
+    state.authMode = "chooser";
     dom.authStatus.textContent = err.message;
   } finally {
     renderAll();
@@ -729,32 +744,46 @@ async function refreshSession() {
 
 async function registerAccount() {
   try {
-    const username = String(dom.authUsername.value || "").trim().toLowerCase();
-    const password = String(dom.authPassword.value || "");
+    const username = String(dom.registerUsername.value || "").trim().toLowerCase();
+    const password = String(dom.registerPassword.value || "");
     const securityQuestion = String(dom.securityQuestion.value || "").trim();
     const securityAnswer = String(dom.securityAnswer.value || "").trim();
+    const startDateValue = String(dom.registerStartDate.value || "");
 
-    if (!state.startDate) {
+    if (!startDateValue) {
       throw new Error("Välj startdatum först så startvärden sparas rätt.");
     }
+
+    const picked = parseDateInput(startDateValue);
+    if (!picked) {
+      throw new Error("Välj ett giltigt startdatum.");
+    }
+
+    state.startDate = picked;
+    state.currentMonth = firstDayOfMonth(picked);
+    state.selectedDate = stripTime(picked);
+    localStorage.setItem(STORAGE_KEY, formatDateInput(picked));
 
     const result = await accountApi("register", {
       username,
       password,
       securityQuestion,
       securityAnswer,
+      breakfastKey: dom.registerBreakfast.value,
       heightCm: dom.profileHeight.value,
       startWeightKg: dom.profileWeight.value,
       startWaistCm: dom.profileWaist.value,
-      startDate: formatDateInput(state.startDate),
+      startDate: formatDateInput(picked),
     });
 
     state.auth.username = username;
     state.auth.token = result.token;
     applyUserData(result.user || {});
     persistAuth();
-    dom.authPassword.value = "";
+    dom.loginUsername.value = username;
+    dom.registerPassword.value = "";
     dom.securityAnswer.value = "";
+    state.authMode = "member";
     dom.authStatus.textContent = "Konto skapat och inloggat.";
   } catch (err) {
     dom.authStatus.textContent = err.message;
@@ -765,12 +794,13 @@ async function registerAccount() {
 
 async function requestForgotQuestion() {
   try {
-    const username = String(dom.authUsername.value || "").trim().toLowerCase();
+    const username = String(dom.loginUsername.value || "").trim().toLowerCase();
     if (!username) {
       throw new Error("Fyll i användarnamn först.");
     }
 
     const result = await accountApi("getSecurityQuestion", { username });
+    state.showRecovery = true;
     dom.recoveryQuestion.textContent = `Säkerhetsfråga: ${result.securityQuestion}`;
     dom.recoveryStatus.textContent = "Svara på frågan och klicka på Visa lösenord.";
     dom.recoveryAnswer.value = "";
@@ -784,7 +814,7 @@ async function requestForgotQuestion() {
 
 async function recoverPasswordFlow() {
   try {
-    const username = String(dom.authUsername.value || "").trim().toLowerCase();
+    const username = String(dom.loginUsername.value || "").trim().toLowerCase();
     const securityAnswer = String(dom.recoveryAnswer.value || "").trim();
 
     if (!username) {
@@ -802,15 +832,16 @@ async function recoverPasswordFlow() {
 
 async function loginAccount() {
   try {
-    const username = String(dom.authUsername.value || "").trim().toLowerCase();
-    const password = String(dom.authPassword.value || "");
+    const username = String(dom.loginUsername.value || "").trim().toLowerCase();
+    const password = String(dom.loginPassword.value || "");
     const result = await accountApi("login", { username, password });
 
     state.auth.username = username;
     state.auth.token = result.token;
     applyUserData(result.user || {});
     persistAuth();
-    dom.authPassword.value = "";
+    dom.loginPassword.value = "";
+    state.authMode = "member";
     dom.authStatus.textContent = "Inloggning lyckades.";
   } catch (err) {
     dom.authStatus.textContent = err.message;
@@ -821,8 +852,10 @@ async function loginAccount() {
 
 function logoutAccount() {
   state.auth = { username: "", token: "", profile: null, checkins: [] };
+  state.authMode = "chooser";
+  state.showRecovery = false;
   persistAuth();
-  dom.authPassword.value = "";
+  dom.loginPassword.value = "";
   dom.authStatus.textContent = "Utloggad.";
   renderAll();
 }
@@ -834,17 +867,23 @@ async function saveProfile() {
   }
 
   try {
-    if (!state.startDate) {
-      throw new Error("Välj startdatum innan profil sparas.");
+    const profileStart = parseDateInput(dom.profileStartDate.value);
+    if (!profileStart) {
+      throw new Error("Välj ett giltigt startdatum i profilen.");
     }
+
+    state.startDate = profileStart;
+    state.currentMonth = firstDayOfMonth(profileStart);
+    localStorage.setItem(STORAGE_KEY, formatDateInput(profileStart));
 
     const result = await accountApi("saveProfile", {
       username: state.auth.username,
       token: state.auth.token,
-      heightCm: dom.profileHeight.value,
-      startWeightKg: dom.profileWeight.value,
-      startWaistCm: dom.profileWaist.value,
-      startDate: formatDateInput(state.startDate),
+      breakfastKey: dom.memberBreakfast.value,
+      heightCm: dom.memberHeight.value,
+      startWeightKg: dom.memberWeight.value,
+      startWaistCm: dom.memberWaist.value,
+      startDate: formatDateInput(profileStart),
     });
 
     applyUserData(result.user || {});
@@ -883,9 +922,13 @@ async function saveWeeklyCheckin() {
 
 function renderAccountSection() {
   const loggedIn = isLoggedIn();
+  dom.authChooser.style.display = !loggedIn && state.authMode === "chooser" ? "block" : "none";
+  dom.loginView.style.display = !loggedIn && state.authMode === "login" ? "block" : "none";
+  dom.registerView.style.display = !loggedIn && state.authMode === "register" ? "block" : "none";
+  dom.memberView.style.display = loggedIn ? "block" : "none";
   dom.profilePanel.style.display = loggedIn ? "block" : "none";
-  dom.logoutBtn.style.display = loggedIn ? "inline-block" : "none";
-  dom.recoveryPanel.style.display = loggedIn ? "none" : "block";
+  dom.recoveryPanel.style.display = !loggedIn && state.authMode === "login" && state.showRecovery ? "block" : "none";
+  dom.plannerLayout.style.display = loggedIn ? "grid" : "none";
 
   if (!dom.checkinDate.value) {
     dom.checkinDate.value = formatDateInput(state.selectedDate);
@@ -898,12 +941,18 @@ function renderAccountSection() {
       dom.authStatus.textContent = "Skapa konto eller logga in för att spara vikt och mått.";
     }
     dom.checkinInfo.textContent = "";
+    dom.progressGraph.innerHTML = '<div class="graph-empty">Grafen visas när du har loggat in och sparat veckouppföljningar.</div>';
     return;
+  }
+
+  if (!dom.memberBreakfast.value && state.auth.profile?.breakfastKey) {
+    dom.memberBreakfast.value = state.auth.profile.breakfastKey;
   }
 
   const checkins = [...state.auth.checkins].sort((a, b) => (a.weekIndex || 0) - (b.weekIndex || 0));
   if (!checkins.length) {
     dom.checkinInfo.textContent = "Ingen uppföljning registrerad ännu.";
+    renderProgressGraph();
     return;
   }
 
@@ -920,6 +969,98 @@ function renderAccountSection() {
         `Vecka ${entry.weekIndex} (${entry.date}): ${entry.weightKg} kg, ${entry.waistCm} cm`
       );
     });
+}
+
+function renderProgressGraph() {
+  if (!isLoggedIn()) {
+    dom.progressGraph.innerHTML = '<div class="graph-empty">Grafen visas när du har loggat in och sparat veckouppföljningar.</div>';
+    return;
+  }
+
+  const checkins = [...state.auth.checkins]
+    .filter((entry) => Number.isFinite(Number(entry.weightKg)) && Number.isFinite(Number(entry.waistCm)))
+    .sort((a, b) => (a.weekIndex || 0) - (b.weekIndex || 0));
+
+  if (!checkins.length) {
+    dom.progressGraph.innerHTML = '<div class="graph-empty">Lägg in minst en veckouppföljning för att se grafen.</div>';
+    return;
+  }
+
+  const width = 720;
+  const height = 280;
+  const padding = { top: 20, right: 18, bottom: 36, left: 18 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+
+  const xStep = checkins.length === 1 ? innerWidth / 2 : innerWidth / (checkins.length - 1);
+  const weightValues = checkins.map((entry) => Number(entry.weightKg));
+  const waistValues = checkins.map((entry) => Number(entry.waistCm));
+
+  const weightBounds = getChartBounds(weightValues);
+  const waistBounds = getChartBounds(waistValues);
+
+  const buildPath = (values, bounds) =>
+    values
+      .map((value, index) => {
+        const x = padding.left + (checkins.length === 1 ? innerWidth / 2 : xStep * index);
+        const y = mapValueToY(value, bounds.min, bounds.max, padding.top, innerHeight);
+        return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+      })
+      .join(" ");
+
+  const weightPath = buildPath(weightValues, weightBounds);
+  const waistPath = buildPath(waistValues, waistBounds);
+
+  const dots = checkins
+    .map((entry, index) => {
+      const x = padding.left + (checkins.length === 1 ? innerWidth / 2 : xStep * index);
+      const weightY = mapValueToY(Number(entry.weightKg), weightBounds.min, weightBounds.max, padding.top, innerHeight);
+      const waistY = mapValueToY(Number(entry.waistCm), waistBounds.min, waistBounds.max, padding.top, innerHeight);
+      const weekLabel = `v${entry.weekIndex}`;
+
+      return `
+        <circle class="graph-dot-weight" cx="${x.toFixed(2)}" cy="${weightY.toFixed(2)}" r="4"></circle>
+        <circle class="graph-dot-waist" cx="${x.toFixed(2)}" cy="${waistY.toFixed(2)}" r="4"></circle>
+        <text class="graph-label" x="${x.toFixed(2)}" y="${height - 12}" text-anchor="middle">${escapeHtml(weekLabel)}</text>
+      `;
+    })
+    .join("");
+
+  dom.progressGraph.innerHTML = `
+    <div class="graph-legend">
+      <span><i style="background:#f7a521"></i>Vikt (kg)</span>
+      <span><i style="background:#cf2f24"></i>Midja (cm)</span>
+    </div>
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Graf över vikt och midjemått per vecka">
+      <line class="graph-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + innerHeight}"></line>
+      <line class="graph-axis" x1="${padding.left}" y1="${padding.top + innerHeight}" x2="${padding.left + innerWidth}" y2="${padding.top + innerHeight}"></line>
+      <path class="graph-weight" d="${weightPath}"></path>
+      <path class="graph-waist" d="${waistPath}"></path>
+      ${dots}
+      <text class="graph-label" x="${padding.left}" y="14">Vikt ${weightBounds.min}-${weightBounds.max} kg</text>
+      <text class="graph-label" x="${width - padding.right}" y="14" text-anchor="end">Midja ${waistBounds.min}-${waistBounds.max} cm</text>
+    </svg>
+  `;
+}
+
+function getChartBounds(values) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  if (min === max) {
+    return { min: Number((min - 1).toFixed(1)), max: Number((max + 1).toFixed(1)) };
+  }
+
+  const padding = (max - min) * 0.12;
+  return {
+    min: Number((min - padding).toFixed(1)),
+    max: Number((max + padding).toFixed(1)),
+  };
+}
+
+function mapValueToY(value, min, max, top, innerHeight) {
+  const ratio = (value - min) / (max - min || 1);
+  return top + innerHeight - ratio * innerHeight;
 }
 
 function renderShoppingList() {
@@ -994,17 +1135,17 @@ function exportWeekToPdf() {
     const dayIndex = diffDays(state.startDate, date);
 
     if (dayIndex < 0) {
-      rows.push(renderPrintDay(date, ["Programmet har inte startat."], ["Förbered måltider och inköp."], ["Lätt aktivitet eller vila."]));
+      rows.push(renderPrintDay(date, ["Programmet har inte startat."], ["Förbered måltider och inköp."]));
       continue;
     }
 
     if (dayIndex >= PROGRAM_DAYS) {
-      rows.push(renderPrintDay(date, ["Programmet är klart."], ["Behåll normal kost och proteinfokus."], ["Sätt nästa mål."]));
+      rows.push(renderPrintDay(date, ["Programmet är klart."], ["Behåll normal kost och proteinfokus."]));
       continue;
     }
 
     const plan = getDailyPlan(dayIndex, date);
-    rows.push(renderPrintDay(date, plan.training, plan.food, plan.focus));
+    rows.push(renderPrintDay(date, plan.training, plan.food));
   }
 
   const printWindow = window.open("", "_blank");
@@ -1018,14 +1159,14 @@ function exportWeekToPdf() {
     <html lang="sv">
       <head>
         <meta charset="UTF-8" />
-        <title>16WOH veckoplan</title>
+        <title>112 Dagar Larm Kalender</title>
         <style>
           body { font-family: Arial, sans-serif; color: #222; margin: 24px; }
           h1 { margin: 0 0 4px; }
           .meta { color: #555; margin: 0 0 16px; }
           .day { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
           .day h2 { margin: 0 0 8px; font-size: 18px; }
-          .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+          .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
           h3 { margin: 0 0 6px; font-size: 14px; color: #0d6b60; }
           ul { margin: 0; padding-left: 16px; }
           li { margin-bottom: 4px; font-size: 12px; }
@@ -1033,7 +1174,7 @@ function exportWeekToPdf() {
         </style>
       </head>
       <body>
-        <h1>16WOH veckoplan</h1>
+        <h1>112 Dagar Larm Kalender</h1>
         <p class="meta">Period: ${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)} | Kost: normal | Träning: gym + hemma</p>
         ${rows.join("")}
       </body>
@@ -1047,7 +1188,7 @@ function exportWeekToPdf() {
   printWindow.print();
 }
 
-function renderPrintDay(date, training, food, focus) {
+function renderPrintDay(date, training, food) {
   return `
     <article class="day">
       <h2>${formatLongDate(date)}</h2>
@@ -1059,10 +1200,6 @@ function renderPrintDay(date, training, food, focus) {
         <section>
           <h3>Mat</h3>
           <ul>${food.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-        </section>
-        <section>
-          <h3>Fokus</h3>
-          <ul>${focus.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
         </section>
       </div>
     </article>
@@ -1095,7 +1232,6 @@ function addListItem(list, text) {
 function clearLists() {
   dom.trainingList.innerHTML = "";
   dom.foodList.innerHTML = "";
-  dom.focusList.innerHTML = "";
 }
 
 function parseDateInput(value) {

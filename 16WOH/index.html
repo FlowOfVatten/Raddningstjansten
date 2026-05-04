@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>16WOH Planner</title>
+    <title>112 (dagar) LARM KALENDER</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,53 +18,69 @@
 
     <main class="app">
       <header class="hero">
-        <p class="tag">Träning + kost, dag för dag</p>
-        <h1>16WOH Kalender</h1>
+        <p class="tag">Räddningstjänst-tema • träning • kost • uppföljning</p>
+        <h1>112 (dagar) LARM KALENDER</h1>
         <p class="sub">
-          Välj ditt startdatum och få en tydlig plan för varje dag i 16 veckor.
+          Logga in eller skapa konto för att följa ditt 112-dagarsupplägg med tydlig kalender, matlådor och veckouppföljning.
         </p>
       </header>
 
-      <section class="setup card">
-        <div class="setup-main">
-          <label for="startDate">Startdatum</label>
-          <input id="startDate" type="date" />
-          <button id="saveStart" class="btn btn-primary">Starta program</button>
-          <button id="clearStart" class="btn btn-ghost" type="button">Rensa</button>
-        </div>
-        <p id="startInfo" class="muted"></p>
-        <p class="disclaimer">
-          Planen är inspirerad av offentligt kända principer (hög proteinmängd,
-          promenader, styrka, struktur). Den är inte ett officiellt schema.
-        </p>
-      </section>
-
-      <section class="account card">
-        <h2>Konto och uppföljning</h2>
-        <p id="authStatus" class="muted">Skapa konto eller logga in för att spara vikt och mått.</p>
-
-        <div class="auth-grid">
-          <input id="authUsername" type="text" placeholder="Användarnamn" autocomplete="username" />
-          <input id="authPassword" type="password" placeholder="Lösenord" autocomplete="current-password" />
-          <input id="securityQuestion" type="text" placeholder="Säkerhetsfråga (vid registrering)" />
-          <input id="securityAnswer" type="text" placeholder="Svar på säkerhetsfråga (vid registrering)" />
-          <button id="registerBtn" class="btn btn-primary" type="button">Skapa konto</button>
-          <button id="loginBtn" class="btn btn-ghost" type="button">Logga in</button>
-          <button id="forgotBtn" class="btn btn-ghost" type="button">Glömt lösenord</button>
-          <button id="logoutBtn" class="btn btn-ghost" type="button">Logga ut</button>
-        </div>
-
-        <div id="recoveryPanel" class="recovery-panel">
-          <p id="recoveryQuestion" class="muted"></p>
-          <div class="recovery-grid">
-            <input id="recoveryAnswer" type="text" placeholder="Svar på säkerhetsfråga" />
-            <button id="recoverPasswordBtn" class="btn btn-primary" type="button">Visa lösenord</button>
+      <section id="accountSection" class="account card">
+        <p id="authStatus" class="muted">Skapa konto eller logga in för att spara vikt, mått och frukostval.</p>
+        <div id="authChooser" class="auth-chooser">
+          <h2>Välj nästa steg</h2>
+          <p class="muted">På första sidan finns bara två val: logga in eller skapa konto.</p>
+          <div class="chooser-actions">
+            <button id="showLoginBtn" class="btn btn-primary" type="button">Logga in</button>
+            <button id="showRegisterBtn" class="btn btn-ghost" type="button">Skapa konto</button>
           </div>
-          <p id="recoveryStatus" class="muted"></p>
         </div>
 
-        <div id="profilePanel" class="profile-panel">
-          <div class="profile-grid">
+        <div id="loginView" class="auth-view">
+          <div class="view-head">
+            <h2>Logga in</h2>
+            <button id="backFromLoginBtn" class="btn btn-ghost" type="button">Tillbaka</button>
+          </div>
+          <p class="muted">Logga in för att se kalender, matplan och tidigare uppföljningar.</p>
+          <div class="auth-grid auth-grid-simple">
+            <input id="loginUsername" type="text" placeholder="Användarnamn" autocomplete="username" />
+            <input id="loginPassword" type="password" placeholder="Lösenord" autocomplete="current-password" />
+            <button id="loginBtn" class="btn btn-primary" type="button">Logga in</button>
+            <button id="forgotBtn" class="btn btn-ghost" type="button">Glömt lösenord</button>
+          </div>
+
+          <div id="recoveryPanel" class="recovery-panel">
+            <p id="recoveryQuestion" class="muted"></p>
+            <div class="recovery-grid">
+              <input id="recoveryAnswer" type="text" placeholder="Svar på säkerhetsfråga" />
+              <button id="recoverPasswordBtn" class="btn btn-primary" type="button">Visa lösenord</button>
+            </div>
+            <p id="recoveryStatus" class="muted"></p>
+          </div>
+        </div>
+
+        <div id="registerView" class="auth-view">
+          <div class="view-head">
+            <h2>Skapa konto</h2>
+            <button id="backFromRegisterBtn" class="btn btn-ghost" type="button">Tillbaka</button>
+          </div>
+          <p class="muted">Skapa konto och fyll i dina startvärden direkt.</p>
+          <div class="auth-grid auth-grid-simple">
+            <input id="registerUsername" type="text" placeholder="Användarnamn" autocomplete="username" />
+            <input id="registerPassword" type="password" placeholder="Lösenord" autocomplete="new-password" />
+            <input id="securityQuestion" type="text" placeholder="Säkerhetsfråga" />
+            <input id="securityAnswer" type="text" placeholder="Svar på säkerhetsfråga" />
+          </div>
+
+          <div class="profile-grid register-grid">
+            <label>
+              Startdatum
+              <input id="registerStartDate" type="date" />
+            </label>
+            <label>
+              Frukost
+              <select id="registerBreakfast"></select>
+            </label>
             <label>
               Längd (cm)
               <input id="profileHeight" type="number" min="100" max="250" step="1" />
@@ -78,6 +94,39 @@
               <input id="profileWaist" type="number" min="40" max="200" step="0.1" />
             </label>
           </div>
+          <button id="registerBtn" class="btn btn-primary" type="button">Skapa konto</button>
+        </div>
+
+        <div id="memberView" class="member-view">
+          <div class="view-head">
+            <h2>Konto och uppföljning</h2>
+            <button id="logoutBtn" class="btn btn-ghost" type="button">Logga ut</button>
+          </div>
+
+        <div id="profilePanel" class="profile-panel">
+          <div class="profile-grid">
+            <label>
+              Startdatum
+              <input id="profileStartDate" type="date" />
+            </label>
+            <label>
+              Frukost
+              <select id="memberBreakfast"></select>
+            </label>
+            <label>
+              Längd (cm)
+              <input id="memberHeight" type="number" min="100" max="250" step="1" />
+            </label>
+            <label>
+              Startvikt (kg)
+              <input id="memberWeight" type="number" min="30" max="300" step="0.1" />
+            </label>
+            <label>
+              Midjemått (cm)
+              <input id="memberWaist" type="number" min="40" max="200" step="0.1" />
+            </label>
+          </div>
+          <p id="startInfo" class="muted"></p>
           <button id="saveProfileBtn" class="btn btn-primary" type="button">Spara profil</button>
 
           <div class="checkin-grid">
@@ -98,10 +147,19 @@
 
           <p id="checkinInfo" class="muted"></p>
           <ul id="checkinList"></ul>
+
+          <div class="graph-block">
+            <div class="graph-head">
+              <h3>Utveckling vecka för vecka</h3>
+              <p class="muted">Vikt och midjemått jämfört över hela 112-dagarsperioden.</p>
+            </div>
+            <div id="progressGraph" class="progress-graph"></div>
+          </div>
+        </div>
         </div>
       </section>
 
-      <section class="layout">
+      <section id="plannerLayout" class="layout">
         <section class="calendar card">
           <div class="calendar-head">
             <button id="prevMonth" class="nav-btn" type="button" aria-label="Förra månaden">&#10094;</button>
@@ -125,10 +183,6 @@
           <div class="details-block">
             <h4>Matplan</h4>
             <ul id="foodList"></ul>
-          </div>
-          <div class="details-block">
-            <h4>Fokus</h4>
-            <ul id="focusList"></ul>
           </div>
           <div class="details-block">
             <h4>Smart inköpslista</h4>
