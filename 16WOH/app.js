@@ -1159,7 +1159,7 @@ function exportWeekToPdf() {
     <html lang="sv">
       <head>
         <meta charset="UTF-8" />
-        <title>112 Dagar Larm Kalender</title>
+        <title>112 Dagar i beredskap</title>
         <style>
           body { font-family: Arial, sans-serif; color: #222; margin: 24px; }
           h1 { margin: 0 0 4px; }
@@ -1174,7 +1174,7 @@ function exportWeekToPdf() {
         </style>
       </head>
       <body>
-        <h1>112 Dagar Larm Kalender</h1>
+        <h1>112 Dagar i beredskap</h1>
         <p class="meta">Period: ${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)} | Kost: normal | Träning: gym + hemma</p>
         ${rows.join("")}
       </body>
