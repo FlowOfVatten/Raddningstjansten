@@ -499,17 +499,22 @@ function getDailyPlan(dayIndex, date) {
   const dayInWeek = dayIndex % 7;
   const phase = getPhase(week);
 
-  const programByDay = [
-    "styrka-a",
-    "intervaller",
-    "styrka-b",
-    "lång-promenad",
-    "styrka-c",
-    "kondition",
-    "återhämtning",
-  ];
+  // 5 gympass varje vecka + extra gympass vecka 4/8/12/16 = 84 gympass totalt.
+  let workoutType = "återhämtning";
+  if (dayInWeek === 0) {
+    workoutType = "rygg-vader";
+  } else if (dayInWeek === 1) {
+    workoutType = "bröst-biceps";
+  } else if (dayInWeek === 2) {
+    workoutType = "quads";
+  } else if (dayInWeek === 3) {
+    workoutType = "axlar-core";
+  } else if (dayInWeek === 4) {
+    workoutType = "hamstrings-armar";
+  } else if (dayInWeek === 5) {
+    workoutType = week % 4 === 0 ? "extra-gympass" : "aktiv-recovery";
+  }
 
-  const workoutType = programByDay[dayInWeek];
   const training = buildTraining(workoutType, phase, week);
   const foodPlan = buildFood(dayIndex, workoutType, phase);
 
@@ -542,62 +547,71 @@ function buildTraining(type, phase, week) {
     final: "75 min power walk",
   };
 
-  if (type === "styrka-a") {
+  if (type === "rygg-vader") {
     return [
       `${walkByPhase[phase]} direkt på morgonen, gärna fastande`,
-      "Styrka A (gym): benpress, utfall, bröstpress, rodd, plankor (45-55 min)",
-      "Styrka A (hemma): goblet squats, utfall, armhävningar, gummibandsrodd, plankor (45-55 min)",
-      "Avsluta med 10 min rörlighet för höft och bröstrygg",
+      "Gympass 1 - Rygg och vader: pulldown/rodd, rack pull eller marklyftvariant, avsluta med vadpress (60-75 min)",
+      "Jobba i 6-12 reps på baslyft och 10-15 reps på isolationsövningar",
+      "Fokus: strikt teknik och tydlig kontraktion i ryggmomenten",
     ];
   }
 
-  if (type === "styrka-b") {
+  if (type === "bröst-biceps") {
     return [
       `${walkByPhase[phase]} direkt på morgonen, gärna fastande`,
-      "Styrka B (gym): marklyftvariant, axelpress, latsdrag, split squats, core (45-55 min)",
-      "Styrka B (hemma): rumänska marklyft med hantlar, axelpress, gummibandsdrag, split squats, core (45-55 min)",
+      "Gympass 2 - Bröst och biceps: lutande press, flat press/maskinpress, flyes och bicepscurl-varianter (60-75 min)",
       phase === "press" || phase === "final"
-        ? "Lägg till 10 min intervallcykel (gym) eller intervallhopp/step-ups (hemma)"
-        : "Lugn nedvarvning 8-10 min",
+        ? "Lägg till 1 extra dropset på sista bröst- och bicepsövningen"
+        : "Avsluta med 8-10 min lugn nedvarvning",
+      "Vila 60-120 sek mellan set beroende på övningstyp",
     ];
   }
 
-  if (type === "styrka-c") {
+  if (type === "quads") {
     return [
       `${walkByPhase[phase]} direkt på morgonen, gärna fastande`,
-      "Styrka C (gym/hemma): helkroppscirkel 5 varv, 8-12 reps per övning",
-      week % 2 === 0
-        ? "Avsluta med farmers walk 6 x 40 meter (gym) eller tung bärning med hantlar/ryggsäck (hemma)"
-        : "Avsluta med sled push/trappmaskin (gym) eller trappintervaller (hemma) 12 min",
+      "Gympass 3 - Framsida lår: benpress, knäböjsvariant, utfall/gångutfall, benspark (60-75 min)",
+      "Tungt huvudlyft tidigt i passet, följt av kontrollerad volym",
+      "Prioritera rörelseomfång och knäkontroll i varje repetition",
     ];
   }
 
-  if (type === "intervaller") {
+  if (type === "axlar-core") {
     return [
       `${walkByPhase[phase]} direkt på morgonen, gärna fastande`,
-      phase === "grund"
-        ? "Intervaller (gym/ute/hemma): 8 x 30 sek snabbt / 90 sek lugnt"
-        : "Intervaller (gym/ute/hemma): 10-12 x 40 sek snabbt / 80 sek lugnt",
-      "10 min rörlighet och andningsfokus",
+      "Gympass 4 - Axlar och core: axelpress, lateral/rear delt-varianter, antirotation och planka (55-70 min)",
+      phase === "final"
+        ? "Lägg in ett extra set på sidolyft och rear delt för högre volym"
+        : "Avsluta med 10 min rörlighet för axel och bröstrygg",
+      "Håll teknik före vikt i alla axelmoment",
     ];
   }
 
-  if (type === "lång-promenad") {
-    return [
-      "Långpromenad direkt på morgonen, gärna fastande",
-      phase === "grund" ? "75 min rask promenad" : "90 min rask promenad",
-      "Lätt cirkulation: 15 min stretch + minibandsövningar",
-      "Stegmålsfokus: minst 12 000 steg",
-    ];
-  }
-
-  if (type === "kondition") {
+  if (type === "hamstrings-armar") {
     return [
       `${walkByPhase[phase]} direkt på morgonen, gärna fastande`,
-      phase === "grund"
-        ? "Konditionsblock 30 min i prattempo (rodd/cykel/löpning eller hemmacykel)"
-        : "Konditionsblock 35-45 min i varierat tempo (gymmaskin eller utepass)",
-      "Core: dead bug, sidoplanka, hollow hold (3 varv)",
+      "Gympass 5 - Baksida lår, säte och armar: RDL/hip hinge, leg curl, glutefokus samt biceps/triceps (60-75 min)",
+      "Håll 8-12 reps i huvudblock, 12-15 reps i isolationsövningar",
+      "Avsluta med 10 min lätt cykel eller rodd för cirkulation",
+    ];
+  }
+
+  if (type === "extra-gympass") {
+    return [
+      `${walkByPhase[phase]} direkt på morgonen, gärna fastande`,
+      "Extra gympass (vecka 4/8/12/16): pump- och teknikpass för helkropp, 45-60 min",
+      phase === "grund" || phase === "bygg"
+        ? "Kör 2-3 set per övning, 10-15 reps, låg till medel belastning"
+        : "Kör 3 set per övning, 8-12 reps, med hög kvalitetsfokus och kontrollerad vila",
+      "Avsluta med 12-15 min lågintensiv cykel/rodd",
+    ];
+  }
+
+  if (type === "aktiv-recovery") {
+    return [
+      `${walkByPhase[phase]} direkt på morgonen, gärna fastande`,
+      "Aktiv recovery: 25-35 min lugn cykel eller crosstrainer i gymmet",
+      "Rörlighet 20 min + lätt bålstabilitet",
     ];
   }
 
@@ -628,7 +642,7 @@ function getDailyMeals(dayIndex) {
 
 function buildFood(dayIndex, workoutType, phase) {
   const meals = getDailyMeals(dayIndex);
-  const trainingDay = workoutType !== "återhämtning";
+  const trainingDay = workoutType !== "återhämtning" && workoutType !== "aktiv-recovery";
 
   const carbRule = trainingDay
     ? "Kolhydrater: 1-2 kupade händer till lunch och middag"
@@ -1175,7 +1189,7 @@ function exportWeekToPdf() {
       </head>
       <body>
         <h1>112 Dagar i beredskap</h1>
-        <p class="meta">Period: ${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)} | Kost: normal | Träning: gym + hemma</p>
+        <p class="meta">Period: ${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)} | Kost: normal | Träning: gym</p>
         ${rows.join("")}
       </body>
     </html>
