@@ -531,7 +531,8 @@ function renderDetails() {
   }
 
   const plan = getDailyPlan(dayIndex, state.selectedDate);
-  dom.detailsSubtitle.textContent = `Vecka ${plan.week} av 16 · Dag ${dayIndex + 1}`;
+  const kostInfo = getKostBlock(plan.week);
+  dom.detailsSubtitle.textContent = `Vecka ${plan.week} av 16 · Dag ${dayIndex + 1} · ${kostInfo.blockType} (Block ${kostInfo.block})`;
   renderTrainingList(plan.training);
   plan.food.forEach((entry) => {
     if (entry === "__SEP__") {
@@ -652,6 +653,13 @@ function getPhase(week) {
     return "press";
   }
   return "final";
+}
+
+function getKostBlock(week) {
+  // Vecka 1-4: Block 1 (proteinfaste), 5-8: Block 2 (deff), 9-12: Block 3 (proteinfaste), 13-16: Block 4 (deff)
+  const block = Math.floor((week - 1) / 4) + 1;
+  const blockType = block % 2 === 1 ? "Proteinfaste" : "Deficitperiod";
+  return { block, blockType };
 }
 
 function buildTraining(type, phase, week) {
