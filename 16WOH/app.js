@@ -719,12 +719,18 @@ async function openExerciseDetail(svName, exerciseSlug) {
       return;
     }
 
-    // GIF från ExerciseDB
-    const gifUrl = typeof data.gifUrl === "string" ? data.gifUrl : "";
-    if (gifUrl) {
-      dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(gifUrl)}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
-    } else {
-      dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga i ExerciseDB för denna övning.</p>';
+    // Bildstrategi: försök wger först, annars ExerciseDB-gif.
+    const usedWgerImages = await renderWgerImagesOnly(svName);
+    if (!usedWgerImages) {
+      const gifUrl = typeof data.gifUrl === "string" ? data.gifUrl : "";
+      if (gifUrl) {
+        dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(gifUrl)}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
+        if (dom.exerciseModalSource) {
+          dom.exerciseModalSource.textContent = "Källa: ExerciseDB via server-proxy";
+        }
+      } else {
+        dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga i ExerciseDB för denna övning.</p>';
+      }
     }
 
     // Instruktioner som numrerad lista
@@ -752,6 +758,38 @@ async function openExerciseDetail(svName, exerciseSlug) {
   }
 }
 
+async function renderWgerImagesOnly(svName) {
+  const fallbackId = WGER_FALLBACK_IDS[svName.toLowerCase()];
+  if (!fallbackId) {
+    return false;
+  }
+
+  try {
+    const infoResp = await fetch(`${WGER_BASE}/api/v2/exerciseinfo/${fallbackId}/?format=json`);
+    if (!infoResp.ok) {
+      return false;
+    }
+
+    const info = await infoResp.json();
+    const images = (info.images || []).slice(0, 4);
+    if (!images.length) {
+      return false;
+    }
+
+    dom.exerciseModalImages.innerHTML = images
+      .map((img) => `<img src="${WGER_BASE}${img.image}" alt="${escapeHtml(svName)}" loading="lazy">`)
+      .join("");
+
+    if (dom.exerciseModalSource) {
+      dom.exerciseModalSource.textContent = "Källa: wger.de (bild) + ExerciseDB (text)";
+    }
+
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
 async function renderWgerFallback(svName) {
   const fallbackId = WGER_FALLBACK_IDS[svName.toLowerCase()];
   if (!fallbackId) {
@@ -771,7 +809,7 @@ async function renderWgerFallback(svName) {
         .map((img) => `<img src="${WGER_BASE}${img.image}" alt="${escapeHtml(svName)}" loading="lazy">`)
         .join("");
     } else {
-      dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga.</p>';
+      dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga i ExerciseDB för denna övning.</p>';
     }
 
     const enTranslation = (info.translations || []).find((t) => t.language === 2);
