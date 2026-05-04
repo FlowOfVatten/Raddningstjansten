@@ -248,6 +248,7 @@ const state = {
   authMode: "chooser",
   showRecovery: false,
   showProfile: false,
+  loginInProgress: false,
   auth: {
     username: "",
     token: "",
@@ -399,6 +400,14 @@ function bindEvents() {
   });
   dom.registerBtn.addEventListener("click", registerAccount);
   dom.loginBtn.addEventListener("click", loginAccount);
+  const submitLoginOnEnter = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      loginAccount();
+    }
+  };
+  dom.loginUsername.addEventListener("keydown", submitLoginOnEnter);
+  dom.loginPassword.addEventListener("keydown", submitLoginOnEnter);
   dom.forgotBtn.addEventListener("click", requestForgotQuestion);
   dom.logoutBtn.addEventListener("click", logoutAccount);
   dom.recoverPasswordBtn.addEventListener("click", recoverPasswordFlow);
@@ -643,7 +652,18 @@ async function openExerciseDetail(svName, exerciseSlug) {
 
   try {
     const resp = await fetch(`/api/exercise-proxy?name=${encodeURIComponent(exerciseSlug)}`);
-    if (!resp.ok) throw new Error("Proxyförfrågan misslyckades.");
+    if (!resp.ok) {
+      let reason = `HTTP ${resp.status}`;
+      try {
+        const payload = await resp.json();
+        if (payload?.error) {
+          reason = `${reason}: ${payload.error}`;
+        }
+      } catch (_err) {
+        // Ignore JSON parse errors and keep HTTP status reason.
+      }
+      throw new Error(`Proxyförfrågan misslyckades (${reason}).`);
+    }
     const data = await resp.json();
 
     if (!data.found) {
@@ -1195,6 +1215,16 @@ async function recoverPasswordFlow() {
 }
 
 async function loginAccount() {
+  if (state.loginInProgress) {
+    return;
+  }
+
+  state.loginInProgress = true;
+  const oldLoginButtonText = dom.loginBtn.textContent;
+  dom.loginBtn.disabled = true;
+  dom.loginBtn.textContent = "Loggar in...";
+  dom.authStatus.textContent = "Loggar in... väntar på svar från databasen.";
+
   try {
     const username = String(dom.loginUsername.value || "").trim().toLowerCase();
     const password = String(dom.loginPassword.value || "");
@@ -1209,6 +1239,10 @@ async function loginAccount() {
     dom.authStatus.textContent = "Inloggning lyckades.";
   } catch (err) {
     dom.authStatus.textContent = err.message;
+  } finally {
+    state.loginInProgress = false;
+    dom.loginBtn.disabled = false;
+    dom.loginBtn.textContent = oldLoginButtonText;
   }
 
   renderAll();
