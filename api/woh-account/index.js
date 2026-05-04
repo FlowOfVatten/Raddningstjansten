@@ -207,7 +207,9 @@ module.exports = async function (context, req) {
       const startDate = asDateISO(data.startDate, "Startdatum");
       const breakfastKey = assertBreakfastKey(data.breakfastKey);
 
-      const existing = await loadUser(pool, username);
+  const trainingMode = data.trainingMode === "hemma" ? "hemma" : "gym";
+
+  const existing = await loadUser(pool, username);
       if (existing) {
         return json(409, { error: "Användarnamn finns redan." });
       }
@@ -215,7 +217,7 @@ module.exports = async function (context, req) {
       const salt = crypto.randomBytes(16).toString("hex");
       const token = newToken();
       const now = new Date().toISOString();
-      const profile = { heightCm, startWeightKg, startWaistCm, startDate, breakfastKey };
+      const profile = { heightCm, startWeightKg, startWaistCm, startDate, breakfastKey, trainingMode };
       const initialCheckin = {
         weekIndex: 0,
         date: startDate,
@@ -339,6 +341,7 @@ module.exports = async function (context, req) {
         startWaistCm: asNumber(data.startWaistCm, "Midjemått"),
         startDate: asDateISO(data.startDate, "Startdatum"),
         breakfastKey: assertBreakfastKey(data.breakfastKey),
+        trainingMode: data.trainingMode === "hemma" ? "hemma" : "gym",
       };
       user.updatedAt = new Date().toISOString();
 

@@ -3,6 +3,42 @@ const AUTH_STORAGE_KEY = "wohAuth";
 const ACCOUNT_API = "/api/woh-account";
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+// Hemma-äkvilaenter för varje gymövning (lowercase) → ExerciseDB-slug
+const EXERCISE_NAMES_HOME = {
+  "kroppsviktssquats": "squat",
+  "bulgariansk utfall": "bulgarian split squat",
+  "gångutfall hantlar": "walking lunge",
+  "hantelknäböj goblet squat": "dumbbell goblet squat",
+  "benspark bodyweight": "squat",
+  "nordic curl eller hälbänd": "nordic hamstring curl",
+  "hip thrust med hantel eller kroppsvikt": "glute bridge",
+  "rumänskt marklyft hantlar rdl": "dumbbell romanian deadlift",
+  "liggande bencurl med hälbänd": "nordic hamstring curl",
+  "armåtning hantel": "dumbbell one arm row",
+  "liggande rodd under bord": "dumbbell one arm row",
+  "band rodd": "resistance band pull apart",
+  "pull-ups eller negativa chin-ups": "pull up",
+  "marklyft hantlar": "dumbbell deadlift",
+  "armhävningar brett grepp": "push up",
+  "armhävningar lutande bänk": "incline push up",
+  "hantelfly liggande": "dumbbell fly",
+  "hammarcurl": "hammer curl",
+  "hantelcurl": "dumbbell bicep curl",
+  "koncentrationscurl": "concentration curl",
+  "axelpress hantlar sittande": "dumbbell shoulder press",
+  "sidolyft hantlar": "dumbbell lateral raise",
+  "böjd flyover hantlar": "reverse fly",
+  "upright row hantlar": "dumbbell upright row",
+  "plankan": "plank",
+  "benlyft liggande": "leg raise",
+  "sidoplanka": "side plank",
+  "tricepsdipar på stol": "triceps dip",
+  "skull crusher hantlar": "dumbbell skull crusher",
+  "hantelcurl växelvis": "dumbbell bicep curl",
+  "tåhävningar kroppsvikt": "standing calf raise",
+  "fst-stil sidolyft": "dumbbell lateral raise",
+};
+
 // Svenska övningsnamn (lowercase) → ExerciseDB nämnslugg (proxyas via /api/exercise-proxy)
 const EXERCISE_NAMES = {
   "latsdrag brett grepp": "lat pulldown",
@@ -255,6 +291,7 @@ const dom = {
   registerPassword: document.getElementById("registerPassword"),
   registerStartDate: document.getElementById("registerStartDate"),
   registerBreakfast: document.getElementById("registerBreakfast"),
+  registerTrainingMode: document.getElementById("registerTrainingMode"),
   securityQuestion: document.getElementById("securityQuestion"),
   securityAnswer: document.getElementById("securityAnswer"),
   registerBtn: document.getElementById("registerBtn"),
@@ -273,6 +310,7 @@ const dom = {
   profileWeight: document.getElementById("profileWeight"),
   profileWaist: document.getElementById("profileWaist"),
   memberBreakfast: document.getElementById("memberBreakfast"),
+  memberTrainingMode: document.getElementById("memberTrainingMode"),
   memberHeight: document.getElementById("memberHeight"),
   memberWeight: document.getElementById("memberWeight"),
   memberWaist: document.getElementById("memberWaist"),
@@ -571,7 +609,9 @@ function renderTrainingList(entries) {
       if (colonIdx > 0) {
         const namePart = entry.slice(0, colonIdx).trim();
         const restPart = entry.slice(colonIdx);
-        const exerciseSlug = EXERCISE_NAMES[namePart.toLowerCase()];
+        const isHome = state.auth.profile?.trainingMode === "hemma";
+        const nameMap = isHome ? EXERCISE_NAMES_HOME : EXERCISE_NAMES;
+        const exerciseSlug = nameMap[namePart.toLowerCase()];
 
         if (exerciseSlug) {
           const btn = document.createElement("button");
@@ -650,7 +690,10 @@ function getDailyPlan(dayIndex, date) {
     workoutType = week % 4 === 0 ? "extra-gympass" : "aktiv-recovery";
   }
 
-  const training = buildTraining(workoutType, phase, week);
+  const isHome = state.auth.profile?.trainingMode === "hemma";
+  const training = isHome
+    ? buildTrainingHome(workoutType, phase, week)
+    : buildTraining(workoutType, phase, week);
   const foodPlan = buildFood(dayIndex, workoutType, phase);
 
   return {
@@ -830,6 +873,120 @@ function getDailyMeals(dayIndex) {
   };
 }
 
+function buildTrainingHome(type, phase, week) {
+  const walkByPhase = {
+    grund: "Power walk 45-60 min direkt på morgonen, gärna fastande",
+    bygg: "Power walk 60 min direkt på morgonen, gärna fastande",
+    press: "Power walk 60-75 min tidigt – högt tempo, minimal paus",
+    final: "Power walk 75 min tidigt – maximal fettförbränning",
+  };
+  const pw = walkByPhase[phase];
+  const S = { grund: "3", bygg: "4", press: "4-5", final: "5" }[phase];
+
+  if (type === "rygg-vader") {
+    return [
+      pw,
+      `— HEMMAPASS 1: Rygg & vader (50-65 min) —`,
+      `Pull-ups eller negativa chin-ups: ${S} set × max reps | 90 sek vila`,
+      `Arm åtning hantel: ${S} set × 12-15 reps per arm | 60 sek vila`,
+      `Liggande rodd under bord: 3 set × 15 reps | 60 sek – slow eccentric`,
+      `Marklyft hantlar: 3 set × 10-12 reps | 90 sek vila`,
+      `Tåhävningar kroppsvikt: 4 set × 20-25 reps | 60 sek – pausa i topp`,
+    ];
+  }
+
+  if (type === "bröst-biceps") {
+    return [
+      pw,
+      `— HEMMAPASS 2: Bröst & biceps (50-65 min) —`,
+      `Armhävningar lutande bänk: ${S} set × 10-15 reps | 90 sek vila`,
+      `Armhävningar brett grepp: ${S} set × max reps | 90 sek vila`,
+      `Hantelfly liggande: 3 set × 12-15 reps | 60 sek – full stretch i botten`,
+      `Hammarcurl: 3 set × 12 reps per arm | 60 sek vila`,
+      `Hantelcurl: 3 set × 10-12 reps | 60 sek vila`,
+      `Koncentrationscurl: 2 set × 15 reps per arm | 45 sek vila`,
+    ];
+  }
+
+  if (type === "quads") {
+    const sqReps = { grund: "12-15", bygg: "10-12", press: "10-12", final: "8-10" }[phase];
+    return [
+      pw,
+      `— HEMMAPASS 3: Framsida lår (50-65 min) —`,
+      `Hantelknäböj goblet squat: ${S} set × ${sqReps} reps | 90 sek vila`,
+      `Bulgariansk utfall: ${S} set × 10-12 reps per ben | 90 sek vila`,
+      `Gångutfall hantlar: 3 set × 12 steg per ben | 90 sek vila`,
+      `Benspark bodyweight: 3 set × 20 reps | 45 sek – håll 1 sek i topp`,
+      `Nordic curl eller hälband: 3 set × 8-12 reps | 60 sek vila`,
+    ];
+  }
+
+  if (type === "axlar-core") {
+    const plankSec = { grund: "45", bygg: "50", press: "55", final: "60" }[phase];
+    return [
+      pw,
+      `— HEMMAPASS 4: Axlar & core (50-65 min) —`,
+      `Axelpress hantlar sittande: ${S} set × 10-12 reps | 90 sek vila`,
+      `Sidolyft hantlar: ${S} set × 15 reps | 60 sek – kontrollerad sänkning`,
+      ...(phase === "final"
+        ? ["FST-stil sidolyft: 5 set × 15 reps, 30 sek flex och stretch mellan varje set"]
+        : []),
+      `Böjd flyover hantlar: ${S} set × 15 reps | 60 sek vila`,
+      `Upright row hantlar: 3 set × 12 reps | 60 sek vila`,
+      `Plankan: 3 × ${plankSec} sek | 45 sek vila`,
+      `Benlyft liggande: 3 set × 15 reps | 45 sek vila`,
+      `Sidoplanka: 2 × 30 sek per sida`,
+    ];
+  }
+
+  if (type === "hamstrings-armar") {
+    const rdlReps = { grund: "10-12", bygg: "10-12", press: "8-10", final: "8-10" }[phase];
+    return [
+      pw,
+      `— HEMMAPASS 5: Baksida lår, säte & armar (50-65 min) —`,
+      `Rumänskt marklyft hantlar RDL: ${S} set × ${rdlReps} reps | 90 sek vila`,
+      `Liggande bencurl med hälband: ${S} set × 12-15 reps | 60 sek vila`,
+      `Hip thrust med hantel eller kroppsvikt: ${S} set × 15 reps | 60 sek – blås ut i topp`,
+      ...(phase === "press" || phase === "final"
+        ? ["SUPERSET: tricepsdipar + hantelcurl – 3 rundor × 12 reps vardera utan vila emellan"]
+        : [
+            `Tricepsdipar på stol: 3 set × 12-15 reps | 60 sek vila`,
+            `Hantelcurl växelvis: 3 set × 12 reps | 60 sek vila`,
+          ]),
+      `Skull crusher hantlar: 3 set × 10-12 reps | 60 sek vila`,
+      `Avsluta: 10 min lätt jogg på stället eller hopprep`,
+    ];
+  }
+
+  if (type === "extra-gympass") {
+    return [
+      pw,
+      `— EXTRA HEMMAPASS vecka ${week}: Deload & rörlighet (40-50 min) —`,
+      `Välj 1 övning per muskelgrupp: 2-3 set × 15 reps, lätt motstånd`,
+      "Fokus på teknik och full rörelseomfång – inte tyngd",
+      "Avsluta: 12-15 min jogg på stället eller en rask promenad",
+    ];
+  }
+
+  if (type === "aktiv-recovery") {
+    return [
+      pw,
+      "— AKTIV RECOVERY —",
+      "Lugn promenad eller lätt jogg: 25-35 min vid låg ansträngning",
+      "Rörlighet 20 min: höft, axlar, bröstrygg och vader",
+      "Bålstabilitet: dead bug 3 × 10, glute bridge 3 × 15, sidoplanka 2 × 20 sek",
+    ];
+  }
+
+  return [
+    "— VILDAG —",
+    "Aktiv återhämtning: 30-40 min lugn promenad utomhus",
+    "Rörlighet eller yoga 20 min – fokus på senaste dagarnas muskelgrupper",
+    "Foam rolling 10 min valfritt",
+    "Prioritera sömn 7-9 timmar",
+  ];
+}
+
 function buildFood(dayIndex, workoutType, phase) {
   const meals = getDailyMeals(dayIndex);
   const trainingDay = workoutType !== "återhämtning" && workoutType !== "aktiv-recovery";
@@ -888,6 +1045,7 @@ function applyUserData(user) {
   if (state.auth.profile) {
     const p = state.auth.profile;
     dom.memberBreakfast.value = p.breakfastKey || breakfasts[0].key;
+    dom.memberTrainingMode.value = p.trainingMode || "gym";
     dom.memberHeight.value = p.heightCm ?? "";
     dom.memberWeight.value = p.startWeightKg ?? "";
     dom.memberWaist.value = p.startWaistCm ?? "";
@@ -975,6 +1133,7 @@ async function registerAccount() {
       securityQuestion,
       securityAnswer,
       breakfastKey: dom.registerBreakfast.value,
+      trainingMode: dom.registerTrainingMode.value,
       heightCm: dom.profileHeight.value,
       startWeightKg: dom.profileWeight.value,
       startWaistCm: dom.profileWaist.value,
@@ -1086,6 +1245,7 @@ async function saveProfile() {
       username: state.auth.username,
       token: state.auth.token,
       breakfastKey: dom.memberBreakfast.value,
+      trainingMode: dom.memberTrainingMode.value,
       heightCm: dom.memberHeight.value,
       startWeightKg: dom.memberWeight.value,
       startWaistCm: dom.memberWaist.value,
