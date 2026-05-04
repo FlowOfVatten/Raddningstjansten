@@ -68,6 +68,22 @@ const DESTINATIONS = [
     lon: 17.9845,
     image: `vendor/images/lydinge.jpg?v=${IMAGE_VERSION}`,
   },
+  {
+    id: "golvagen",
+    name: "Gölvägen vattenpunkt",
+    description: "Brandvattenpunkt vid Gölvägen.",
+    lat: 60.0894,
+    lon: 17.9976,
+    image: `vendor/images/golvagen.jpg?v=${IMAGE_VERSION}`,
+  },
+  {
+    id: "rastsjon",
+    name: "Rastsjön vattenpunkt",
+    description: "Brandvattenpunkt vid Rastsjön.",
+    lat: 60.1077,
+    lon: 17.8996,
+    image: `vendor/images/rastsjon.jpg?v=${IMAGE_VERSION}`,
+  },
 ];
 
 const mapViewEl = document.getElementById("map-view");
