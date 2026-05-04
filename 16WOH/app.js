@@ -746,27 +746,38 @@ function extractExerciseInstructions(data) {
 
 function translateExerciseTerm(text) {
   const map = {
-    "upper legs": "övre ben",
-    "lower legs": "underben",
+    "upper legs": "övre benmuskulatur",
+    "lower legs": "underben/vader",
     shoulders: "axlar",
+    shoulder: "axel",
     chest: "bröst",
     back: "rygg",
     waist: "bål",
-    glutes: "säte",
+    glutes: "sätesmuskler",
     biceps: "biceps",
     triceps: "triceps",
-    delts: "deltoider",
+    delts: "deltoider/axlar",
+    deltoids: "deltoider/axlar",
     calves: "vader",
     pectorals: "bröstmuskler",
-    lats: "lats",
-    quadriceps: "quadriceps",
-    hamstrings: "hamstrings",
+    lats: "lats/breda ryggmuskeln",
+    quadriceps: "framsida lår (quadriceps)",
+    hamstrings: "baksida lår (hamstrings)",
     abs: "magrutor",
+    abdominals: "magrutor",
     adductors: "adduktorer",
     "upper back": "övre rygg",
+    "lower back": "nedre rygg",
+    traps: "trapezius",
+    forearms: "underarmar",
   };
   const key = String(text || "").trim().toLowerCase();
   return map[key] || text;
+}
+
+function replaceAllCaseInsensitive(input, search, replacement) {
+  const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return input.replace(new RegExp(escaped, "gi"), replacement);
 }
 
 function translateInstructionToSwedish(line) {
@@ -775,52 +786,89 @@ function translateInstructionToSwedish(line) {
 
   const phraseReplacements = [
     ["Stand with your feet shoulder-width apart", "Stå med fötterna axelbrett isär"],
+    ["Stand upright", "Stå upprätt"],
     ["Sit on", "Sitt på"],
+    ["Sit upright", "Sitt upprätt"],
     ["Lie flat on a bench", "Lägg dig plant på en bänk"],
     ["Lie down on", "Lägg dig ner på"],
     ["Adjust the seat height", "Justera sitthöjden"],
+    ["Position yourself", "Placera dig"],
     ["Grasp the handles", "Greppa handtagen"],
+    ["Grasp the handle", "Greppa handtaget"],
     ["Grasp the barbell", "Greppa skivstången"],
+    ["Grasp the dumbbell", "Greppa hanteln"],
     ["Keep your back straight", "Håll ryggen rak"],
+    ["Keep your chest up", "Håll bröstet upp"],
     ["Keep your elbows close to your torso", "Håll armbågarna nära överkroppen"],
     ["Keeping your upper arms stationary", "Håll överarmarna stilla"],
+    ["Keeping your core engaged", "Håll bålen spänd"],
+    ["engage your core", "spänn bålen"],
     ["Pull the", "Dra"],
     ["Push the", "Pressa"],
+    ["raise", "lyft"],
+    ["lower", "sänk"],
     ["Pause for a moment", "Pausa en kort stund"],
+    ["Pause briefly", "Pausa kort"],
     ["Slowly lower", "Sänk långsamt"],
     ["slowly release", "släpp långsamt"],
+    ["slowly return", "återgå långsamt"],
     ["Repeat for the desired number of repetitions", "Upprepa för önskat antal repetitioner"],
+    ["Repeat for the desired number of reps", "Upprepa för önskat antal repetitioner"],
     ["starting position", "startposition"],
     ["shoulder-width apart", "axelbrett isär"],
     ["overhand grip", "överhandsgrepp"],
     ["underhand grip", "underhandsgrepp"],
-    ["core engaged", "spänn bålen"],
+    ["neutral grip", "neutralt grepp"],
     ["squeeze your shoulder blades together", "pressa ihop skulderbladen"],
+    ["squeeze", "spänn"],
     ["contracting your biceps", "spänn biceps"],
     ["exhale", "andas ut"],
     ["inhale", "andas in"],
   ];
 
   for (const [en, sv] of phraseReplacements) {
-    s = s.replace(new RegExp(en, "gi"), sv);
+    s = replaceAllCaseInsensitive(s, en, sv);
   }
 
   const wordReplacements = [
     ["barbell", "skivstång"],
     ["dumbbell", "hantel"],
+    ["cable", "kabel"],
+    ["machine", "maskin"],
     ["bench", "bänk"],
+    ["rack", "ställning"],
     ["knees", "knän"],
+    ["knee", "knä"],
     ["elbows", "armbågar"],
+    ["elbow", "armbåge"],
     ["feet", "fötter"],
+    ["foot", "fot"],
     ["hands", "händer"],
+    ["hand", "hand"],
     ["handles", "handtag"],
+    ["handle", "handtag"],
+    ["hip", "höft"],
+    ["hips", "höfter"],
+    ["shoulders", "axlar"],
+    ["shoulder", "axel"],
+    ["glutes", "sätesmuskler"],
+    ["lats", "lats"],
+    ["core", "bål"],
     ["repetitions", "repetitioner"],
     ["repetition", "repetition"],
-    ["movement", "rörelsen"],
+    ["rep", "rep"],
+    ["movement", "rörelse"],
+    ["position", "position"],
   ];
 
   for (const [en, sv] of wordReplacements) {
     s = s.replace(new RegExp(`\\b${en}\\b`, "gi"), sv);
+  }
+
+  // Enkel städning av spacing och versal i början.
+  s = s.replace(/\s{2,}/g, " ").trim();
+  if (s.length > 0) {
+    s = s.charAt(0).toUpperCase() + s.slice(1);
   }
 
   return s;
