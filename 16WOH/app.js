@@ -669,21 +669,11 @@ function renderTrainingList(entries) {
       if (colonIdx > 0) {
         const namePart = entry.slice(0, colonIdx).trim();
         const restPart = entry.slice(colonIdx);
-        const isHome = state.auth.profile?.trainingMode === "hemma";
-        const nameMap = isHome ? EXERCISE_NAMES_HOME : EXERCISE_NAMES;
-        const exerciseSlug = nameMap[namePart.toLowerCase()];
-
-        if (exerciseSlug) {
-          const btn = document.createElement("button");
-          btn.className = "exercise-link";
-          btn.textContent = namePart;
-          btn.setAttribute("title", "Klicka för instruktioner och bild");
-          btn.addEventListener("click", () => openExerciseDetail(namePart, exerciseSlug));
-          li.appendChild(btn);
-          li.appendChild(document.createTextNode(restPart));
-        } else {
-          li.textContent = entry;
-        }
+        const span = document.createElement("span");
+        span.className = "exercise-name";
+        span.textContent = namePart;
+        li.appendChild(span);
+        li.appendChild(document.createTextNode(restPart));
       } else {
         li.textContent = entry;
       }
