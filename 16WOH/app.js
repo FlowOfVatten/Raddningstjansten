@@ -6,6 +6,7 @@ const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 const WGER_BASE = "https://wger.de";
 const EXERCISE_STATIC_URL = "exercise-static.json";
 const EXERCISE_IMAGE_OVERRIDES_URL = "exercise-image-overrides.json";
+const LOCALIZE_EXERCISE_TEXT_TO_SWEDISH = true;
 
 let exerciseStaticCache = null;
 let exerciseImageOverrides = null;
@@ -743,6 +744,103 @@ function extractExerciseInstructions(data) {
   return { instructions, target, bodyPart };
 }
 
+function translateExerciseTerm(text) {
+  const map = {
+    "upper legs": "övre ben",
+    "lower legs": "underben",
+    shoulders: "axlar",
+    chest: "bröst",
+    back: "rygg",
+    waist: "bål",
+    glutes: "säte",
+    biceps: "biceps",
+    triceps: "triceps",
+    delts: "deltoider",
+    calves: "vader",
+    pectorals: "bröstmuskler",
+    lats: "lats",
+    quadriceps: "quadriceps",
+    hamstrings: "hamstrings",
+    abs: "magrutor",
+    adductors: "adduktorer",
+    "upper back": "övre rygg",
+  };
+  const key = String(text || "").trim().toLowerCase();
+  return map[key] || text;
+}
+
+function translateInstructionToSwedish(line) {
+  let s = String(line || "");
+  if (!s) return s;
+
+  const phraseReplacements = [
+    ["Stand with your feet shoulder-width apart", "Stå med fötterna axelbrett isär"],
+    ["Sit on", "Sitt på"],
+    ["Lie flat on a bench", "Lägg dig plant på en bänk"],
+    ["Lie down on", "Lägg dig ner på"],
+    ["Adjust the seat height", "Justera sitthöjden"],
+    ["Grasp the handles", "Greppa handtagen"],
+    ["Grasp the barbell", "Greppa skivstången"],
+    ["Keep your back straight", "Håll ryggen rak"],
+    ["Keep your elbows close to your torso", "Håll armbågarna nära överkroppen"],
+    ["Keeping your upper arms stationary", "Håll överarmarna stilla"],
+    ["Pull the", "Dra"],
+    ["Push the", "Pressa"],
+    ["Pause for a moment", "Pausa en kort stund"],
+    ["Slowly lower", "Sänk långsamt"],
+    ["slowly release", "släpp långsamt"],
+    ["Repeat for the desired number of repetitions", "Upprepa för önskat antal repetitioner"],
+    ["starting position", "startposition"],
+    ["shoulder-width apart", "axelbrett isär"],
+    ["overhand grip", "överhandsgrepp"],
+    ["underhand grip", "underhandsgrepp"],
+    ["core engaged", "spänn bålen"],
+    ["squeeze your shoulder blades together", "pressa ihop skulderbladen"],
+    ["contracting your biceps", "spänn biceps"],
+    ["exhale", "andas ut"],
+    ["inhale", "andas in"],
+  ];
+
+  for (const [en, sv] of phraseReplacements) {
+    s = s.replace(new RegExp(en, "gi"), sv);
+  }
+
+  const wordReplacements = [
+    ["barbell", "skivstång"],
+    ["dumbbell", "hantel"],
+    ["bench", "bänk"],
+    ["knees", "knän"],
+    ["elbows", "armbågar"],
+    ["feet", "fötter"],
+    ["hands", "händer"],
+    ["handles", "handtag"],
+    ["repetitions", "repetitioner"],
+    ["repetition", "repetition"],
+    ["movement", "rörelsen"],
+  ];
+
+  for (const [en, sv] of wordReplacements) {
+    s = s.replace(new RegExp(`\\b${en}\\b`, "gi"), sv);
+  }
+
+  return s;
+}
+
+function localizeExerciseData(data) {
+  if (!LOCALIZE_EXERCISE_TEXT_TO_SWEDISH || !data || typeof data !== "object") {
+    return data;
+  }
+
+  return {
+    ...data,
+    target: translateExerciseTerm(data.target),
+    bodyPart: translateExerciseTerm(data.bodyPart),
+    instructions: Array.isArray(data.instructions)
+      ? data.instructions.map((line) => translateInstructionToSwedish(line))
+      : data.instructions,
+  };
+}
+
 async function renderExerciseImages(svName, exerciseSlug, data, sourceText) {
   const usedWgerImages = await renderWgerImagesOnly(svName);
   if (usedWgerImages) {
@@ -813,9 +911,11 @@ async function openExerciseDetail(svName, exerciseSlug) {
       data = proxyData;
     }
 
-    await renderExerciseImages(svName, exerciseSlug, data, sourceText);
+    const localizedData = localizeExerciseData(data);
 
-    const { instructions, target, bodyPart } = extractExerciseInstructions(data);
+    await renderExerciseImages(svName, exerciseSlug, localizedData, sourceText);
+
+    const { instructions, target, bodyPart } = extractExerciseInstructions(localizedData);
 
     if (instructions.length) {
       dom.exerciseModalDesc.innerHTML =
