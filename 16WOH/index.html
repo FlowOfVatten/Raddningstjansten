@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>16WOH Planner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
+
+    <main class="app">
+      <header class="hero">
+        <p class="tag">Träning + kost, dag för dag</p>
+        <h1>16WOH Kalender</h1>
+        <p class="sub">
+          Välj ditt startdatum och få en tydlig plan för varje dag i 16 veckor.
+        </p>
+      </header>
+
+      <section class="setup card">
+        <div class="setup-main">
+          <label for="startDate">Startdatum</label>
+          <input id="startDate" type="date" />
+          <button id="saveStart" class="btn btn-primary">Starta program</button>
+          <button id="clearStart" class="btn btn-ghost" type="button">Rensa</button>
+        </div>
+        <p id="startInfo" class="muted"></p>
+        <p class="disclaimer">
+          Planen är inspirerad av offentligt kända principer (hög proteinmängd,
+          promenader, styrka, struktur). Den är inte ett officiellt schema.
+        </p>
+      </section>
+
+      <section class="layout">
+        <section class="calendar card">
+          <div class="calendar-head">
+            <button id="prevMonth" class="nav-btn" type="button" aria-label="Förra månaden">&#10094;</button>
+            <h2 id="monthLabel"></h2>
+            <button id="nextMonth" class="nav-btn" type="button" aria-label="Nästa månad">&#10095;</button>
+          </div>
+          <div class="weekday-row" id="weekdayRow"></div>
+          <div class="days-grid" id="daysGrid"></div>
+        </section>
+
+        <aside class="details card" id="detailsPanel">
+          <h3 id="detailsTitle">Välj en dag</h3>
+          <p id="detailsSubtitle" class="muted"></p>
+          <div class="details-actions">
+            <button id="exportWeekPdf" class="btn btn-primary" type="button">Exportera vecka (PDF)</button>
+          </div>
+          <div class="details-block">
+            <h4>Träningsplan</h4>
+            <ul id="trainingList"></ul>
+          </div>
+          <div class="details-block">
+            <h4>Matplan</h4>
+            <ul id="foodList"></ul>
+          </div>
+          <div class="details-block">
+            <h4>Fokus</h4>
+            <ul id="focusList"></ul>
+          </div>
+          <div class="details-block">
+            <h4>Smart inköpslista</h4>
+            <div class="shopping-tools">
+              <label for="shoppingDays">Planera</label>
+              <select id="shoppingDays">
+                <option value="3">3 dagar</option>
+                <option value="7" selected>7 dagar</option>
+                <option value="14">14 dagar</option>
+              </select>
+              <button id="generateShopping" class="btn btn-ghost" type="button">Uppdatera lista</button>
+            </div>
+            <p id="shoppingInfo" class="muted"></p>
+            <ul id="shoppingList"></ul>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
