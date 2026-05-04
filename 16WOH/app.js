@@ -1134,49 +1134,27 @@ async function openExerciseDetail(svName, exerciseSlug) {
   dom.exerciseModalTitle.textContent = svName;
   dom.exerciseModalImages.innerHTML = '<p class="muted">Laddar...</p>';
   dom.exerciseModalDesc.innerHTML = "";
-  const defaultSourceText = "Källa: ExerciseDB statisk cache";
-  if (dom.exerciseModalSource) dom.exerciseModalSource.textContent = defaultSourceText;
+  if (dom.exerciseModalSource) dom.exerciseModalSource.textContent = "Källa: lokal cache (svenska)";
   dom.exerciseModal.hidden = false;
 
   try {
-    let data = null;
-    let sourceText = defaultSourceText;
-
     const cache = await loadExerciseStaticCache();
     const cached = cache[exerciseSlug];
-    if (cached?.found) {
-      // Om cache-posten är föröversatt av generate-exercise-cache.js, hoppa över runtime-översättning
-      data = cached.translated ? { ...cached, _skipLocalize: true } : cached;
-    } else {
-      sourceText = "Källa: ExerciseDB via server-proxy";
-      const resp = await fetch(`/api/exercise-proxy?name=${encodeURIComponent(exerciseSlug)}`);
-      if (!resp.ok) {
-        let reason = `HTTP ${resp.status}`;
-        try {
-          const payload = await resp.json();
-          if (payload?.error) {
-            reason = `${reason}: ${payload.error}`;
-          }
-        } catch (_err) {
-          // Ignore JSON parse errors and keep HTTP status reason.
-        }
-        throw new Error(`Proxyförfrågan misslyckades (${reason}).`);
+    if (!cached?.found) {
+      // Övningen saknas i den statiska cachen. Visa wger-bild om möjligt.
+      const usedFallback = await renderWgerFallback(svName);
+      if (!usedFallback) {
+        dom.exerciseModalImages.innerHTML = '<p class="muted">Övningen saknas i den lokala cachen. Kör generate-exercise-cache.js för att uppdatera.</p>';
       }
-      const proxyData = await resp.json();
-      if (!proxyData.found) {
-        const usedFallback = await renderWgerFallback(svName);
-        if (usedFallback) return;
-        dom.exerciseModalImages.innerHTML = '<p class="muted">Ingen information hittades för denna övning.</p>';
-        return;
-      }
-      data = proxyData;
+      return;
     }
 
-    const localizedData = data._skipLocalize ? data : localizeExerciseData(data);
+    // cached.translated = true → text är redan på svenska, hoppa över runtime-översättning
+    const data = cached.translated ? cached : localizeExerciseData(cached);
 
-    await renderExerciseImages(svName, exerciseSlug, localizedData, sourceText);
+    await renderExerciseImages(svName, exerciseSlug, data, "Källa: lokal cache (svenska)");
 
-    const { instructions, target, bodyPart } = extractExerciseInstructions(localizedData);
+    const { instructions, target, bodyPart } = extractExerciseInstructions(data);
 
     if (instructions.length) {
       dom.exerciseModalDesc.innerHTML =
