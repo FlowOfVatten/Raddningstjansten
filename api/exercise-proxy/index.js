@@ -69,7 +69,7 @@ module.exports = async function (context, req) {
     return cors({ error: "Ange ?name=övningsnamn" }, 400);
   }
 
-  const apiKey = process.env.EXERCISEDB_API_KEY || "";
+  const apiKey = (process.env.EXERCISEDB_API_KEY || "").trim();
   if (!apiKey) {
     return cors({ error: "EXERCISEDB_API_KEY saknas i miljövariabler." }, 503);
   }
@@ -78,10 +78,15 @@ module.exports = async function (context, req) {
     const path = `/exercises/name/${encodeURIComponent(name)}?limit=3&offset=0`;
     const result = await requestJson(path, apiKey);
     if (result.statusCode < 200 || result.statusCode >= 300) {
+      const hint =
+        result.statusCode === 403
+          ? "RapidAPI nekar access. Kontrollera aktiv subscription/plan för ExerciseDB och att nyckeln tillhör samma konto."
+          : undefined;
       return cors(
         {
           error: `ExerciseDB svarade ${result.statusCode}`,
           details: typeof result.body === "object" ? result.body : result.raw,
+          hint,
         },
         502
       );

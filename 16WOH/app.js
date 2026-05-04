@@ -693,6 +693,15 @@ async function openExerciseDetail(svName, exerciseSlug) {
         if (payload?.error) {
           reason = `${reason}: ${payload.error}`;
         }
+        const details = typeof payload?.details === "string"
+          ? payload.details
+          : payload?.details?.message || payload?.details?.error || "";
+        if (details) {
+          reason = `${reason} (${details})`;
+        }
+        if (payload?.hint) {
+          reason = `${reason} ${payload.hint}`;
+        }
       } catch (_err) {
         // Ignore JSON parse errors and keep HTTP status reason.
       }
