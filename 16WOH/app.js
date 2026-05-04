@@ -1093,7 +1093,7 @@ async function refreshSession() {
       token: state.auth.token,
     });
     applyUserData(result.user || {});
-    dom.authStatus.textContent = `Inloggad som ${state.auth.username}.`;
+    dom.authStatus.textContent = "";
     state.authMode = "member";
   } catch (err) {
     state.auth = { username: "", token: "", profile: null, checkins: [] };
