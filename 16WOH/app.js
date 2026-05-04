@@ -10,6 +10,11 @@ const WGER_FALLBACK_IDS = {
   "flat maskinpress eller skivstångsbänkpress": 73,
   "armhävningar brett grepp": 73,
   "armhävningar lutande bänk": 73,
+  "pec dec eller kabelfly": 73,
+  "hammarcurl": 73,
+  "ez-stångscurl": 73,
+  "koncentrationscurl": 73,
+  "stångcurl eller maskincurl": 73,
   "hip thrust skivstång eller maskin": 294,
   "hip thrust med hantel eller kroppsvikt": 294,
   "liggande eller stående bencurl": 364,
@@ -17,6 +22,8 @@ const WGER_FALLBACK_IDS = {
   "liggande bencurl med hälbänd": 364,
   "benspark leg extension": 369,
   "benpress": 371,
+  "hackknäböj eller skivstångsknäböj": 371,
+  "gångutfall hantlar": 371,
   "hängande benlyft eller dead bug": 376,
   "benlyft liggande": 376,
   "plankan": 458,
@@ -26,11 +33,16 @@ const WGER_FALLBACK_IDS = {
   "sidoplanka": 580,
   "militärpress skivstång eller hantlar": 687,
   "axelpress hantlar sittande": 687,
+  "stående sidolyft hantlar": 687,
+  "rear delt fly maskin eller böjd hantelvariant": 687,
+  "upright row kabel": 687,
+  "fst-stil sidolyft": 687,
   "latsdrag brett grepp": 921,
   "sittande kabelrodd smalt grepp": 921,
   "unilateral hantelrodd": 921,
   "kabeltryckning triceps handfäste": 1185,
   "tricepsdipar på stol": 1185,
+  "skullcrusher eller triceps overhead": 1185,
   "lutande bänkpress hantel eller skivstång": 1277,
 };
 // Hemma-äkvilaenter för varje gymövning (lowercase) → ExerciseDB-slug
@@ -693,15 +705,6 @@ async function openExerciseDetail(svName, exerciseSlug) {
         if (payload?.error) {
           reason = `${reason}: ${payload.error}`;
         }
-        const details = typeof payload?.details === "string"
-          ? payload.details
-          : payload?.details?.message || payload?.details?.error || "";
-        if (details) {
-          reason = `${reason} (${details})`;
-        }
-        if (payload?.hint) {
-          reason = `${reason} ${payload.hint}`;
-        }
       } catch (_err) {
         // Ignore JSON parse errors and keep HTTP status reason.
       }
@@ -717,17 +720,30 @@ async function openExerciseDetail(svName, exerciseSlug) {
     }
 
     // GIF från ExerciseDB
-    dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(data.gifUrl)}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
+    const gifUrl = typeof data.gifUrl === "string" ? data.gifUrl : "";
+    if (gifUrl) {
+      dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(gifUrl)}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
+    } else {
+      dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga i ExerciseDB för denna övning.</p>';
+    }
 
     // Instruktioner som numrerad lista
-    if (data.instructions && data.instructions.length) {
+    const instructions = Array.isArray(data.instructions)
+      ? data.instructions.filter((s) => typeof s === "string" && s.trim())
+      : [];
+    const target = typeof data.target === "string" ? data.target : "okänd";
+    const bodyPart = typeof data.bodyPart === "string" ? data.bodyPart : "okänd";
+
+    if (instructions.length) {
       dom.exerciseModalDesc.innerHTML =
-        `<p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)"><b>Muskel:</b> ${escapeHtml(data.target)} &mdash; <b>Del:</b> ${escapeHtml(data.bodyPart)}</p>` +
+        `<p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)"><b>Muskel:</b> ${escapeHtml(target)} &mdash; <b>Del:</b> ${escapeHtml(bodyPart)}</p>` +
         "<ol style='padding-left:20px;line-height:1.75'>" +
-        data.instructions.map((s) => `<li>${escapeHtml(s)}</li>`).join("") +
+        instructions.map((s) => `<li>${escapeHtml(s)}</li>`).join("") +
         "</ol>";
     } else {
-      dom.exerciseModalDesc.innerHTML = '<p class="muted">Inga instruktioner tillgängliga.</p>';
+      dom.exerciseModalDesc.innerHTML =
+        `<p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)"><b>Muskel:</b> ${escapeHtml(target)} &mdash; <b>Del:</b> ${escapeHtml(bodyPart)}</p>` +
+        '<p class="muted">Inga instruktioner tillgängliga.</p>';
     }
   } catch (err) {
     const usedFallback = await renderWgerFallback(svName);
@@ -1694,7 +1710,7 @@ function renderPrintDay(date, training, food) {
 }
 
 function escapeHtml(text) {
-  return text
+  return String(text ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
