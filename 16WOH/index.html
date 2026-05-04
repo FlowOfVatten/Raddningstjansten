@@ -18,7 +18,7 @@
 
     <main class="app">
       <header class="hero">
-        <p class="tag">Räddningstjänst-tema • träning • kost • uppföljning</p>
+        <p class="tag">Räddningstjänsten • träning • kost</p>
         <h1>112 Dagar i beredskap</h1>
         <p class="sub">
           Logga in eller skapa konto för att följa ditt 112-dagarsupplägg med tydlig kalender, matlådor och veckouppföljning.
@@ -77,7 +77,7 @@
               Startdatum
               <input id="registerStartDate" type="date" />
             </label>
-            <label>
+            <label class="label-full">
               Frukost
               <select id="registerBreakfast"></select>
             </label>
@@ -100,7 +100,10 @@
         <div id="memberView" class="member-view">
           <div class="view-head">
             <h2>Konto och uppföljning</h2>
-            <button id="logoutBtn" class="btn btn-ghost" type="button">Logga ut</button>
+            <div class="head-actions">
+              <button id="showProfileBtn" class="btn btn-ghost" type="button">Min profil</button>
+              <button id="logoutBtn" class="btn btn-ghost" type="button">Logga ut</button>
+            </div>
           </div>
 
         <div id="profilePanel" class="profile-panel">
@@ -109,7 +112,7 @@
               Startdatum
               <input id="profileStartDate" type="date" />
             </label>
-            <label>
+            <label class="label-full">
               Frukost
               <select id="memberBreakfast"></select>
             </label>
@@ -178,8 +181,21 @@
           </div>
           <div class="details-block">
             <h4>Träningsplan</h4>
+            <p class="muted" style="margin:0 0 6px;font-size:0.82rem">Klicka på ett övningsnamn för instruktioner och bild.</p>
             <ul id="trainingList"></ul>
           </div>
+
+      <div id="exerciseModal" class="exercise-modal" hidden>
+        <div class="exercise-modal-box">
+          <div class="exercise-modal-head">
+            <h3 id="exerciseModalTitle"></h3>
+            <button id="closeExerciseModal" class="btn btn-ghost" type="button">&#x2715;</button>
+          </div>
+          <div id="exerciseModalImages" class="exercise-modal-images"></div>
+          <div id="exerciseModalDesc" class="exercise-modal-desc"></div>
+          <p class="muted" style="margin-top:12px;font-size:0.78rem">K&#228;lla: wger.de &mdash; CC-BY-SA</p>
+        </div>
+      </div>
           <div class="details-block">
             <h4>Matplan</h4>
             <ul id="foodList"></ul>
