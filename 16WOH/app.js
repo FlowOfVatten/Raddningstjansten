@@ -122,6 +122,38 @@ const EXERCISE_NAMES = {
   "fst-stil sidolyft": "dumbbell lateral raise",
 };
 
+const EXERCISE_GUIDES = window.EXERCISE_GUIDES || { gym: {}, hemma: {} };
+
+function normalizeGuideKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function buildGuideIndex(guidesByMode) {
+  const out = { gym: {}, hemma: {} };
+  for (const mode of Object.keys(out)) {
+    const source = guidesByMode?.[mode] || {};
+    Object.keys(source).forEach((name) => {
+      out[mode][normalizeGuideKey(name)] = source[name];
+    });
+  }
+  return out;
+}
+
+const EXERCISE_GUIDE_INDEX = buildGuideIndex(EXERCISE_GUIDES);
+
+function getCurrentTrainingMode() {
+  return state?.auth?.profile?.trainingMode === "hemma" ? "hemma" : "gym";
+}
+
+function getExerciseGuide(svName, mode) {
+  return EXERCISE_GUIDE_INDEX?.[mode]?.[normalizeGuideKey(svName)] || "";
+}
+
 const breakfasts = [
   {
     key: "frukost-omelett",
@@ -669,11 +701,19 @@ function renderTrainingList(entries) {
       if (colonIdx > 0) {
         const namePart = entry.slice(0, colonIdx).trim();
         const restPart = entry.slice(colonIdx);
-        const span = document.createElement("span");
-        span.className = "exercise-name";
-        span.textContent = namePart;
-        li.appendChild(span);
-        li.appendChild(document.createTextNode(restPart));
+        const mode = getCurrentTrainingMode();
+        const details = getExerciseGuide(namePart, mode);
+        if (details) {
+          const btn = document.createElement("button");
+          btn.className = "exercise-link";
+          btn.textContent = namePart;
+          btn.setAttribute("title", "Klicka för instruktioner");
+          btn.addEventListener("click", () => openExerciseDetail(namePart));
+          li.appendChild(btn);
+          li.appendChild(document.createTextNode(restPart));
+        } else {
+          li.textContent = entry;
+        }
       } else {
         li.textContent = entry;
       }
@@ -1120,47 +1160,29 @@ async function renderExerciseImages(svName, exerciseSlug, data, sourceText) {
   return false;
 }
 
-async function openExerciseDetail(svName, exerciseSlug) {
+function renderGuideTextHtml(guideText) {
+  const escaped = escapeHtml(String(guideText || "")).replace(/\n/g, "<br>");
+  return `<p style="margin:0;line-height:1.7;white-space:normal">${escaped}</p>`;
+}
+
+async function openExerciseDetail(svName) {
   dom.exerciseModalTitle.textContent = svName;
-  dom.exerciseModalImages.innerHTML = '<p class="muted">Laddar...</p>';
+  dom.exerciseModalImages.innerHTML = "";
   dom.exerciseModalDesc.innerHTML = "";
-  if (dom.exerciseModalSource) dom.exerciseModalSource.textContent = "Källa: lokal cache (svenska)";
+  if (dom.exerciseModalSource) dom.exerciseModalSource.textContent = "Källa: statisk svensk lista i appen";
   dom.exerciseModal.hidden = false;
 
   try {
-    const cache = await loadExerciseStaticCache();
-    const cached = cache[exerciseSlug];
-    if (!cached?.found) {
-      // Övningen saknas i den statiska cachen. Visa wger-bild om möjligt.
-      const usedFallback = await renderWgerFallback(svName);
-      if (!usedFallback) {
-        dom.exerciseModalImages.innerHTML = '<p class="muted">Övningen saknas i den lokala cachen. Kör generate-exercise-cache.js för att uppdatera.</p>';
-      }
+    const mode = getCurrentTrainingMode();
+    const guideText = getExerciseGuide(svName, mode);
+    if (!guideText) {
+      dom.exerciseModalDesc.innerHTML = '<p class="muted">Instruktion saknas i den statiska listan.</p>';
       return;
     }
 
-    // cached.translated = true → text är redan på svenska, hoppa över runtime-översättning
-    const data = cached.translated ? cached : localizeExerciseData(cached);
-
-    await renderExerciseImages(svName, exerciseSlug, data, "Källa: lokal cache (svenska)");
-
-    const { instructions, target, bodyPart } = extractExerciseInstructions(data);
-
-    if (instructions.length) {
-      dom.exerciseModalDesc.innerHTML =
-        `<p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)"><b>Muskel:</b> ${escapeHtml(target)} &mdash; <b>Del:</b> ${escapeHtml(bodyPart)}</p>` +
-        "<ol style='padding-left:20px;line-height:1.75'>" +
-        instructions.map((s) => `<li>${escapeHtml(s)}</li>`).join("") +
-        "</ol>";
-    } else {
-      dom.exerciseModalDesc.innerHTML =
-        `<p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)"><b>Muskel:</b> ${escapeHtml(target)} &mdash; <b>Del:</b> ${escapeHtml(bodyPart)}</p>` +
-        '<p class="muted">Inga instruktioner tillgängliga.</p>';
-    }
+    dom.exerciseModalDesc.innerHTML = renderGuideTextHtml(guideText);
   } catch (err) {
-    const usedFallback = await renderWgerFallback(svName);
-    if (usedFallback) return;
-    dom.exerciseModalImages.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
+    dom.exerciseModalDesc.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
   }
 }
 
