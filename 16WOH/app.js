@@ -3,6 +3,36 @@ const AUTH_STORAGE_KEY = "wohAuth";
 const ACCOUNT_API = "/api/woh-account";
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+const WGER_BASE = "https://wger.de";
+
+// Fallback: svenska övningsnamn → wger exercise-ID (används när ExerciseDB proxy svarar 4xx/5xx)
+const WGER_FALLBACK_IDS = {
+  "flat maskinpress eller skivstångsbänkpress": 73,
+  "armhävningar brett grepp": 73,
+  "armhävningar lutande bänk": 73,
+  "hip thrust skivstång eller maskin": 294,
+  "hip thrust med hantel eller kroppsvikt": 294,
+  "liggande eller stående bencurl": 364,
+  "sittande bencurl": 364,
+  "liggande bencurl med hälbänd": 364,
+  "benspark leg extension": 369,
+  "benpress": 371,
+  "hängande benlyft eller dead bug": 376,
+  "benlyft liggande": 376,
+  "plankan": 458,
+  "rack pull knähöjd": 507,
+  "rumänskt marklyft rdl": 507,
+  "rumänskt marklyft hantlar rdl": 507,
+  "sidoplanka": 580,
+  "militärpress skivstång eller hantlar": 687,
+  "axelpress hantlar sittande": 687,
+  "latsdrag brett grepp": 921,
+  "sittande kabelrodd smalt grepp": 921,
+  "unilateral hantelrodd": 921,
+  "kabeltryckning triceps handfäste": 1185,
+  "tricepsdipar på stol": 1185,
+  "lutande bänkpress hantel eller skivstång": 1277,
+};
 // Hemma-äkvilaenter för varje gymövning (lowercase) → ExerciseDB-slug
 const EXERCISE_NAMES_HOME = {
   "kroppsviktssquats": "squat",
@@ -320,6 +350,7 @@ const dom = {
   exerciseModalTitle: document.getElementById("exerciseModalTitle"),
   exerciseModalImages: document.getElementById("exerciseModalImages"),
   exerciseModalDesc: document.getElementById("exerciseModalDesc"),
+  exerciseModalSource: document.getElementById("exerciseModalSource"),
   closeExerciseModalBtn: document.getElementById("closeExerciseModal"),
   checkinDate: document.getElementById("checkinDate"),
   checkinWeight: document.getElementById("checkinWeight"),
@@ -648,6 +679,9 @@ async function openExerciseDetail(svName, exerciseSlug) {
   dom.exerciseModalTitle.textContent = svName;
   dom.exerciseModalImages.innerHTML = '<p class="muted">Laddar...</p>';
   dom.exerciseModalDesc.innerHTML = "";
+  if (dom.exerciseModalSource) {
+    dom.exerciseModalSource.textContent = "Källa: ExerciseDB via server-proxy";
+  }
   dom.exerciseModal.hidden = false;
 
   try {
@@ -667,6 +701,8 @@ async function openExerciseDetail(svName, exerciseSlug) {
     const data = await resp.json();
 
     if (!data.found) {
+      const usedFallback = await renderWgerFallback(svName);
+      if (usedFallback) return;
       dom.exerciseModalImages.innerHTML = '<p class="muted">Ingen information hittades för denna övning.</p>';
       return;
     }
@@ -685,7 +721,48 @@ async function openExerciseDetail(svName, exerciseSlug) {
       dom.exerciseModalDesc.innerHTML = '<p class="muted">Inga instruktioner tillgängliga.</p>';
     }
   } catch (err) {
+    const usedFallback = await renderWgerFallback(svName);
+    if (usedFallback) return;
     dom.exerciseModalImages.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
+  }
+}
+
+async function renderWgerFallback(svName) {
+  const fallbackId = WGER_FALLBACK_IDS[svName.toLowerCase()];
+  if (!fallbackId) {
+    return false;
+  }
+
+  try {
+    const infoResp = await fetch(`${WGER_BASE}/api/v2/exerciseinfo/${fallbackId}/?format=json`);
+    if (!infoResp.ok) {
+      return false;
+    }
+
+    const info = await infoResp.json();
+    const images = (info.images || []).slice(0, 4);
+    if (images.length) {
+      dom.exerciseModalImages.innerHTML = images
+        .map((img) => `<img src="${WGER_BASE}${img.image}" alt="${escapeHtml(svName)}" loading="lazy">`)
+        .join("");
+    } else {
+      dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga.</p>';
+    }
+
+    const enTranslation = (info.translations || []).find((t) => t.language === 2);
+    if (enTranslation?.description?.trim()) {
+      dom.exerciseModalDesc.innerHTML = enTranslation.description;
+    } else {
+      dom.exerciseModalDesc.innerHTML = '<p class="muted">Ingen textbeskrivning tillgänglig.</p>';
+    }
+
+    if (dom.exerciseModalSource) {
+      dom.exerciseModalSource.textContent = "Källa: wger.de - fallback";
+    }
+
+    return true;
+  } catch (_err) {
+    return false;
   }
 }
 
