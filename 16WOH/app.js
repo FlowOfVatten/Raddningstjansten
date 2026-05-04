@@ -4,6 +4,11 @@ const ACCOUNT_API = "/api/woh-account";
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 const WGER_BASE = "https://wger.de";
+const EXERCISE_STATIC_URL = "exercise-static.json";
+const EXERCISE_IMAGE_OVERRIDES_URL = "exercise-image-overrides.json";
+
+let exerciseStaticCache = null;
+let exerciseImageOverrides = null;
 
 // Fallback: svenska övningsnamn → wger exercise-ID (används när ExerciseDB proxy svarar 4xx/5xx)
 const WGER_FALLBACK_IDS = {
@@ -376,6 +381,8 @@ const dom = {
 init();
 
 function init() {
+  loadExerciseStaticCache();
+  loadExerciseImageOverrides();
   populateBreakfastOptions();
   renderWeekdays();
   bindEvents();
@@ -687,58 +694,128 @@ function renderTrainingList(entries) {
   });
 }
 
+async function loadExerciseStaticCache() {
+  if (exerciseStaticCache !== null) {
+    return exerciseStaticCache;
+  }
+
+  try {
+    const resp = await fetch(EXERCISE_STATIC_URL, { cache: "no-store" });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    const payload = await resp.json();
+    exerciseStaticCache = payload?.exercises && typeof payload.exercises === "object"
+      ? payload.exercises
+      : {};
+  } catch (_err) {
+    exerciseStaticCache = {};
+  }
+
+  return exerciseStaticCache;
+}
+
+async function loadExerciseImageOverrides() {
+  if (exerciseImageOverrides !== null) {
+    return exerciseImageOverrides;
+  }
+
+  try {
+    const resp = await fetch(EXERCISE_IMAGE_OVERRIDES_URL, { cache: "no-store" });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    const payload = await resp.json();
+    exerciseImageOverrides = payload && typeof payload === "object" ? payload : {};
+  } catch (_err) {
+    exerciseImageOverrides = {};
+  }
+
+  return exerciseImageOverrides;
+}
+
+function extractExerciseInstructions(data) {
+  const instructions = Array.isArray(data.instructions)
+    ? data.instructions.filter((s) => typeof s === "string" && s.trim())
+    : [];
+  const target = typeof data.target === "string" ? data.target : "okänd";
+  const bodyPart = typeof data.bodyPart === "string" ? data.bodyPart : "okänd";
+  return { instructions, target, bodyPart };
+}
+
+async function renderExerciseImages(svName, exerciseSlug, data, sourceText) {
+  const usedWgerImages = await renderWgerImagesOnly(svName);
+  if (usedWgerImages) {
+    return true;
+  }
+
+  const overrides = await loadExerciseImageOverrides();
+  const overrideUrl = overrides[exerciseSlug] || overrides[svName.toLowerCase()];
+  if (typeof overrideUrl === "string" && overrideUrl.trim()) {
+    dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(overrideUrl.trim())}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
+    if (dom.exerciseModalSource) {
+      dom.exerciseModalSource.textContent = "Källa: bild-override + ExerciseDB-text";
+    }
+    return true;
+  }
+
+  const gifUrl = typeof data.gifUrl === "string" ? data.gifUrl : "";
+  if (gifUrl) {
+    dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(gifUrl)}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
+    if (dom.exerciseModalSource) {
+      dom.exerciseModalSource.textContent = sourceText;
+    }
+    return true;
+  }
+
+  dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga i ExerciseDB för denna övning.</p>';
+  return false;
+}
+
 async function openExerciseDetail(svName, exerciseSlug) {
   dom.exerciseModalTitle.textContent = svName;
   dom.exerciseModalImages.innerHTML = '<p class="muted">Laddar...</p>';
   dom.exerciseModalDesc.innerHTML = "";
-  if (dom.exerciseModalSource) {
-    dom.exerciseModalSource.textContent = "Källa: ExerciseDB via server-proxy";
-  }
+  const defaultSourceText = "Källa: ExerciseDB statisk cache";
+  if (dom.exerciseModalSource) dom.exerciseModalSource.textContent = defaultSourceText;
   dom.exerciseModal.hidden = false;
 
   try {
-    const resp = await fetch(`/api/exercise-proxy?name=${encodeURIComponent(exerciseSlug)}`);
-    if (!resp.ok) {
-      let reason = `HTTP ${resp.status}`;
-      try {
-        const payload = await resp.json();
-        if (payload?.error) {
-          reason = `${reason}: ${payload.error}`;
+    let data = null;
+    let sourceText = defaultSourceText;
+
+    const cache = await loadExerciseStaticCache();
+    const cached = cache[exerciseSlug];
+    if (cached?.found) {
+      data = cached;
+    } else {
+      sourceText = "Källa: ExerciseDB via server-proxy";
+      const resp = await fetch(`/api/exercise-proxy?name=${encodeURIComponent(exerciseSlug)}`);
+      if (!resp.ok) {
+        let reason = `HTTP ${resp.status}`;
+        try {
+          const payload = await resp.json();
+          if (payload?.error) {
+            reason = `${reason}: ${payload.error}`;
+          }
+        } catch (_err) {
+          // Ignore JSON parse errors and keep HTTP status reason.
         }
-      } catch (_err) {
-        // Ignore JSON parse errors and keep HTTP status reason.
+        throw new Error(`Proxyförfrågan misslyckades (${reason}).`);
       }
-      throw new Error(`Proxyförfrågan misslyckades (${reason}).`);
-    }
-    const data = await resp.json();
-
-    if (!data.found) {
-      const usedFallback = await renderWgerFallback(svName);
-      if (usedFallback) return;
-      dom.exerciseModalImages.innerHTML = '<p class="muted">Ingen information hittades för denna övning.</p>';
-      return;
-    }
-
-    // Bildstrategi: försök wger först, annars ExerciseDB-gif.
-    const usedWgerImages = await renderWgerImagesOnly(svName);
-    if (!usedWgerImages) {
-      const gifUrl = typeof data.gifUrl === "string" ? data.gifUrl : "";
-      if (gifUrl) {
-        dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(gifUrl)}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
-        if (dom.exerciseModalSource) {
-          dom.exerciseModalSource.textContent = "Källa: ExerciseDB via server-proxy";
-        }
-      } else {
-        dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga i ExerciseDB för denna övning.</p>';
+      const proxyData = await resp.json();
+      if (!proxyData.found) {
+        const usedFallback = await renderWgerFallback(svName);
+        if (usedFallback) return;
+        dom.exerciseModalImages.innerHTML = '<p class="muted">Ingen information hittades för denna övning.</p>';
+        return;
       }
+      data = proxyData;
     }
 
-    // Instruktioner som numrerad lista
-    const instructions = Array.isArray(data.instructions)
-      ? data.instructions.filter((s) => typeof s === "string" && s.trim())
-      : [];
-    const target = typeof data.target === "string" ? data.target : "okänd";
-    const bodyPart = typeof data.bodyPart === "string" ? data.bodyPart : "okänd";
+    await renderExerciseImages(svName, exerciseSlug, data, sourceText);
+
+    const { instructions, target, bodyPart } = extractExerciseInstructions(data);
 
     if (instructions.length) {
       dom.exerciseModalDesc.innerHTML =
