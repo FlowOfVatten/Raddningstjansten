@@ -185,38 +185,43 @@
             <ul id="trainingList"></ul>
           </div>
 
-      <div id="exerciseModal" class="exercise-modal" hidden>
-        <div class="exercise-modal-box">
-          <div class="exercise-modal-head">
-            <h3 id="exerciseModalTitle"></h3>
-            <button id="closeExerciseModal" class="btn btn-ghost" type="button">&#x2715;</button>
-          </div>
-          <div id="exerciseModalImages" class="exercise-modal-images"></div>
-          <div id="exerciseModalDesc" class="exercise-modal-desc"></div>
-          <p class="muted" style="margin-top:12px;font-size:0.78rem">K&#228;lla: wger.de &mdash; CC-BY-SA</p>
-        </div>
-      </div>
           <div class="details-block">
             <h4>Matplan</h4>
             <ul id="foodList"></ul>
           </div>
           <div class="details-block">
-            <h4>Smart inköpslista</h4>
-            <div class="shopping-tools">
-              <label for="shoppingDays">Planera</label>
-              <select id="shoppingDays">
-                <option value="3">3 dagar</option>
-                <option value="7" selected>7 dagar</option>
-                <option value="14">14 dagar</option>
-              </select>
-              <button id="generateShopping" class="btn btn-ghost" type="button">Uppdatera lista</button>
+            <button id="shoppingToggle" class="shopping-toggle-btn" type="button" aria-expanded="false">
+              Smart inköpslista <span class="toggle-arrow">▼</span>
+            </button>
+            <div id="shoppingContent" hidden>
+              <div class="shopping-tools">
+                <label for="shoppingDays">Planera</label>
+                <select id="shoppingDays">
+                  <option value="3">3 dagar</option>
+                  <option value="7" selected>7 dagar</option>
+                  <option value="14">14 dagar</option>
+                </select>
+                <button id="generateShopping" class="btn btn-ghost" type="button">Uppdatera lista</button>
+              </div>
+              <p id="shoppingInfo" class="muted"></p>
+              <ul id="shoppingList"></ul>
             </div>
-            <p id="shoppingInfo" class="muted"></p>
-            <ul id="shoppingList"></ul>
           </div>
         </aside>
       </section>
     </main>
+
+    <div id="exerciseModal" class="exercise-modal" hidden>
+      <div class="exercise-modal-box">
+        <div class="exercise-modal-head">
+          <h3 id="exerciseModalTitle"></h3>
+          <button id="closeExerciseModal" class="btn btn-ghost" type="button">&#x2715;</button>
+        </div>
+        <div id="exerciseModalImages" class="exercise-modal-images"></div>
+        <div id="exerciseModalDesc" class="exercise-modal-desc"></div>
+        <p class="muted" style="margin-top:12px;font-size:0.78rem">K&#228;lla: wger.de &mdash; CC-BY-SA</p>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>

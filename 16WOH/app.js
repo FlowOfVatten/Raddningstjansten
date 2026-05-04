@@ -5,39 +5,21 @@ const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 const WGER_BASE = "https://wger.de";
 
-// Mappa svenska övningsnamn (lowercase) → exakt engelskt wger-namn
-const EXERCISE_TRANSLATE = {
-  "latsdrag brett grepp": "Lat Pulldown",
-  "sittande kabelrodd smalt grepp": "Seated Cable Row",
-  "rack pull knähöjd": "Rack Pull",
-  "unilateral hantelrodd": "One Arm Dumbbell Row",
-  "stående vadpress maskin": "Standing Calf Raise",
-  "sittande vadpress": "Seated Calf Raise",
-  "lutande bänkpress hantel eller skivstång": "Incline Bench Press",
-  "flat maskinpress eller skivstångsbänkpress": "Bench Press",
-  "pec dec eller kabelfly": "Pec Deck Fly",
-  "hammarcurl": "Hammer Curl",
-  "ez-stångscurl": "EZ Biceps Curl",
-  "koncentrationscurl": "Concentration Curl",
-  "benpress": "Leg Press",
-  "hackknäböj eller skivstångsknäböj": "Squat",
-  "gångutfall hantlar": "Walking Lunge",
-  "benspark leg extension": "Leg Extension",
-  "sittande bencurl": "Seated Leg Curl",
-  "militärpress skivstång eller hantlar": "Military Press",
-  "stående sidolyft hantlar": "Side Lateral Raise",
-  "rear delt fly maskin eller böjd hantelvariant": "Rear Delt Fly",
-  "upright row kabel": "Upright Row",
-  "plankan": "Plank",
-  "hängande benlyft eller dead bug": "Hanging Leg Raise",
-  "sidoplanka": "Side Plank",
-  "rumänskt marklyft rdl": "Romanian Deadlift",
-  "liggande eller stående bencurl": "Leg Curl",
-  "hip thrust skivstång eller maskin": "Barbell Hip Thrust",
-  "kabeltryckning triceps handfäste": "Tricep Pushdown",
-  "stångcurl eller maskincurl": "Barbell Curl",
-  "skullcrusher eller triceps overhead": "Skull Crusher",
-  "fst-stil sidolyft": "Side Lateral Raise",
+// Mappa svenska övningsnamn (lowercase) → wger exercise-ID (verifierade)
+const EXERCISE_IDS = {
+  "flat maskinpress eller skivstångsbänkpress": 73,
+  "hip thrust skivstång eller maskin": 294,
+  "liggande eller stående bencurl": 364,
+  "benspark leg extension": 369,
+  "benpress": 371,
+  "hängande benlyft eller dead bug": 376,
+  "rumänskt marklyft rdl": 507,
+  "sidoplanka": 580,
+  "militärpress skivstång eller hantlar": 687,
+  "sittande kabelrodd smalt grepp": 921,
+  "kabeltryckning triceps handfäste": 1185,
+  "lutande bänkpress hantel eller skivstång": 1277,
+  "plankan": 458,
 };
 
 const breakfasts = [
@@ -248,6 +230,8 @@ const dom = {
   generateShopping: document.getElementById("generateShopping"),
   shoppingInfo: document.getElementById("shoppingInfo"),
   shoppingList: document.getElementById("shoppingList"),
+  shoppingToggle: document.getElementById("shoppingToggle"),
+  shoppingContent: document.getElementById("shoppingContent"),
   authStatus: document.getElementById("authStatus"),
   loginUsername: document.getElementById("loginUsername"),
   loginPassword: document.getElementById("loginPassword"),
@@ -347,6 +331,13 @@ function bindEvents() {
   dom.exportWeekPdf.addEventListener("click", exportWeekToPdf);
   dom.generateShopping.addEventListener("click", renderShoppingList);
   dom.shoppingDays.addEventListener("change", renderShoppingList);
+  dom.shoppingToggle.addEventListener("click", () => {
+    const expanded = dom.shoppingToggle.getAttribute("aria-expanded") === "true";
+    dom.shoppingToggle.setAttribute("aria-expanded", String(!expanded));
+    dom.shoppingContent.hidden = expanded;
+    const arrow = dom.shoppingToggle.querySelector(".toggle-arrow");
+    if (arrow) arrow.textContent = expanded ? "▼" : "▲";
+  });
 
   dom.showProfileBtn.addEventListener("click", () => {
     state.showProfile = !state.showProfile;
@@ -563,14 +554,14 @@ function renderTrainingList(entries) {
       if (colonIdx > 0) {
         const namePart = entry.slice(0, colonIdx).trim();
         const restPart = entry.slice(colonIdx);
-        const englishName = EXERCISE_TRANSLATE[namePart.toLowerCase()];
+        const exerciseId = EXERCISE_IDS[namePart.toLowerCase()];
 
-        if (englishName) {
+        if (exerciseId) {
           const btn = document.createElement("button");
           btn.className = "exercise-link";
           btn.textContent = namePart;
           btn.setAttribute("title", "Klicka för instruktioner och bild");
-          btn.addEventListener("click", () => openExerciseDetail(namePart, englishName));
+          btn.addEventListener("click", () => openExerciseDetail(namePart, exerciseId));
           li.appendChild(btn);
           li.appendChild(document.createTextNode(restPart));
         } else {
@@ -587,25 +578,13 @@ function renderTrainingList(entries) {
   });
 }
 
-async function openExerciseDetail(svName, englishName) {
+async function openExerciseDetail(svName, exerciseId) {
   dom.exerciseModalTitle.textContent = svName;
   dom.exerciseModalImages.innerHTML = '<p class="muted">Laddar...</p>';
   dom.exerciseModalDesc.innerHTML = "";
   dom.exerciseModal.hidden = false;
 
   try {
-    const searchResp = await fetch(
-      `${WGER_BASE}/api/v2/exercise-translation/?format=json&language=2&name=${encodeURIComponent(englishName)}&limit=1`
-    );
-    if (!searchResp.ok) throw new Error("Sökning misslyckades.");
-    const searchData = await searchResp.json();
-
-    if (!searchData.count) {
-      dom.exerciseModalImages.innerHTML = '<p class="muted">Ingen information hittades för denna övning i databasen.</p>';
-      return;
-    }
-
-    const exerciseId = searchData.results[0].exercise;
     const infoResp = await fetch(`${WGER_BASE}/api/v2/exerciseinfo/${exerciseId}/?format=json`);
     if (!infoResp.ok) throw new Error("Kunde inte hämta övningsinfo.");
     const info = await infoResp.json();
