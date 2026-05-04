@@ -3,23 +3,39 @@ const AUTH_STORAGE_KEY = "wohAuth";
 const ACCOUNT_API = "/api/woh-account";
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
-const WGER_BASE = "https://wger.de";
-
-// Mappa svenska övningsnamn (lowercase) → wger exercise-ID (verifierade)
-const EXERCISE_IDS = {
-  "flat maskinpress eller skivstångsbänkpress": 73,
-  "hip thrust skivstång eller maskin": 294,
-  "liggande eller stående bencurl": 364,
-  "benspark leg extension": 369,
-  "benpress": 371,
-  "hängande benlyft eller dead bug": 376,
-  "rumänskt marklyft rdl": 507,
-  "sidoplanka": 580,
-  "militärpress skivstång eller hantlar": 687,
-  "sittande kabelrodd smalt grepp": 921,
-  "kabeltryckning triceps handfäste": 1185,
-  "lutande bänkpress hantel eller skivstång": 1277,
-  "plankan": 458,
+// Svenska övningsnamn (lowercase) → ExerciseDB nämnslugg (proxyas via /api/exercise-proxy)
+const EXERCISE_NAMES = {
+  "latsdrag brett grepp": "lat pulldown",
+  "sittande kabelrodd smalt grepp": "seated cable row",
+  "rack pull knähöjd": "rack pull",
+  "unilateral hantelrodd": "dumbbell one arm row",
+  "stående vadpress maskin": "standing calf raise",
+  "sittande vadpress": "seated calf raise",
+  "lutande bänkpress hantel eller skivstång": "incline dumbbell press",
+  "flat maskinpress eller skivstångsbänkpress": "barbell bench press",
+  "pec dec eller kabelfly": "pec deck fly",
+  "hammarcurl": "hammer curl",
+  "ez-stångscurl": "ez barbell curl",
+  "koncentrationscurl": "concentration curl",
+  "benpress": "leg press",
+  "hackknäböj eller skivstångsknäböj": "hack squat",
+  "gångutfall hantlar": "walking lunge",
+  "benspark leg extension": "leg extension",
+  "sittande bencurl": "seated leg curl",
+  "liggande eller stående bencurl": "leg curl",
+  "militärpress skivstång eller hantlar": "overhead press",
+  "stående sidolyft hantlar": "dumbbell lateral raise",
+  "rear delt fly maskin eller böjd hantelvariant": "reverse fly",
+  "upright row kabel": "cable upright row",
+  "plankan": "plank",
+  "hängande benlyft eller dead bug": "hanging leg raise",
+  "sidoplanka": "side plank",
+  "rumänskt marklyft rdl": "romanian deadlift",
+  "hip thrust skivstång eller maskin": "barbell hip thrust",
+  "kabeltryckning triceps handfäste": "cable pushdown",
+  "stångcurl eller maskincurl": "barbell curl",
+  "skullcrusher eller triceps overhead": "skull crusher",
+  "fst-stil sidolyft": "dumbbell lateral raise",
 };
 
 const breakfasts = [
@@ -555,14 +571,14 @@ function renderTrainingList(entries) {
       if (colonIdx > 0) {
         const namePart = entry.slice(0, colonIdx).trim();
         const restPart = entry.slice(colonIdx);
-        const exerciseId = EXERCISE_IDS[namePart.toLowerCase()];
+        const exerciseSlug = EXERCISE_NAMES[namePart.toLowerCase()];
 
-        if (exerciseId) {
+        if (exerciseSlug) {
           const btn = document.createElement("button");
           btn.className = "exercise-link";
           btn.textContent = namePart;
           btn.setAttribute("title", "Klicka för instruktioner och bild");
-          btn.addEventListener("click", () => openExerciseDetail(namePart, exerciseId));
+          btn.addEventListener("click", () => openExerciseDetail(namePart, exerciseSlug));
           li.appendChild(btn);
           li.appendChild(document.createTextNode(restPart));
         } else {
@@ -579,31 +595,34 @@ function renderTrainingList(entries) {
   });
 }
 
-async function openExerciseDetail(svName, exerciseId) {
+async function openExerciseDetail(svName, exerciseSlug) {
   dom.exerciseModalTitle.textContent = svName;
   dom.exerciseModalImages.innerHTML = '<p class="muted">Laddar...</p>';
   dom.exerciseModalDesc.innerHTML = "";
   dom.exerciseModal.hidden = false;
 
   try {
-    const infoResp = await fetch(`${WGER_BASE}/api/v2/exerciseinfo/${exerciseId}/?format=json`);
-    if (!infoResp.ok) throw new Error("Kunde inte hämta övningsinfo.");
-    const info = await infoResp.json();
+    const resp = await fetch(`/api/exercise-proxy?name=${encodeURIComponent(exerciseSlug)}`);
+    if (!resp.ok) throw new Error("Proxyförfrågan misslyckades.");
+    const data = await resp.json();
 
-    const images = (info.images || []).slice(0, 4);
-    if (images.length) {
-      dom.exerciseModalImages.innerHTML = images
-        .map((img) => `<img src="${WGER_BASE}${img.image}" alt="${escapeHtml(svName)}" loading="lazy">`)
-        .join("");
-    } else {
-      dom.exerciseModalImages.innerHTML = '<p class="muted">Inga bilder tillgängliga.</p>';
+    if (!data.found) {
+      dom.exerciseModalImages.innerHTML = '<p class="muted">Ingen information hittades för denna övning.</p>';
+      return;
     }
 
-    const enTranslation = (info.translations || []).find((t) => t.language === 2);
-    if (enTranslation?.description?.trim()) {
-      dom.exerciseModalDesc.innerHTML = enTranslation.description;
+    // GIF från ExerciseDB
+    dom.exerciseModalImages.innerHTML = `<img src="${escapeHtml(data.gifUrl)}" alt="${escapeHtml(svName)}" loading="lazy" style="height:220px;border-radius:10px">`;
+
+    // Instruktioner som numrerad lista
+    if (data.instructions && data.instructions.length) {
+      dom.exerciseModalDesc.innerHTML =
+        `<p style="margin:0 0 8px;font-size:0.8rem;color:var(--muted)"><b>Muskel:</b> ${escapeHtml(data.target)} &mdash; <b>Del:</b> ${escapeHtml(data.bodyPart)}</p>` +
+        "<ol style='padding-left:20px;line-height:1.75'>" +
+        data.instructions.map((s) => `<li>${escapeHtml(s)}</li>`).join("") +
+        "</ol>";
     } else {
-      dom.exerciseModalDesc.innerHTML = '<p class="muted">Ingen textbeskrivning tillgänglig.</p>';
+      dom.exerciseModalDesc.innerHTML = '<p class="muted">Inga instruktioner tillgängliga.</p>';
     }
   } catch (err) {
     dom.exerciseModalImages.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
