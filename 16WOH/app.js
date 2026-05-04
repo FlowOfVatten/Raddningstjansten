@@ -1,4 +1,6 @@
 ﻿const STORAGE_KEY = "wohStartDate";
+const AUTH_STORAGE_KEY = "wohAuth";
+const ACCOUNT_API = "/api/woh-account";
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 
@@ -163,6 +165,12 @@ const state = {
   startDate: null,
   currentMonth: firstDayOfMonth(new Date()),
   selectedDate: stripTime(new Date()),
+  auth: {
+    username: "",
+    token: "",
+    profile: null,
+    checkins: [],
+  },
 };
 
 const dom = {
@@ -185,6 +193,31 @@ const dom = {
   generateShopping: document.getElementById("generateShopping"),
   shoppingInfo: document.getElementById("shoppingInfo"),
   shoppingList: document.getElementById("shoppingList"),
+  authStatus: document.getElementById("authStatus"),
+  authUsername: document.getElementById("authUsername"),
+  authPassword: document.getElementById("authPassword"),
+  securityQuestion: document.getElementById("securityQuestion"),
+  securityAnswer: document.getElementById("securityAnswer"),
+  registerBtn: document.getElementById("registerBtn"),
+  loginBtn: document.getElementById("loginBtn"),
+  forgotBtn: document.getElementById("forgotBtn"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  recoveryPanel: document.getElementById("recoveryPanel"),
+  recoveryQuestion: document.getElementById("recoveryQuestion"),
+  recoveryAnswer: document.getElementById("recoveryAnswer"),
+  recoverPasswordBtn: document.getElementById("recoverPasswordBtn"),
+  recoveryStatus: document.getElementById("recoveryStatus"),
+  profilePanel: document.getElementById("profilePanel"),
+  profileHeight: document.getElementById("profileHeight"),
+  profileWeight: document.getElementById("profileWeight"),
+  profileWaist: document.getElementById("profileWaist"),
+  saveProfileBtn: document.getElementById("saveProfileBtn"),
+  checkinDate: document.getElementById("checkinDate"),
+  checkinWeight: document.getElementById("checkinWeight"),
+  checkinWaist: document.getElementById("checkinWaist"),
+  saveCheckinBtn: document.getElementById("saveCheckinBtn"),
+  checkinInfo: document.getElementById("checkinInfo"),
+  checkinList: document.getElementById("checkinList"),
 };
 
 init();
@@ -205,7 +238,23 @@ function init() {
     }
   }
 
+  const rawAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (rawAuth) {
+    try {
+      const parsed = JSON.parse(rawAuth);
+      state.auth.username = String(parsed.username || "");
+      state.auth.token = String(parsed.token || "");
+      dom.authUsername.value = state.auth.username;
+    } catch (_err) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }
+
   renderAll();
+
+  if (isLoggedIn()) {
+    refreshSession();
+  }
 }
 
 function bindEvents() {
@@ -247,10 +296,19 @@ function bindEvents() {
   dom.exportWeekPdf.addEventListener("click", exportWeekToPdf);
   dom.generateShopping.addEventListener("click", renderShoppingList);
   dom.shoppingDays.addEventListener("change", renderShoppingList);
+
+  dom.registerBtn.addEventListener("click", registerAccount);
+  dom.loginBtn.addEventListener("click", loginAccount);
+  dom.forgotBtn.addEventListener("click", requestForgotQuestion);
+  dom.logoutBtn.addEventListener("click", logoutAccount);
+  dom.recoverPasswordBtn.addEventListener("click", recoverPasswordFlow);
+  dom.saveProfileBtn.addEventListener("click", saveProfile);
+  dom.saveCheckinBtn.addEventListener("click", saveWeeklyCheckin);
 }
 
 function renderAll() {
   renderStartInfo();
+  renderAccountSection();
   renderCalendar();
   renderDetails();
   renderShoppingList();
@@ -334,16 +392,28 @@ function buildDayCell(date) {
       meta.textContent = "Klar";
     } else {
       cell.classList.add("in-program");
-      meta.textContent = `Dag ${dayIndex + 1}`;
+      const restDay = dayIndex % 7 === 6;
+      if (restDay) {
+        cell.classList.add("rest-day");
+        meta.textContent = `Dag ${dayIndex + 1} · Vila`;
+        const restPill = document.createElement("span");
+        restPill.className = "day-pill rest-pill";
+        restPill.textContent = "Vila";
+        cell.appendChild(restPill);
+      } else {
+        meta.textContent = `Dag ${dayIndex + 1}`;
+      }
     }
   }
 
   cell.append(dayNum, meta);
   cell.addEventListener("click", () => {
     state.selectedDate = date;
+    dom.checkinDate.value = formatDateInput(date);
     renderCalendar();
     renderDetails();
     renderShoppingList();
+    renderAccountSection();
   });
 
   return cell;
@@ -504,10 +574,17 @@ function buildTraining(type, phase, week) {
 }
 
 function getDailyMeals(dayIndex) {
+  const lunchMeal = lunches[(dayIndex + 1) % lunches.length];
+  const dinnerMeal = {
+    key: `${lunchMeal.key}-samma-som-lunch`,
+    text: `Middag: samma matlåda som lunch (${lunchMeal.text.replace("Lunch: ", "")})`,
+    ingredients: lunchMeal.ingredients,
+  };
+
   return {
     breakfast: breakfasts[dayIndex % breakfasts.length],
-    lunch: lunches[(dayIndex + 1) % lunches.length],
-    dinner: dinners[(dayIndex + 2) % dinners.length],
+    lunch: lunchMeal,
+    dinner: dinnerMeal,
     snack: snacks[(dayIndex + 3) % snacks.length],
   };
 }
@@ -525,15 +602,24 @@ function buildFood(dayIndex, workoutType, phase) {
       ? "Vätska: 3.0-3.5 liter vatten + elektrolyter"
       : "Vätska: minst 2.5-3.0 liter vatten";
 
+  const portionGuide =
+    "Portionsguide: protein 2 handflator + grönsaker 2 nävar per huvudmål";
+
+  const fatGuide = "Fettkälla: 1-2 tummar per huvudmål";
+
   return {
     lines: [
       meals.breakfast.text,
       meals.lunch.text,
       meals.dinner.text,
       meals.snack.text,
+      "Meal prep: lunch och middag är samma matlåda för enklare planering",
+      portionGuide,
       carbRule,
+      fatGuide,
       hydration,
       "Basregler: hög proteinmängd, minimera socker och alkohol (normal kost)",
+      "Offentlig 16WOH-princip: ät inte mindre än rekommenderad mängd, justera vid behov",
     ],
     mealKeys: [meals.breakfast.key, meals.lunch.key, meals.dinner.key, meals.snack.key],
   };
@@ -561,6 +647,279 @@ function buildFocus(week, date, workoutType, phase) {
   }
 
   return focus;
+}
+
+function isLoggedIn() {
+  return Boolean(state.auth.username && state.auth.token);
+}
+
+function persistAuth() {
+  if (!isLoggedIn()) {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    return;
+  }
+
+  localStorage.setItem(
+    AUTH_STORAGE_KEY,
+    JSON.stringify({ username: state.auth.username, token: state.auth.token })
+  );
+}
+
+function applyUserData(user) {
+  state.auth.profile = user.profile || null;
+  state.auth.checkins = Array.isArray(user.checkins) ? user.checkins : [];
+
+  if (state.auth.profile) {
+    const p = state.auth.profile;
+    dom.profileHeight.value = p.heightCm ?? "";
+    dom.profileWeight.value = p.startWeightKg ?? "";
+    dom.profileWaist.value = p.startWaistCm ?? "";
+
+    if (p.startDate) {
+      const parsed = parseDateInput(p.startDate);
+      if (parsed) {
+        state.startDate = parsed;
+        dom.startDate.value = p.startDate;
+        localStorage.setItem(STORAGE_KEY, p.startDate);
+        if (!sameDate(state.selectedDate, parsed) && diffDays(parsed, state.selectedDate) < 0) {
+          state.selectedDate = parsed;
+        }
+      }
+    }
+  }
+}
+
+async function accountApi(action, payload) {
+  const response = await fetch(ACCOUNT_API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...payload }),
+  });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch (_err) {
+    throw new Error("API svarade inte med JSON.");
+  }
+
+  if (!response.ok) {
+    throw new Error(body.error || "Okänt API-fel.");
+  }
+
+  return body;
+}
+
+async function refreshSession() {
+  try {
+    const result = await accountApi("getSession", {
+      username: state.auth.username,
+      token: state.auth.token,
+    });
+    applyUserData(result.user || {});
+    dom.authStatus.textContent = `Inloggad som ${state.auth.username}.`;
+  } catch (err) {
+    state.auth = { username: "", token: "", profile: null, checkins: [] };
+    persistAuth();
+    dom.authStatus.textContent = err.message;
+  } finally {
+    renderAll();
+  }
+}
+
+async function registerAccount() {
+  try {
+    const username = String(dom.authUsername.value || "").trim().toLowerCase();
+    const password = String(dom.authPassword.value || "");
+    const securityQuestion = String(dom.securityQuestion.value || "").trim();
+    const securityAnswer = String(dom.securityAnswer.value || "").trim();
+
+    if (!state.startDate) {
+      throw new Error("Välj startdatum först så startvärden sparas rätt.");
+    }
+
+    const result = await accountApi("register", {
+      username,
+      password,
+      securityQuestion,
+      securityAnswer,
+      heightCm: dom.profileHeight.value,
+      startWeightKg: dom.profileWeight.value,
+      startWaistCm: dom.profileWaist.value,
+      startDate: formatDateInput(state.startDate),
+    });
+
+    state.auth.username = username;
+    state.auth.token = result.token;
+    applyUserData(result.user || {});
+    persistAuth();
+    dom.authPassword.value = "";
+    dom.securityAnswer.value = "";
+    dom.authStatus.textContent = "Konto skapat och inloggat.";
+  } catch (err) {
+    dom.authStatus.textContent = err.message;
+  }
+
+  renderAll();
+}
+
+async function requestForgotQuestion() {
+  try {
+    const username = String(dom.authUsername.value || "").trim().toLowerCase();
+    if (!username) {
+      throw new Error("Fyll i användarnamn först.");
+    }
+
+    const result = await accountApi("getSecurityQuestion", { username });
+    dom.recoveryQuestion.textContent = `Säkerhetsfråga: ${result.securityQuestion}`;
+    dom.recoveryStatus.textContent = "Svara på frågan och klicka på Visa lösenord.";
+    dom.recoveryAnswer.value = "";
+  } catch (err) {
+    dom.recoveryQuestion.textContent = "";
+    dom.recoveryStatus.textContent = err.message;
+  }
+
+  renderAccountSection();
+}
+
+async function recoverPasswordFlow() {
+  try {
+    const username = String(dom.authUsername.value || "").trim().toLowerCase();
+    const securityAnswer = String(dom.recoveryAnswer.value || "").trim();
+
+    if (!username) {
+      throw new Error("Fyll i användarnamn först.");
+    }
+
+    const result = await accountApi("recoverPassword", { username, securityAnswer });
+    dom.recoveryStatus.textContent = `Ditt lösenord är: ${result.password}`;
+  } catch (err) {
+    dom.recoveryStatus.textContent = err.message;
+  }
+
+  renderAccountSection();
+}
+
+async function loginAccount() {
+  try {
+    const username = String(dom.authUsername.value || "").trim().toLowerCase();
+    const password = String(dom.authPassword.value || "");
+    const result = await accountApi("login", { username, password });
+
+    state.auth.username = username;
+    state.auth.token = result.token;
+    applyUserData(result.user || {});
+    persistAuth();
+    dom.authPassword.value = "";
+    dom.authStatus.textContent = "Inloggning lyckades.";
+  } catch (err) {
+    dom.authStatus.textContent = err.message;
+  }
+
+  renderAll();
+}
+
+function logoutAccount() {
+  state.auth = { username: "", token: "", profile: null, checkins: [] };
+  persistAuth();
+  dom.authPassword.value = "";
+  dom.authStatus.textContent = "Utloggad.";
+  renderAll();
+}
+
+async function saveProfile() {
+  if (!isLoggedIn()) {
+    dom.authStatus.textContent = "Logga in först.";
+    return;
+  }
+
+  try {
+    if (!state.startDate) {
+      throw new Error("Välj startdatum innan profil sparas.");
+    }
+
+    const result = await accountApi("saveProfile", {
+      username: state.auth.username,
+      token: state.auth.token,
+      heightCm: dom.profileHeight.value,
+      startWeightKg: dom.profileWeight.value,
+      startWaistCm: dom.profileWaist.value,
+      startDate: formatDateInput(state.startDate),
+    });
+
+    applyUserData(result.user || {});
+    dom.authStatus.textContent = "Profil sparad.";
+  } catch (err) {
+    dom.authStatus.textContent = err.message;
+  }
+
+  renderAll();
+}
+
+async function saveWeeklyCheckin() {
+  if (!isLoggedIn()) {
+    dom.authStatus.textContent = "Logga in först.";
+    return;
+  }
+
+  try {
+    const checkinDate = dom.checkinDate.value || formatDateInput(state.selectedDate);
+    const result = await accountApi("addCheckin", {
+      username: state.auth.username,
+      token: state.auth.token,
+      checkinDate,
+      weightKg: dom.checkinWeight.value,
+      waistCm: dom.checkinWaist.value,
+    });
+
+    applyUserData(result.user || {});
+    dom.authStatus.textContent = "Veckouppföljning sparad.";
+  } catch (err) {
+    dom.authStatus.textContent = err.message;
+  }
+
+  renderAll();
+}
+
+function renderAccountSection() {
+  const loggedIn = isLoggedIn();
+  dom.profilePanel.style.display = loggedIn ? "block" : "none";
+  dom.logoutBtn.style.display = loggedIn ? "inline-block" : "none";
+  dom.recoveryPanel.style.display = loggedIn ? "none" : "block";
+
+  if (!dom.checkinDate.value) {
+    dom.checkinDate.value = formatDateInput(state.selectedDate);
+  }
+
+  dom.checkinList.innerHTML = "";
+
+  if (!loggedIn) {
+    if (!dom.authStatus.textContent || dom.authStatus.textContent === "Utloggad.") {
+      dom.authStatus.textContent = "Skapa konto eller logga in för att spara vikt och mått.";
+    }
+    dom.checkinInfo.textContent = "";
+    return;
+  }
+
+  const checkins = [...state.auth.checkins].sort((a, b) => (a.weekIndex || 0) - (b.weekIndex || 0));
+  if (!checkins.length) {
+    dom.checkinInfo.textContent = "Ingen uppföljning registrerad ännu.";
+    return;
+  }
+
+  const latest = checkins[checkins.length - 1];
+  const nextDate = addDays(parseDateInput(latest.date), 7);
+  dom.checkinInfo.textContent = `Senaste vecka ${latest.weekIndex}: ${latest.weightKg} kg, ${latest.waistCm} cm. Nästa uppföljning: ${formatShortDate(nextDate)}.`;
+
+  checkins
+    .slice()
+    .reverse()
+    .forEach((entry) => {
+      addListItem(
+        dom.checkinList,
+        `Vecka ${entry.weekIndex} (${entry.date}): ${entry.weightKg} kg, ${entry.waistCm} cm`
+      );
+    });
 }
 
 function renderShoppingList() {

@@ -102,6 +102,88 @@ body {
   padding: 16px;
 }
 
+.account {
+  margin-top: 14px;
+  padding: 16px;
+}
+
+.account h2 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+
+.auth-grid,
+.profile-grid,
+.checkin-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.recovery-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.recovery-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.recovery-panel input,
+.auth-grid input {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.profile-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.profile-grid,
+.checkin-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 8px;
+}
+
+.profile-panel label {
+  display: grid;
+  gap: 4px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.profile-panel input {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+#checkinList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
 .setup-main {
   display: flex;
   gap: 10px;
@@ -244,6 +326,11 @@ input[type="date"] {
   background: rgba(21, 122, 110, 0.07);
 }
 
+.day-cell.rest-day {
+  border-color: rgba(196, 77, 45, 0.7);
+  background: rgba(196, 77, 45, 0.12);
+}
+
 .day-cell.after-program {
   opacity: 0.64;
 }
@@ -263,6 +350,20 @@ input[type="date"] {
 .day-meta {
   font-size: 0.72rem;
   color: var(--muted);
+}
+
+.day-pill {
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.rest-pill {
+  background: rgba(196, 77, 45, 0.2);
+  color: #712814;
 }
 
 .details {
@@ -344,9 +445,23 @@ input[type="date"] {
   }
 
   .setup,
+  .account,
   .calendar,
   .details {
     padding: 12px;
+  }
+
+  .auth-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .recovery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-grid,
+  .checkin-grid {
+    grid-template-columns: 1fr;
   }
 
   .nav-btn {
@@ -389,12 +504,22 @@ input[type="date"] {
     gap: 8px;
   }
 
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
+
   .setup-main label {
     margin-bottom: -2px;
   }
 
   input[type="date"],
+  .auth-grid input,
+  .profile-panel input,
+  .recovery-panel input,
   .setup-main .btn,
+  .auth-grid .btn,
+  .profile-panel .btn,
+  .recovery-panel .btn,
   .shopping-tools select,
   .shopping-tools .btn {
     width: 100%;

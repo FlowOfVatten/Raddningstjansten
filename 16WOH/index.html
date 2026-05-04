@@ -39,6 +39,68 @@
         </p>
       </section>
 
+      <section class="account card">
+        <h2>Konto och uppföljning</h2>
+        <p id="authStatus" class="muted">Skapa konto eller logga in för att spara vikt och mått.</p>
+
+        <div class="auth-grid">
+          <input id="authUsername" type="text" placeholder="Användarnamn" autocomplete="username" />
+          <input id="authPassword" type="password" placeholder="Lösenord" autocomplete="current-password" />
+          <input id="securityQuestion" type="text" placeholder="Säkerhetsfråga (vid registrering)" />
+          <input id="securityAnswer" type="text" placeholder="Svar på säkerhetsfråga (vid registrering)" />
+          <button id="registerBtn" class="btn btn-primary" type="button">Skapa konto</button>
+          <button id="loginBtn" class="btn btn-ghost" type="button">Logga in</button>
+          <button id="forgotBtn" class="btn btn-ghost" type="button">Glömt lösenord</button>
+          <button id="logoutBtn" class="btn btn-ghost" type="button">Logga ut</button>
+        </div>
+
+        <div id="recoveryPanel" class="recovery-panel">
+          <p id="recoveryQuestion" class="muted"></p>
+          <div class="recovery-grid">
+            <input id="recoveryAnswer" type="text" placeholder="Svar på säkerhetsfråga" />
+            <button id="recoverPasswordBtn" class="btn btn-primary" type="button">Visa lösenord</button>
+          </div>
+          <p id="recoveryStatus" class="muted"></p>
+        </div>
+
+        <div id="profilePanel" class="profile-panel">
+          <div class="profile-grid">
+            <label>
+              Längd (cm)
+              <input id="profileHeight" type="number" min="100" max="250" step="1" />
+            </label>
+            <label>
+              Startvikt (kg)
+              <input id="profileWeight" type="number" min="30" max="300" step="0.1" />
+            </label>
+            <label>
+              Midjemått (cm)
+              <input id="profileWaist" type="number" min="40" max="200" step="0.1" />
+            </label>
+          </div>
+          <button id="saveProfileBtn" class="btn btn-primary" type="button">Spara profil</button>
+
+          <div class="checkin-grid">
+            <label>
+              Uppföljningsdatum
+              <input id="checkinDate" type="date" />
+            </label>
+            <label>
+              Vikt (kg)
+              <input id="checkinWeight" type="number" min="30" max="300" step="0.1" />
+            </label>
+            <label>
+              Midjemått (cm)
+              <input id="checkinWaist" type="number" min="40" max="200" step="0.1" />
+            </label>
+          </div>
+          <button id="saveCheckinBtn" class="btn btn-ghost" type="button">Spara veckouppföljning</button>
+
+          <p id="checkinInfo" class="muted"></p>
+          <ul id="checkinList"></ul>
+        </div>
+      </section>
+
       <section class="layout">
         <section class="calendar card">
           <div class="calendar-head">
