@@ -1,0 +1,5 @@
+# Azure Functions lokala inställningar (innehåller API-nycklar — committas ALDRIG)
+api/local.settings.json
+
+# Node
+node_modules/
