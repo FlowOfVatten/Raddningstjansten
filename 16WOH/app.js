@@ -36,6 +36,8 @@ function getExerciseGuide(svName, mode) {
   return EXERCISE_GUIDE_INDEX?.[mode]?.[normalizeGuideKey(svName)] || "";
 }
 
+const MEAL_RECIPES = window.MEAL_RECIPES || {};
+
 const breakfasts = [
   {
     key: "frukost-omelett",
@@ -560,15 +562,82 @@ function renderDetails() {
   const kostInfo = getKostBlock(plan.week);
   dom.detailsSubtitle.textContent = `Vecka ${plan.week} av 16 · Dag ${dayIndex + 1} · ${kostInfo.blockType} (Block ${kostInfo.block})`;
   renderTrainingList(plan.training);
-  plan.food.forEach((entry) => {
+  renderFoodList(plan.food, plan.mealKeys);
+}
+
+function renderFoodList(foodLines, mealKeys) {
+  let mealIdx = 0;
+  foodLines.forEach((entry) => {
     if (entry === "__SEP__") {
       const hr = document.createElement("hr");
       hr.className = "food-divider";
       dom.foodList.appendChild(hr);
-    } else {
-      addListItem(dom.foodList, entry);
+      return;
     }
+
+    const isPrimaryMealLine = mealIdx < mealKeys.length;
+    if (!isPrimaryMealLine) {
+      addListItem(dom.foodList, entry);
+      return;
+    }
+
+    const li = document.createElement("li");
+    const mealKey = mealKeys[mealIdx];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "exercise-link";
+    btn.textContent = entry;
+    btn.setAttribute("title", "Klicka för recept");
+    btn.addEventListener("click", () => openMealDetail(mealKey, entry));
+    li.appendChild(btn);
+    dom.foodList.appendChild(li);
+
+    mealIdx += 1;
   });
+}
+
+function resolveMealByKey(mealKey) {
+  const key = String(mealKey || "");
+  const baseKey = key.endsWith("-samma-som-lunch")
+    ? key.slice(0, -"-samma-som-lunch".length)
+    : key;
+
+  const meal = [...breakfasts, ...lunches, ...dinners, ...snacks].find((m) => m.key === baseKey);
+  return { meal, baseKey };
+}
+
+function formatMealRecipeHtml(title, meal, recipeText) {
+  const intro = recipeText || "Recepttext från PDF läggs in här.";
+  const ingredients = Array.isArray(meal?.ingredients) ? meal.ingredients : [];
+  const ingredientsHtml = ingredients.length
+    ? (`<h4 style="margin:14px 0 6px">Ingredienser</h4><ul style="margin:0;padding-left:20px;line-height:1.7">` +
+      ingredients
+        .map((it) => `<li>${escapeHtml(`${it.name}: ${it.amount} ${it.unit}`)}</li>`)
+        .join("") +
+      "</ul>")
+    : '<p class="muted" style="margin:10px 0 0">Ingredienslista saknas.</p>';
+
+  return (
+    `<p style="margin:0;line-height:1.7">${escapeHtml(intro).replace(/\n/g, "<br>")}</p>` +
+    ingredientsHtml +
+    `<p class="muted" style="margin:12px 0 0;font-size:0.8rem">Måltid: ${escapeHtml(title)}</p>`
+  );
+}
+
+function openMealDetail(mealKey, displayText) {
+  const { meal, baseKey } = resolveMealByKey(mealKey);
+  const title = String(displayText || meal?.text || "Måltid");
+
+  dom.exerciseModalTitle.textContent = title;
+  dom.exerciseModalImages.innerHTML = "";
+  dom.exerciseModalDesc.innerHTML = "";
+  if (dom.exerciseModalSource) {
+    dom.exerciseModalSource.textContent = "Källa: statisk måltidslista i appen";
+  }
+  dom.exerciseModal.hidden = false;
+
+  const recipeText = typeof MEAL_RECIPES[baseKey] === "string" ? MEAL_RECIPES[baseKey] : "";
+  dom.exerciseModalDesc.innerHTML = formatMealRecipeHtml(title, meal, recipeText);
 }
 
 function renderTrainingList(entries) {
