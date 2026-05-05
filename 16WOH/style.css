@@ -710,6 +710,92 @@ input[type="date"] {
   margin: 0;
 }
 
+.recipe-card {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  background:
+    linear-gradient(160deg, rgba(247, 165, 33, 0.08), rgba(247, 165, 33, 0.01)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.recipe-card-head {
+  display: grid;
+  gap: 8px;
+}
+
+.recipe-card-head h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.recipe-card-head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.recipe-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #24170a;
+  background: linear-gradient(90deg, #f7a521, #f8c264);
+}
+
+.recipe-servings {
+  margin: 12px 0 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.recipe-section {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(8, 19, 26, 0.45);
+}
+
+.recipe-section h4 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
+.recipe-section ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 5px;
+}
+
+.recipe-section li {
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.recipe-footnote {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .exercise-link {
   background: none;
   border: none;
@@ -775,6 +861,10 @@ input[type="date"] {
     width: 44px;
     height: 44px;
     font-size: 1.05rem;
+  }
+
+  .recipe-grid {
+    grid-template-columns: 1fr;
   }
 
   .weekday-row,

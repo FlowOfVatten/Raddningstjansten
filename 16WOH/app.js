@@ -37,6 +37,7 @@ function getExerciseGuide(svName, mode) {
 }
 
 const MEAL_RECIPES = window.MEAL_RECIPES || {};
+const MEAL_RECIPE_CATALOG = window.MEAL_RECIPE_CATALOG || [];
 
 const breakfasts = [
   {
@@ -219,6 +220,7 @@ const state = {
     profile: null,
     checkins: [],
   },
+  recipeCatalog: Array.isArray(MEAL_RECIPE_CATALOG) ? [...MEAL_RECIPE_CATALOG] : [],
 };
 
 const dom = {
@@ -327,9 +329,137 @@ function init() {
 
   renderAll();
 
+  loadExternalRecipeCatalog();
+
   if (isLoggedIn()) {
     refreshSession();
   }
+}
+
+async function loadExternalRecipeCatalog() {
+  try {
+    const response = await fetch("recept.txt", { cache: "no-store" });
+    if (!response.ok) {
+      return;
+    }
+
+    const raw = await response.text();
+    const parsed = parseRecipeCatalogText(raw);
+    if (!parsed.length) {
+      return;
+    }
+
+    state.recipeCatalog = parsed;
+    window.MEAL_RECIPE_CATALOG = parsed;
+    renderDetails();
+  } catch (_err) {
+    // Keep static fallback recipes if recept.txt cannot be loaded.
+  }
+}
+
+function parseRecipeCatalogText(rawText) {
+  const lines = String(rawText || "").split(/\r?\n/);
+  const recipes = [];
+  let current = null;
+  let section = "";
+
+  const pushCurrent = () => {
+    if (!current || !current.title) {
+      return;
+    }
+    if (!current.transcript.ingredients.length && !current.transcript.steps.length) {
+      return;
+    }
+    recipes.push(current);
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line || line === "***") {
+      return;
+    }
+
+    if (line.startsWith("## ")) {
+      pushCurrent();
+      const cleanTitle = cleanRecipeText(line.replace(/^##\s*/, "").replace(/^[^\p{L}\p{N}]+/u, ""));
+      current = {
+        title: cleanTitle,
+        source: "Källa: recept.txt (uppladdad)",
+        notes: "Automatiskt inläst från uppladdad receptfil.",
+        transcript: {
+          servings: "",
+          ingredients: [],
+          seasoning: [],
+          steps: [],
+        },
+      };
+      section = "";
+      return;
+    }
+
+    if (!current) {
+      return;
+    }
+
+    const servingsMatch = line.match(/^\*\*(.+)\*\*$/);
+    if (servingsMatch && !current.transcript.servings) {
+      current.transcript.servings = cleanRecipeText(servingsMatch[1]);
+      return;
+    }
+
+    if (line.startsWith("### ")) {
+      const heading = cleanRecipeText(line.replace(/^###\s*/, "")).toLowerCase();
+      if (heading.includes("ingrediens")) {
+        section = "ingredients";
+      } else if (heading.includes("kryddor") || heading.includes("örter")) {
+        section = "seasoning";
+      } else if (heading.includes("gör så här")) {
+        section = "steps";
+      } else {
+        section = "notes";
+      }
+      return;
+    }
+
+    if (line.startsWith("*")) {
+      const item = cleanRecipeText(line.replace(/^\*\s+/, ""));
+      if (!item) {
+        return;
+      }
+
+      if (section === "seasoning") {
+        current.transcript.seasoning.push(item);
+      } else if (section === "steps") {
+        current.transcript.steps.push(item);
+      } else {
+        current.transcript.ingredients.push(item);
+      }
+      return;
+    }
+
+    const plain = cleanRecipeText(line);
+    if (!plain) {
+      return;
+    }
+
+    if (section === "steps") {
+      current.transcript.steps.push(plain);
+    } else if (section === "seasoning") {
+      current.transcript.seasoning.push(plain);
+    } else if (section === "ingredients") {
+      current.transcript.ingredients.push(plain);
+    }
+  });
+
+  pushCurrent();
+  return recipes;
+}
+
+function cleanRecipeText(value) {
+  return String(value || "")
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function bindEvents() {
@@ -606,22 +736,98 @@ function resolveMealByKey(mealKey) {
   return { meal, baseKey };
 }
 
-function formatMealRecipeHtml(title, meal, recipeText) {
-  const intro = recipeText || "Recepttext från PDF läggs in här.";
-  const ingredients = Array.isArray(meal?.ingredients) ? meal.ingredients : [];
-  const ingredientsHtml = ingredients.length
-    ? (`<h4 style="margin:14px 0 6px">Ingredienser</h4><ul style="margin:0;padding-left:20px;line-height:1.7">` +
-      ingredients
-        .map((it) => `<li>${escapeHtml(`${it.name}: ${it.amount} ${it.unit}`)}</li>`)
-        .join("") +
-      "</ul>")
-    : '<p class="muted" style="margin:10px 0 0">Ingredienslista saknas.</p>';
+function getMealRecipeEntry(mealKey) {
+  const value = MEAL_RECIPES?.[mealKey];
+  if (typeof value === "string") {
+    return { text: value };
+  }
+  if (value && typeof value === "object") {
+    return value;
+  }
+  return null;
+}
 
-  return (
-    `<p style="margin:0;line-height:1.7">${escapeHtml(intro).replace(/\n/g, "<br>")}</p>` +
-    ingredientsHtml +
-    `<p class="muted" style="margin:12px 0 0;font-size:0.8rem">Måltid: ${escapeHtml(title)}</p>`
-  );
+function getCatalogRecipeEntry(mealKey) {
+  if (!Array.isArray(state.recipeCatalog) || !state.recipeCatalog.length) {
+    return null;
+  }
+
+  const dayIndex = state.startDate ? Math.max(0, diffDays(state.startDate, state.selectedDate)) : 0;
+  const slotOffset = mealKey.startsWith("frukost")
+    ? 0
+    : mealKey.startsWith("lunch")
+      ? 1
+      : mealKey.startsWith("middag")
+        ? 2
+        : 3;
+  const keyHash = [...String(mealKey || "")].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const index = (dayIndex * 4 + slotOffset + keyHash) % state.recipeCatalog.length;
+  const recipe = state.recipeCatalog[index];
+
+  return {
+    title: recipe.title,
+    source: recipe.source,
+    notes: recipe.notes,
+    transcript: recipe.transcript,
+  };
+}
+
+function renderMealRecipeSection(title, items) {
+  if (!Array.isArray(items) || !items.length) {
+    return "";
+  }
+
+  return `
+    <section class="recipe-section">
+      <h4>${escapeHtml(title)}</h4>
+      <ul>
+        ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </section>
+  `;
+}
+
+function formatDefaultMealIngredients(meal) {
+  const ingredients = Array.isArray(meal?.ingredients) ? meal.ingredients : [];
+  return ingredients.map((it) => `${it.name}: ${it.amount} ${it.unit}`);
+}
+
+function formatMealRecipeHtml(title, meal, recipeEntry) {
+  const intro = recipeEntry?.text || recipeEntry?.notes || "Recept hämtat från din uppladdade samling.";
+  const transcript = recipeEntry?.transcript || null;
+  const recipeTitle = recipeEntry?.title || title;
+  const ingredients = transcript?.ingredients?.length ? transcript.ingredients : formatDefaultMealIngredients(meal);
+  const seasoning = transcript?.seasoning || [];
+  const steps = transcript?.steps || [];
+  const servings = transcript?.servings;
+
+  return `
+    <article class="recipe-card">
+      <header class="recipe-card-head">
+        <span class="recipe-chip">Receptkort</span>
+        <h4>${escapeHtml(recipeTitle)}</h4>
+        <p>${escapeHtml(intro).replace(/\n/g, "<br>")}</p>
+      </header>
+      ${servings ? `<p class="recipe-servings"><strong>Portioner:</strong> ${escapeHtml(servings)}</p>` : ""}
+      <div class="recipe-grid">
+        ${renderMealRecipeSection("Ingredienser", ingredients)}
+        ${renderMealRecipeSection("Kryddor & örter", seasoning)}
+        ${renderMealRecipeSection("Gör så här", steps)}
+      </div>
+      <p class="recipe-footnote">Vald från full receptsamling för: ${escapeHtml(title)}</p>
+    </article>
+  `;
+}
+
+function renderMealRecipeImages(recipeEntry, title) {
+  const imagePaths = [recipeEntry?.photoImage, recipeEntry?.detailImage].filter(Boolean);
+  imagePaths.forEach((src, index) => {
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = `${title} ${index === 0 ? "bild" : "receptkort"}`;
+    img.loading = "lazy";
+    dom.exerciseModalImages.appendChild(img);
+  });
 }
 
 function openMealDetail(mealKey, displayText) {
@@ -636,8 +842,14 @@ function openMealDetail(mealKey, displayText) {
   }
   dom.exerciseModal.hidden = false;
 
-  const recipeText = typeof MEAL_RECIPES[baseKey] === "string" ? MEAL_RECIPES[baseKey] : "";
-  dom.exerciseModalDesc.innerHTML = formatMealRecipeHtml(title, meal, recipeText);
+  const recipeEntry = getCatalogRecipeEntry(baseKey) || getMealRecipeEntry(baseKey);
+  if (recipeEntry?.photoImage || recipeEntry?.detailImage) {
+    renderMealRecipeImages(recipeEntry, title);
+  }
+  if (dom.exerciseModalSource && recipeEntry?.source) {
+    dom.exerciseModalSource.textContent = recipeEntry.source;
+  }
+  dom.exerciseModalDesc.innerHTML = formatMealRecipeHtml(title, meal, recipeEntry);
 }
 
 function renderTrainingList(entries) {
