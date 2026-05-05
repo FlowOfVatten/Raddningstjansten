@@ -1263,6 +1263,38 @@ async function saveWeeklyCheckin() {
   renderAll();
 }
 
+async function deleteWeeklyCheckin(weekIndex) {
+  if (!isLoggedIn()) {
+    dom.authStatus.textContent = "Logga in först.";
+    return;
+  }
+
+  if (!Number.isFinite(Number(weekIndex))) {
+    dom.authStatus.textContent = "Ogiltig vecka för radering.";
+    return;
+  }
+
+  const confirmed = window.confirm(`Radera veckouppföljning för vecka ${weekIndex}?`);
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await accountApi("deleteCheckin", {
+      username: state.auth.username,
+      token: state.auth.token,
+      weekIndex: Number(weekIndex),
+    });
+
+    applyUserData(result.user || {});
+    dom.authStatus.textContent = `Veckouppföljning för vecka ${weekIndex} raderad.`;
+  } catch (err) {
+    dom.authStatus.textContent = err.message;
+  }
+
+  renderAll();
+}
+
 function renderAccountSection() {
   const loggedIn = isLoggedIn();
   dom.authChooser.style.display = !loggedIn && state.authMode === "chooser" ? "block" : "none";
@@ -1308,10 +1340,22 @@ function renderAccountSection() {
     .slice()
     .reverse()
     .forEach((entry) => {
-      addListItem(
-        dom.checkinList,
-        `Vecka ${entry.weekIndex} (${entry.date}): ${entry.weightKg} kg, ${entry.waistCm} cm`
-      );
+      const li = document.createElement("li");
+      li.className = "checkin-item";
+
+      const text = document.createElement("span");
+      text.className = "checkin-item-text";
+      text.textContent = `Vecka ${entry.weekIndex} (${entry.date}): ${entry.weightKg} kg, ${entry.waistCm} cm`;
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn btn-ghost checkin-delete-btn";
+      deleteBtn.textContent = "Ta bort";
+      deleteBtn.setAttribute("aria-label", `Radera uppföljning vecka ${entry.weekIndex}`);
+      deleteBtn.addEventListener("click", () => deleteWeeklyCheckin(entry.weekIndex));
+
+      li.append(text, deleteBtn);
+      dom.checkinList.appendChild(li);
     });
 }
 

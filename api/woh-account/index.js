@@ -390,6 +390,36 @@ module.exports = async function (context, req) {
       return json(200, { ok: true, user: sanitizeUser(user) });
     }
 
+    if (action === "deletecheckin") {
+      const username = normalizeUsername(data.username);
+      const token = String(data.token || "");
+      assertUsername(username);
+
+      const user = await loadUser(pool, username);
+      if (!user) {
+        return json(404, { error: "Konto hittades inte." });
+      }
+      verifyToken(user, token);
+
+      const weekIndex = Number(data.weekIndex);
+      if (!Number.isFinite(weekIndex)) {
+        return json(400, { error: "Ogiltig vecka." });
+      }
+
+      const list = Array.isArray(user.checkins) ? user.checkins : [];
+      const idx = list.findIndex((x) => Number(x.weekIndex) === weekIndex);
+      if (idx < 0) {
+        return json(404, { error: `Ingen uppföljning hittades för vecka ${weekIndex}.` });
+      }
+
+      list.splice(idx, 1);
+      user.checkins = list;
+      user.updatedAt = new Date().toISOString();
+
+      await saveUser(pool, username, user);
+      return json(200, { ok: true, user: sanitizeUser(user) });
+    }
+
     return json(400, { error: "Unknown action" });
   } catch (err) {
     context.log.error("woh-account error", err);
