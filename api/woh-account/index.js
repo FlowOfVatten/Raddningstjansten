@@ -162,6 +162,7 @@ function sanitizeUser(user) {
     checkins: Array.isArray(user.checkins)
       ? [...user.checkins].sort((a, b) => (a.weekIndex || 0) - (b.weekIndex || 0))
       : [],
+    recipeOffsets: user.recipeOffsets || {},
   };
 }
 
@@ -416,6 +417,36 @@ module.exports = async function (context, req) {
       user.checkins = list;
       user.updatedAt = new Date().toISOString();
 
+      await saveUser(pool, username, user);
+      return json(200, { ok: true, user: sanitizeUser(user) });
+    }
+
+    if (action === "saverecipeoffsets") {
+      const username = normalizeUsername(data.username);
+      const token = String(data.token || "");
+      assertUsername(username);
+
+      const user = await loadUser(pool, username);
+      if (!user) {
+        return json(404, { error: "Konto hittades inte." });
+      }
+      verifyToken(user, token);
+
+      // Only accept plain object with numeric day-index keys (0-111) and non-negative integer values.
+      const raw = data.recipeOffsets;
+      const sanitized = {};
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        for (const [k, v] of Object.entries(raw)) {
+          const day = Number(k);
+          const offset = Number(v);
+          if (Number.isInteger(day) && day >= 0 && day < 112 && Number.isInteger(offset) && offset >= 0) {
+            sanitized[day] = offset;
+          }
+        }
+      }
+
+      user.recipeOffsets = sanitized;
+      user.updatedAt = new Date().toISOString();
       await saveUser(pool, username, user);
       return json(200, { ok: true, user: sanitizeUser(user) });
     }

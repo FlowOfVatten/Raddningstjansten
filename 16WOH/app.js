@@ -1,6 +1,29 @@
 ﻿const STORAGE_KEY = "wohStartDate";
 const AUTH_STORAGE_KEY = "wohAuth";
 const ACCOUNT_API = "/api/woh-account";
+
+function loadRecipeOffsets(serverOffsets) {
+  state.recipeOffsets = (serverOffsets && typeof serverOffsets === "object" && !Array.isArray(serverOffsets))
+    ? { ...serverOffsets }
+    : {};
+}
+
+async function persistRecipeOffsets() {
+  if (!isLoggedIn()) return;
+  try {
+    await accountApi("saverecipeoffsets", {
+      username: state.auth.username,
+      token: state.auth.token,
+      recipeOffsets: state.recipeOffsets,
+    });
+  } catch (_) {
+    // Silent fail — offsets are still active for this session
+  }
+}
+
+function clearRecipeOffsets() {
+  state.recipeOffsets = {};
+}
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 
@@ -221,6 +244,7 @@ const state = {
     checkins: [],
   },
   recipeCatalog: Array.isArray(MEAL_RECIPE_CATALOG) ? [...MEAL_RECIPE_CATALOG] : [],
+  recipeOffsets: {},
 };
 
 const dom = {
@@ -711,18 +735,45 @@ function renderFoodList(foodLines, mealKeys) {
       return;
     }
 
-    const li = document.createElement("li");
     const mealKey = mealKeys[mealIdx];
+    mealIdx += 1;
+
+    if (!mealKey.startsWith("lunch")) {
+      addListItem(dom.foodList, entry);
+      return;
+    }
+
+    // Use the recipe catalog title as the displayed name if available.
+    const catalogEntry = getCatalogRecipeEntry(mealKey);
+    const recipeName = catalogEntry?.title || entry.replace(/^Lunch:\s*/i, "");
+    const displayText = `Lunch/middag: ${recipeName}`;
+
+    const li = document.createElement("li");
+    li.className = "food-recipe-row";
+
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "exercise-link";
-    btn.textContent = entry;
+    btn.textContent = displayText;
     btn.setAttribute("title", "Klicka för recept");
-    btn.addEventListener("click", () => openMealDetail(mealKey, entry));
-    li.appendChild(btn);
-    dom.foodList.appendChild(li);
+    btn.addEventListener("click", () => openMealDetail(mealKey, displayText));
 
-    mealIdx += 1;
+    const refreshBtn = document.createElement("button");
+    refreshBtn.type = "button";
+    refreshBtn.className = "recipe-refresh-btn";
+    refreshBtn.setAttribute("title", "Byt recept för dagen");
+    refreshBtn.setAttribute("aria-label", "Byt recept");
+    refreshBtn.textContent = "↻";
+    refreshBtn.addEventListener("click", () => {
+      const dayIndex = state.startDate ? Math.max(0, diffDays(state.startDate, state.selectedDate)) : 0;
+      state.recipeOffsets[dayIndex] = ((state.recipeOffsets[dayIndex] || 0) + 1);
+      persistRecipeOffsets();
+      renderDetails();
+    });
+
+    li.appendChild(btn);
+    li.appendChild(refreshBtn);
+    dom.foodList.appendChild(li);
   });
 }
 
@@ -748,20 +799,28 @@ function getMealRecipeEntry(mealKey) {
 }
 
 function getCatalogRecipeEntry(mealKey) {
+  const key = String(mealKey || "");
+  if (!key.startsWith("lunch") && !key.startsWith("middag")) return null;
+  const dayIndex = state.startDate ? Math.max(0, diffDays(state.startDate, state.selectedDate)) : 0;
+  return getCatalogRecipeEntryForDay(mealKey, dayIndex);
+}
+
+function getCatalogRecipeEntryForDay(mealKey, dayIndex) {
   if (!Array.isArray(state.recipeCatalog) || !state.recipeCatalog.length) {
     return null;
   }
 
-  const dayIndex = state.startDate ? Math.max(0, diffDays(state.startDate, state.selectedDate)) : 0;
-  const slotOffset = mealKey.startsWith("frukost")
-    ? 0
-    : mealKey.startsWith("lunch")
-      ? 1
-      : mealKey.startsWith("middag")
-        ? 2
-        : 3;
-  const keyHash = [...String(mealKey || "")].reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const index = (dayIndex * 4 + slotOffset + keyHash) % state.recipeCatalog.length;
+  const key = String(mealKey || "");
+  const isLunch = key.startsWith("lunch");
+  const isDinner = key.startsWith("middag");
+  if (!isLunch && !isDinner) {
+    return null;
+  }
+
+  // Lunch and dinner always show the same recipe — cook once, eat twice.
+  // recipeOffsets allows the user to cycle to a different recipe for a specific day.
+  const offset = state.recipeOffsets?.[dayIndex] || 0;
+  const index = (dayIndex + offset) % state.recipeCatalog.length;
   const recipe = state.recipeCatalog[index];
 
   return {
@@ -1103,16 +1162,10 @@ function getDailyMeals(dayIndex) {
   const breakfastKey = state.auth.profile?.breakfastKey || breakfasts[0].key;
   const selectedBreakfast = breakfasts.find((item) => item.key === breakfastKey) || breakfasts[0];
   const lunchMeal = lunches[(dayIndex + 1) % lunches.length];
-  const dinnerMeal = {
-    key: `${lunchMeal.key}-samma-som-lunch`,
-    text: `Middag: samma matlåda som lunch (${lunchMeal.text.replace("Lunch: ", "")})`,
-    ingredients: lunchMeal.ingredients,
-  };
 
   return {
     breakfast: selectedBreakfast,
     lunch: lunchMeal,
-    dinner: dinnerMeal,
     snack: snacks[(dayIndex + 3) % snacks.length],
   };
 }
@@ -1253,16 +1306,14 @@ function buildFood(dayIndex, workoutType, phase) {
     lines: [
       meals.breakfast.text,
       meals.lunch.text,
-      meals.dinner.text,
       meals.snack.text,
       "__SEP__",
-      "Meal prep: lunch och middag är samma matlåda för enklare planering",
       portionGuide,
       carbRule,
       fatGuide,
       hydration,
     ],
-    mealKeys: [meals.breakfast.key, meals.lunch.key, meals.dinner.key, meals.snack.key],
+    mealKeys: [meals.breakfast.key, meals.lunch.key, meals.snack.key],
   };
 }
 
@@ -1272,6 +1323,7 @@ function isLoggedIn() {
 
 function persistAuth() {
   if (!isLoggedIn()) {
+    clearRecipeOffsets();
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return;
   }
@@ -1285,6 +1337,7 @@ function persistAuth() {
 function applyUserData(user) {
   state.auth.profile = user.profile || null;
   state.auth.checkins = Array.isArray(user.checkins) ? user.checkins : [];
+  loadRecipeOffsets(user.recipeOffsets);
 
   if (state.auth.profile) {
     const p = state.auth.profile;
@@ -1745,7 +1798,12 @@ function renderShoppingList() {
   const endDate = addDays(state.selectedDate, spanDays - 1);
   dom.shoppingInfo.textContent = `Vald period: ${formatShortDate(state.selectedDate)} - ${formatShortDate(endDate)}.`;
 
-  const shoppingMap = new Map();
+  // Structured ingredients (breakfast + snack) – summed across days.
+  const structuredMap = new Map();
+  // Recipe ingredients (lunch/dinner from catalog) – text strings, deduplicated.
+  const recipeIngredients = new Set();
+  const recipeSeasonings = new Set();
+  const seenRecipes = new Set();
 
   for (let i = 0; i < spanDays; i += 1) {
     const currentDate = addDays(state.selectedDate, i);
@@ -1756,24 +1814,40 @@ function renderShoppingList() {
     }
 
     const meals = getDailyMeals(dayIndex);
-    [meals.breakfast, meals.lunch, meals.dinner, meals.snack].forEach((meal) => {
+
+    // Breakfast and snack use structured ingredients that can be summed.
+    [meals.breakfast, meals.snack].forEach((meal) => {
+      if (!meal) return;
       meal.ingredients.forEach((ingredient) => {
         const mapKey = `${ingredient.name}|${ingredient.unit}`;
-        if (!shoppingMap.has(mapKey)) {
-          shoppingMap.set(mapKey, {
-            name: ingredient.name,
-            unit: ingredient.unit,
-            amount: 0,
-          });
+        if (!structuredMap.has(mapKey)) {
+          structuredMap.set(mapKey, { name: ingredient.name, unit: ingredient.unit, amount: 0 });
         }
-
-        const existing = shoppingMap.get(mapKey);
-        existing.amount += ingredient.amount;
+        structuredMap.get(mapKey).amount += ingredient.amount;
       });
     });
+
+    // Lunch/dinner: pull ingredients from catalog recipe for this day.
+    const catalogEntry = getCatalogRecipeEntryForDay(meals.lunch.key, dayIndex);
+    if (catalogEntry) {
+      if (!seenRecipes.has(catalogEntry.title)) {
+        seenRecipes.add(catalogEntry.title);
+        (catalogEntry.transcript?.ingredients || []).forEach((s) => recipeIngredients.add(s));
+        (catalogEntry.transcript?.seasoning || []).forEach((s) => recipeSeasonings.add(s));
+      }
+    } else {
+      // Fallback: use generic lunch ingredients from meals array.
+      meals.lunch.ingredients.forEach((ingredient) => {
+        const mapKey = `${ingredient.name}|${ingredient.unit}`;
+        if (!structuredMap.has(mapKey)) {
+          structuredMap.set(mapKey, { name: ingredient.name, unit: ingredient.unit, amount: 0 });
+        }
+        structuredMap.get(mapKey).amount += ingredient.amount;
+      });
+    }
   }
 
-  if (shoppingMap.size === 0) {
+  if (structuredMap.size === 0 && recipeIngredients.size === 0) {
     addListItem(
       dom.shoppingList,
       "Inga planerade programdagar i vald period. Flytta vald dag eller ändra period."
@@ -1781,12 +1855,34 @@ function renderShoppingList() {
     return;
   }
 
-  const sorted = [...shoppingMap.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  // Render recipe ingredients first (most useful for meal prep).
+  if (recipeIngredients.size > 0) {
+    const recipeHeader = document.createElement("li");
+    recipeHeader.style.cssText = "font-weight:700;color:var(--accent);list-style:none;margin-top:4px";
+    recipeHeader.textContent = `Recept (${[...seenRecipes].join(", ")})`;
+    dom.shoppingList.appendChild(recipeHeader);
+    [...recipeIngredients].forEach((s) => addListItem(dom.shoppingList, s));
+  }
 
-  sorted.forEach((item) => {
-    const rounded = Number.isInteger(item.amount) ? item.amount : item.amount.toFixed(1);
-    addListItem(dom.shoppingList, `${item.name}: ca ${rounded} ${item.unit}`);
-  });
+  if (recipeSeasonings.size > 0) {
+    const seasHeader = document.createElement("li");
+    seasHeader.style.cssText = "font-weight:700;color:var(--accent);list-style:none;margin-top:6px";
+    seasHeader.textContent = "Kryddor & örter";
+    dom.shoppingList.appendChild(seasHeader);
+    [...recipeSeasonings].forEach((s) => addListItem(dom.shoppingList, s));
+  }
+
+  if (structuredMap.size > 0) {
+    const otherHeader = document.createElement("li");
+    otherHeader.style.cssText = "font-weight:700;color:var(--accent);list-style:none;margin-top:6px";
+    otherHeader.textContent = "Frukost & mellanmål";
+    dom.shoppingList.appendChild(otherHeader);
+    const sorted = [...structuredMap.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+    sorted.forEach((item) => {
+      const rounded = Number.isInteger(item.amount) ? item.amount : item.amount.toFixed(1);
+      addListItem(dom.shoppingList, `${item.name}: ca ${rounded} ${item.unit}`);
+    });
+  }
 }
 
 function exportWeekToPdf() {

@@ -812,6 +812,36 @@ input[type="date"] {
   color: #f7c060;
 }
 
+.food-recipe-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.recipe-refresh-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.recipe-refresh-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: rotate(45deg);
+}
+
 .details li {
   overflow-wrap: anywhere;
 }
