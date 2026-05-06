@@ -93,6 +93,14 @@ Cues: Ingen axelrörelse.
 Vanliga fel: Tappar stöd, studsar.
 Rek/tempo: 10-15/arm, 2 s upp / 3 s ner.`,
 
+    "dips": `Startposition: Händer på parallella handtag eller stabila bars. Axlar sänkta, bröst upp.
+Utförande:
+1. Böj armbågarna och sänk kroppen kontrollerat tills överarmarna är ungefär parallella med golvet.
+2. Pressa upp till raka armar utan att tappa skulderkontroll.
+Cues: Bröst upp. Armbågar bakåt. Axlar bort från öronen.
+Vanliga fel: Sjunker för djupt, faller fram med axlarna, halva reps.
+Rek/tempo: 6-12 reps. 2 s ner / 1-2 s upp.`,
+
     "benpress": `Startposition: Sätt fötterna axelbrett. Knän följer tår. Ländrygg i kontakt med ryggstöd.
 Utförande:
 1. Sänk tills knäna är runt 90° (eller djupare om du håller bäckenet neutralt).
@@ -119,6 +127,15 @@ Utförande:
 Cues: Hög överkropp. Främre knä över fot.
 Vanliga fel: För kort steg (knä långt fram), tappar balans, lutar fram.
 Rek/tempo: 8-14 steg/ben. 2-3 s ner / 1 s upp.`,
+
+    "dragonflyes": `Startposition: Ligg på bänk eller golv och greppa något stabilt bakom huvudet om möjligt.
+Utförande:
+1. Lyft höfter och ben som en enhet upp mot taket.
+2. Sänk kroppen långsamt med så rak linje som möjligt utan att tappa bålkontroll.
+3. Vänd innan ländryggen kollapsar.
+Cues: Håll bålen stenhård. Tänk hollow body.
+Vanliga fel: Böjer för mycket i höften, tappar ländryggskontakt, faller ner för snabbt.
+Rek/tempo: 4-8 reps med långsam excentrisk fas.`,
 
     "benspark leg extension": `Startposition: Knä i linje med maskinens led. Dyna på smalbenet.
 Utförande: Sträck knäna upp, pausa 1 s, sänk långsamt.
@@ -170,6 +187,133 @@ Utförande: Spänn mage + säte och håll rak linje huvud-höft-häl. Andas lugn
 Cues: Dra naveln lätt in. Knip sätet. Pressa underarmar ner.
 Vanliga fel: Hänger i ländrygg, höften för högt, håller andan.
 Rek/tempo: 20-60 sek x 2-4 set.`,
+
+    "farmers walk": `Startposition: Greppa två tunga hantlar eller kettlebells vid sidan.
+Utförande:
+1. Stå högt och stabilt med bål spänd.
+2. Gå kontrollerat framåt i jämna steg utan att luta åt sidan.
+3. Vänd med kontroll och fortsätt tills längden är klar.
+Cues: Stolthet i bröstet. Korta stabila steg. Krossa handtagen.
+Vanliga fel: Svajar i sidled, tappar hållning, för långa steg.
+Rek: 20-40 meter per längd eller tidsbestämd gång.`,
+
+    "burpees": `Startposition: Stå upprätt med lätt böjda knän och spänd bål.
+Utförande:
+1. Gå eller hoppa ner med händerna i golvet.
+2. Skicka bak fötterna till plankposition.
+3. Gör armhävning om passet kräver full burpee.
+4. Hoppa eller kliv fram fötterna nära händerna.
+5. Explodera upp i ett hopp med armarna över huvudet.
+Cues: Håll magen spänd genom hela repen. Land mjukt och hitta rytm.
+Vanliga fel: Svank i plankläget, slarvig landning, för högt starttempo.
+Rek: Jobba i jämnt maxtempo över utsatt tid.`,
+
+    "armhävningar": `Startposition: Händer strax bredare än axlar, kropp i rak linje från huvud till häl.
+Utförande:
+1. Sänk bröstet kontrollerat mot golvet.
+2. Pressa upp till raka armar utan att tappa bålen.
+Cues: Spänn mage och säte. Armbågar cirka 45 grader från kroppen.
+Vanliga fel: Svank, kort rörelse, huvudet först ner.
+Rek: Kör till nära failure med bibehållen teknik.`,
+
+    "mountain climbers": `Startposition: Hög plankposition med händer under axlarna.
+Utförande:
+1. Dra ett knä i taget fram mot bröstet i snabbt men kontrollerat tempo.
+2. Växla ben utan att höften studsar upp och ner.
+Cues: Pressa golvet bort. Håll höften låg och bålen stum.
+Vanliga fel: För höga höfter, kort knäväg, tappar skulderkontroll.
+Rek: Arbeta på tid med jämn fart.`,
+
+    "kettlebell-svingar": `Startposition: Fötter höftbrett, kettlebell en bit framför dig. Fäll i höften och greppa handtaget.
+Utförande:
+1. Hika bak vikten mellan benen.
+2. Explodera fram höften så vikten svänger upp till ungefär brösthöjd.
+3. Låt vikten falla tillbaka och upprepa med ny höftsnap.
+Cues: Höftdriv, inte axellyft. Neutral rygg hela tiden.
+Vanliga fel: Böjer för mycket i knä, lyfter med armarna, rundar ryggen.
+Rek: 15-25 reps per set med tydlig rytm.`,
+
+    "500 m maxrodd": `Startposition: Sitt fastspänd med fötterna stadigt i fotstöden. Greppa handtaget avslappnat.
+Utförande:
+1. Starta varje drag med benen, fortsätt med höften och avsluta med armarna.
+2. På vägen tillbaka: armar, höftfällning, sedan ben.
+3. Håll kraftfull men kontrollerad rytm över hela 500 meter.
+Cues: Tryck hårt med benen. Håll kedjan rak. Slösa inte energi första 100 m.
+Vanliga fel: Drar med armarna för tidigt, rundar ryggen, öppnar för hårt från start.
+Rek: Maxinsats med jämn pacing.`,
+
+    "500 m rodd": `Startposition: Sitt fastspänd med fötterna stadigt i fotstöden. Greppa handtaget avslappnat.
+Utförande:
+1. Starta draget med benen.
+2. Följ upp med lätt bakåtlut och avsluta med armdrag.
+3. Återgå i omvänd ordning och håll rytmen stabil.
+Cues: Ben först, armar sist. Håll ryggen neutral.
+Vanliga fel: Rycker i kedjan, överdrivet bakåtlut, tappar teknik i slutet.
+Rek: Tidsmål eller intervallinsats.`,
+
+    "löpbandsintervall": `Startposition: Välj lutning och tempo innan start så att du kan gå direkt in i arbete.
+Utförande:
+1. Driv på med korta, aktiva steg.
+2. Håll bålspänning och armarna nära kroppen.
+3. Sänk inte tempot förrän tiden är ute.
+Cues: Land under kroppen. Jobba med rytm i armarna.
+Vanliga fel: Hänger i handtagen, för långa steg, för hård öppning.
+Rek: Kort, hård intervall på maxlutning eller högt tempo.`,
+
+    "chins/pull-ups": `Startposition: Häng med aktiva skuldror och spänd bål.
+Utförande:
+1. Dra kroppen upp tills hakan passerar stången.
+2. Sänk kontrollerat till fullt sträck.
+Cues: Bröst mot stång. Undvik att sparka med benen.
+Vanliga fel: Halva reps, gung, tappar skulderkontroll i botten.
+Rek: Max antal strikta reps.`,
+
+    "5 km gång/löpning": `Startposition: Börja i ett tempo du kan hålla längre än du tror.
+Utförande:
+1. Håll jämn fart första halvan.
+2. Öka successivt om du har kraft kvar sista 1-2 kilometrarna.
+Cues: Avslappnade axlar. Kort och effektiv steglängd. Andas rytmiskt.
+Vanliga fel: Startar för fort, spänner överkroppen, tappar hållning sent i passet.
+Rek: Kontinuerlig distans med fokus på hållbar fart.`,
+
+    "rpe": `RPE = Rate of Perceived Exertion (upplevd anstrangning), skala 1-10.
+RPE 7: Du har cirka 3 reps kvar i tanken.
+RPE 8: Du har cirka 2 reps kvar.
+RPE 9: Du har cirka 1 rep kvar.
+RPE 10: Max, inga reps kvar.
+
+Praktik i 16WOH:
+- Fas 1: hall dig kring RPE 7-8 pa baslyften.
+- Hoj inte vikt om teknik eller tempo kollapsar.
+- Om formen bryts: stanna setet, justera vikten och fortsatt.` ,
+
+    "amrap": `AMRAP = As Many Reps As Possible inom teknisk kontroll.
+I detta upplagg betyder det:
+- Endast sista setet pa utvalda ovningar.
+- Max 2 reps over planerat antal.
+- Avbryt innan teknisk kollaps.
+
+Syfte:
+- Skapa progressionssignal utan att offra aterhamtning.
+- Trana mental press under trotthet.` ,
+
+    "failure": `Failure i detta program:
+- Ej tillatet pa tunga baslyft (t.ex. knaboj, RDL, rack pull).
+- Tillatet pa kroppsviktsovningar och vissa finishers.
+
+Teknisk regel:
+- Avbryt vid tydlig formforlust, inte nar vikten fastnar okontrollerat.
+- Kvalitet fore ego.` ,
+
+    "ruck": `Ruck = rask gang med extra vikt i ryggsack.
+Rekommendation i detta upplagg:
+- Ersatt 1-2 powerwalks/vecka under fas 2-3.
+- Last: cirka 10-15 kg.
+- Tid: vanligtvis 45-60 min.
+
+Teknik:
+- Korta steg, uppratt hallning, spann bål.
+- Vaxa in gradvis i vikt och tid for att skydda kna/rygg.` ,
 
     "hängande benlyft eller dead bug": `Hängande benlyft:
 Startposition: Häng stabilt, skulderblad lätt neddragna (inte häng i axlarna).
@@ -407,6 +551,21 @@ Cues: Rakt upp/ner. Kontrollerad stretch.
 Rek: 15-30 reps.`,
 
     "gångutfall hantlar": gym["gångutfall hantlar"],
+    "dragonflyes": gym["dragonflyes"],
+    "farmers walk": gym["farmers walk"],
+        "burpees": gym["burpees"],
+        "armhävningar": gym["armhävningar"],
+        "mountain climbers": gym["mountain climbers"],
+        "kettlebell-svingar": gym["kettlebell-svingar"],
+        "500 m maxrodd": gym["500 m maxrodd"],
+        "500 m rodd": gym["500 m rodd"],
+        "löpbandsintervall": gym["löpbandsintervall"],
+        "chins/pull-ups": gym["chins/pull-ups"],
+        "5 km gång/löpning": gym["5 km gång/löpning"],
+        "rpe": gym["rpe"],
+        "amrap": gym["amrap"],
+        "failure": gym["failure"],
+        "ruck": gym["ruck"],
     "fst-stil sidolyft": gym["fst-stil sidolyft"],
   };
 
