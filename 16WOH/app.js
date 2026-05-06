@@ -26,6 +26,13 @@ function clearRecipeOffsets() {
 }
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+const FIRE_METER_LEVELS = {
+  1: "Rökdykning utan luft: Allt är motigt. Pannbenet räddade dagen.",
+  2: "Eftersläckning: Energin är låg, men jobbet blev gjort.",
+  3: "Kontrollerad brand: Stabil dag. Allt rullar på enligt plan.",
+  4: "Full utryckning: Stark energi! Dominans på gymmet.",
+  5: "Flashover: Ostoppbar! Vikterna känns lätta och formen är topp.",
+};
 
 const EXERCISE_GUIDES = window.EXERCISE_GUIDES || { gym: {}, hemma: {} };
 const EXERCISE_GUIDE_ALIASES = {
@@ -338,6 +345,7 @@ const state = {
     token: "",
     profile: null,
     checkins: [],
+    fireRatings: {},
   },
   recipeCatalog: Array.isArray(MEAL_RECIPE_CATALOG) ? [...MEAL_RECIPE_CATALOG] : [],
   recipeOffsets: {},
@@ -367,6 +375,11 @@ const dom = {
   showBlockInfoBtn: document.getElementById("showBlockInfoBtn"),
   showFoodInfoBtn: document.getElementById("showFoodInfoBtn"),
   exportWeekPdf: document.getElementById("exportWeekPdf"),
+  fireMeter: document.getElementById("fireMeter"),
+  fireMeterValue: document.getElementById("fireMeterValue"),
+  fireMeterInfo: document.getElementById("fireMeterInfo"),
+  fireMeterButtons: document.getElementById("fireMeterButtons"),
+  fireMeterDescription: document.getElementById("fireMeterDescription"),
   shoppingDays: document.getElementById("shoppingDays"),
   generateShopping: document.getElementById("generateShopping"),
   shoppingInfo: document.getElementById("shoppingInfo"),
@@ -612,6 +625,14 @@ function bindEvents() {
     const arrow = dom.shoppingToggle.querySelector(".toggle-arrow");
     if (arrow) arrow.textContent = expanded ? "▼" : "▲";
   });
+  dom.fireMeterButtons.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-fire-rating]");
+    if (!button) {
+      return;
+    }
+
+    saveFireRating(Number(button.dataset.fireRating));
+  });
 
   dom.showProfileBtn.addEventListener("click", () => {
     state.showProfile = !state.showProfile;
@@ -792,6 +813,7 @@ function renderDetails() {
     dom.detailsSubtitle.textContent = "Kalendern fylls när programmet är startat.";
     addListItem(dom.trainingList, "Ingen plan ännu.");
     addListItem(dom.foodList, "Välj datum för att skapa kostplan.");
+    renderFireMeter();
     return;
   }
 
@@ -802,6 +824,7 @@ function renderDetails() {
     dom.detailsSubtitle.textContent = "Programmet har inte startat denna dag.";
     addListItem(dom.trainingList, "Vila eller valfri lätt promenad.");
     addListItem(dom.foodList, "Förbered matlådor och inköpslista.");
+    renderFireMeter();
     return;
   }
 
@@ -809,6 +832,7 @@ function renderDetails() {
     dom.detailsSubtitle.textContent = "16 veckor är genomförda. Bra jobbat!";
     addListItem(dom.trainingList, "Återhämtning eller fortsättningsprogram.");
     addListItem(dom.foodList, "Behåll dina basrutiner med hög proteinnivå.");
+    renderFireMeter();
     return;
   }
 
@@ -817,6 +841,102 @@ function renderDetails() {
   dom.detailsSubtitle.textContent = `Vecka ${plan.week} av 16 · Dag ${dayIndex + 1} · ${kostInfo.blockType} (Block ${kostInfo.block})`;
   renderTrainingList(plan.training);
   renderFoodList(plan.food, plan.mealKeys);
+  renderFireMeter();
+}
+
+function getSelectedProgramDayIndex() {
+  if (!state.startDate) {
+    return null;
+  }
+
+  const dayIndex = diffDays(state.startDate, state.selectedDate);
+  if (dayIndex < 0 || dayIndex >= PROGRAM_DAYS) {
+    return null;
+  }
+
+  return dayIndex;
+}
+
+function renderFireMeter() {
+  const programDayIndex = getSelectedProgramDayIndex();
+  const loggedIn = isLoggedIn();
+  const dateKey = formatDateInput(state.selectedDate);
+  const savedRating = Number(state.auth.fireRatings?.[dateKey] || 0);
+  const selectedLabel = FIRE_METER_LEVELS[savedRating] || "";
+
+  dom.fireMeterButtons.innerHTML = "";
+
+  if (!loggedIn) {
+    dom.fireMeterValue.textContent = "";
+    dom.fireMeterInfo.textContent = "Logga in för att spara Fire-o-meter i databasen.";
+    dom.fireMeterDescription.textContent = "";
+    dom.fireMeterDescription.classList.add("is-empty");
+    return;
+  }
+
+  if (programDayIndex === null) {
+    dom.fireMeterValue.textContent = "";
+    dom.fireMeterInfo.textContent = "Fire-o-meter finns bara för dagar inom programmets 112 dagar.";
+    dom.fireMeterDescription.textContent = "";
+    dom.fireMeterDescription.classList.add("is-empty");
+    return;
+  }
+
+  dom.fireMeterValue.textContent = savedRating ? `${savedRating}/5` : "Inte satt";
+  dom.fireMeterInfo.textContent = savedRating
+    ? `Vald dag: ${formatShortDate(state.selectedDate)}.`
+    : "Hur het var dagen? Klicka på en flamma för att logga.";
+  dom.fireMeterDescription.textContent = selectedLabel;
+  dom.fireMeterDescription.classList.toggle("is-empty", !selectedLabel);
+
+  for (let rating = 1; rating <= 5; rating += 1) {
+    const levelLabel = FIRE_METER_LEVELS[rating];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `fire-meter-btn${rating <= savedRating ? " is-active" : ""}`;
+    button.dataset.fireRating = String(rating);
+    button.setAttribute("aria-label", `${rating} av 5. ${levelLabel}`);
+    button.setAttribute("title", levelLabel);
+    button.innerHTML = `<span class="flame">&#128293;</span><span class="sr-only">${escapeHtml(levelLabel)}</span>`;
+    dom.fireMeterButtons.appendChild(button);
+  }
+}
+
+async function saveFireRating(rating) {
+  if (!isLoggedIn()) {
+    dom.authStatus.textContent = "Logga in först.";
+    return;
+  }
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    dom.authStatus.textContent = "Ogiltigt Fire-o-meter-värde.";
+    return;
+  }
+
+  if (getSelectedProgramDayIndex() === null) {
+    dom.authStatus.textContent = "Fire-o-meter kan bara sparas för dagar i programmet.";
+    return;
+  }
+
+  dom.fireMeter.classList.add("is-saving");
+  dom.authStatus.textContent = "Sparar Fire-o-meter...";
+
+  try {
+    const result = await accountApi("saveFireRating", {
+      username: state.auth.username,
+      token: state.auth.token,
+      ratingDate: formatDateInput(state.selectedDate),
+      rating,
+    });
+
+    applyUserData(result.user || {});
+    dom.authStatus.textContent = `Fire-o-meter sparad för ${formatShortDate(state.selectedDate)}.`;
+  } catch (err) {
+    dom.authStatus.textContent = err.message;
+  } finally {
+    dom.fireMeter.classList.remove("is-saving");
+    renderAll();
+  }
 }
 
 function renderFoodList(foodLines, mealKeys) {
@@ -1656,6 +1776,7 @@ function persistAuth() {
 function applyUserData(user) {
   state.auth.profile = user.profile || null;
   state.auth.checkins = Array.isArray(user.checkins) ? user.checkins : [];
+  state.auth.fireRatings = user.fireRatings && typeof user.fireRatings === "object" ? user.fireRatings : {};
   loadRecipeOffsets(user.recipeOffsets);
 
   if (state.auth.profile) {
@@ -1712,7 +1833,7 @@ async function refreshSession() {
     dom.authStatus.textContent = "";
     state.authMode = "member";
   } catch (err) {
-    state.auth = { username: "", token: "", profile: null, checkins: [] };
+    state.auth = { username: "", token: "", profile: null, checkins: [], fireRatings: {} };
     persistAuth();
     state.authMode = "chooser";
     dom.authStatus.textContent = err.message;
@@ -1845,7 +1966,7 @@ async function loginAccount() {
 }
 
 function logoutAccount() {
-  state.auth = { username: "", token: "", profile: null, checkins: [] };
+  state.auth = { username: "", token: "", profile: null, checkins: [], fireRatings: {} };
   state.authMode = "chooser";
   state.showRecovery = false;
   state.showProfile = false;
@@ -2032,38 +2153,73 @@ function renderProgressGraph() {
   const padding = { top: 20, right: 18, bottom: 36, left: 18 };
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
-
-  const xStep = checkins.length === 1 ? innerWidth / 2 : innerWidth / (checkins.length - 1);
   const weightValues = checkins.map((entry) => Number(entry.weightKg));
   const waistValues = checkins.map((entry) => Number(entry.waistCm));
+  const fireAverages = getWeeklyFireAverages();
+  const weekIndices = [...new Set([
+    ...checkins.map((entry) => Number(entry.weekIndex)),
+    ...fireAverages.map((entry) => Number(entry.weekIndex)),
+  ])].sort((a, b) => a - b);
+  const xStep = weekIndices.length === 1 ? innerWidth / 2 : innerWidth / (weekIndices.length - 1);
+  const xByWeek = new Map(
+    weekIndices.map((weekIndex, index) => [
+      weekIndex,
+      padding.left + (weekIndices.length === 1 ? innerWidth / 2 : xStep * index),
+    ])
+  );
 
   const weightBounds = getChartBounds(weightValues);
   const waistBounds = getChartBounds(waistValues);
+  const weightPath = checkins
+    .map((entry, index) => {
+      const x = xByWeek.get(Number(entry.weekIndex));
+      const y = mapValueToY(Number(entry.weightKg), weightBounds.min, weightBounds.max, padding.top, innerHeight);
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+  const waistPath = checkins
+    .map((entry, index) => {
+      const x = xByWeek.get(Number(entry.weekIndex));
+      const y = mapValueToY(Number(entry.waistCm), waistBounds.min, waistBounds.max, padding.top, innerHeight);
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
 
-  const buildPath = (values, bounds) =>
-    values
-      .map((value, index) => {
-        const x = padding.left + (checkins.length === 1 ? innerWidth / 2 : xStep * index);
-        const y = mapValueToY(value, bounds.min, bounds.max, padding.top, innerHeight);
-        return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-      })
-      .join(" ");
+  const fireSegments = fireAverages
+    .map((entry) => {
+      const x = xByWeek.get(Number(entry.weekIndex));
+      if (!Number.isFinite(x)) {
+        return "";
+      }
 
-  const weightPath = buildPath(weightValues, weightBounds);
-  const waistPath = buildPath(waistValues, waistBounds);
+      const half = weekIndices.length === 1 ? Math.min(56, innerWidth * 0.22) : Math.max(14, Math.min(34, xStep * 0.32));
+      const y = padding.top + 26;
+      return `
+        <g>
+          <title>Fire-o-meter vecka ${entry.weekIndex}: ${entry.average.toFixed(1)} av 5</title>
+          <line class="graph-fire-average" x1="${(x - half).toFixed(2)}" y1="${y.toFixed(2)}" x2="${(x + half).toFixed(2)}" y2="${y.toFixed(2)}" style="stroke:${entry.color}"></line>
+        </g>
+      `;
+    })
+    .join("");
 
   const dots = checkins
-    .map((entry, index) => {
-      const x = padding.left + (checkins.length === 1 ? innerWidth / 2 : xStep * index);
+    .map((entry) => {
+      const x = xByWeek.get(Number(entry.weekIndex));
       const weightY = mapValueToY(Number(entry.weightKg), weightBounds.min, weightBounds.max, padding.top, innerHeight);
       const waistY = mapValueToY(Number(entry.waistCm), waistBounds.min, waistBounds.max, padding.top, innerHeight);
-      const weekLabel = `v${entry.weekIndex}`;
 
       return `
         <circle class="graph-dot-weight" cx="${x.toFixed(2)}" cy="${weightY.toFixed(2)}" r="4"></circle>
         <circle class="graph-dot-waist" cx="${x.toFixed(2)}" cy="${waistY.toFixed(2)}" r="4"></circle>
-        <text class="graph-label" x="${x.toFixed(2)}" y="${height - 12}" text-anchor="middle">${escapeHtml(weekLabel)}</text>
       `;
+    })
+    .join("");
+
+  const weekLabels = weekIndices
+    .map((weekIndex) => {
+      const x = xByWeek.get(weekIndex);
+      return `<text class="graph-label" x="${x.toFixed(2)}" y="${height - 12}" text-anchor="middle">${escapeHtml(`v${weekIndex}`)}</text>`;
     })
     .join("");
 
@@ -2071,17 +2227,76 @@ function renderProgressGraph() {
     <div class="graph-legend">
       <span><i style="background:#f7a521"></i>Vikt (kg)</span>
       <span><i style="background:#cf2f24"></i>Midja (cm)</span>
+      <span><i class="legend-line" style="background:linear-gradient(90deg,#8e969d,#f28b23,#cf2f24,#fff3c2)"></i>Fire-o-meter snitt</span>
     </div>
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Graf över vikt och midjemått per vecka">
       <line class="graph-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + innerHeight}"></line>
       <line class="graph-axis" x1="${padding.left}" y1="${padding.top + innerHeight}" x2="${padding.left + innerWidth}" y2="${padding.top + innerHeight}"></line>
       <path class="graph-weight" d="${weightPath}"></path>
       <path class="graph-waist" d="${waistPath}"></path>
+      ${fireSegments}
       ${dots}
+      ${weekLabels}
       <text class="graph-label" x="${padding.left}" y="14">Vikt ${weightBounds.min}-${weightBounds.max} kg</text>
       <text class="graph-label" x="${width - padding.right}" y="14" text-anchor="end">Midja ${waistBounds.min}-${waistBounds.max} cm</text>
     </svg>
   `;
+}
+
+function getWeeklyFireAverages() {
+  if (!state.startDate || !state.auth.fireRatings || typeof state.auth.fireRatings !== "object") {
+    return [];
+  }
+
+  const ratingsByWeek = new Map();
+
+  Object.entries(state.auth.fireRatings).forEach(([dateIso, rawRating]) => {
+    const rating = Number(rawRating);
+    const ratingDate = parseDateInput(dateIso);
+    if (!ratingDate || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return;
+    }
+
+    const dayIndex = diffDays(state.startDate, ratingDate);
+    if (dayIndex < 0 || dayIndex >= PROGRAM_DAYS) {
+      return;
+    }
+
+    const weekIndex = Math.floor(dayIndex / 7);
+    const bucket = ratingsByWeek.get(weekIndex) || [];
+    bucket.push(rating);
+    ratingsByWeek.set(weekIndex, bucket);
+  });
+
+  return [...ratingsByWeek.entries()]
+    .filter(([, ratings]) => ratings.length === 7)
+    .map(([weekIndex, ratings]) => {
+      const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
+      return {
+        weekIndex,
+        average,
+        color: getFireAverageColor(average),
+      };
+    })
+    .sort((a, b) => a.weekIndex - b.weekIndex);
+}
+
+function getFireAverageColor(average) {
+  const rounded = Math.max(1, Math.min(5, Math.round(Number(average) || 0)));
+
+  if (rounded === 1) {
+    return "#8e969d";
+  }
+
+  if (rounded <= 3) {
+    return "#f28b23";
+  }
+
+  if (rounded === 4) {
+    return "#cf2f24";
+  }
+
+  return "#fff3c2";
 }
 
 function getChartBounds(values) {

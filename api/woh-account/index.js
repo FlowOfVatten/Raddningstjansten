@@ -155,6 +155,22 @@ async function saveUser(pool, username, payload) {
     `);
 }
 
+function sanitizeFireRatings(rawRatings) {
+  const sanitized = {};
+  if (!rawRatings || typeof rawRatings !== "object" || Array.isArray(rawRatings)) {
+    return sanitized;
+  }
+
+  for (const [dateIso, rawValue] of Object.entries(rawRatings)) {
+    const rating = Number(rawValue);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || "")) && Number.isInteger(rating) && rating >= 1 && rating <= 5) {
+      sanitized[dateIso] = rating;
+    }
+  }
+
+  return sanitized;
+}
+
 function sanitizeUser(user) {
   return {
     username: user.username,
@@ -162,6 +178,7 @@ function sanitizeUser(user) {
     checkins: Array.isArray(user.checkins)
       ? [...user.checkins].sort((a, b) => (a.weekIndex || 0) - (b.weekIndex || 0))
       : [],
+    fireRatings: sanitizeFireRatings(user.fireRatings),
     recipeOffsets: user.recipeOffsets || {},
   };
 }
@@ -180,6 +197,12 @@ function calcWeekIndex(startDateIso, checkinDateIso) {
     throw new Error("Uppföljningsdatum kan inte vara före startdatum.");
   }
   return Math.floor(diff / 7);
+}
+
+function calcDayIndex(startDateIso, dateIso) {
+  const start = new Date(`${startDateIso}T00:00:00`);
+  const target = new Date(`${dateIso}T00:00:00`);
+  return Math.floor((target - start) / 86400000);
 }
 
 module.exports = async function (context, req) {
@@ -238,6 +261,7 @@ module.exports = async function (context, req) {
         token,
         profile,
         checkins: [initialCheckin],
+        fireRatings: {},
         createdAt: now,
         updatedAt: now,
       };
@@ -385,6 +409,40 @@ module.exports = async function (context, req) {
       }
 
       user.checkins = list;
+      user.updatedAt = new Date().toISOString();
+
+      await saveUser(pool, username, user);
+      return json(200, { ok: true, user: sanitizeUser(user) });
+    }
+
+    if (action === "savefirerating") {
+      const username = normalizeUsername(data.username);
+      const token = String(data.token || "");
+      assertUsername(username);
+
+      const user = await loadUser(pool, username);
+      if (!user) {
+        return json(404, { error: "Konto hittades inte." });
+      }
+      verifyToken(user, token);
+
+      if (!user.profile || !user.profile.startDate) {
+        throw new Error("Spara profil med startdatum först.");
+      }
+
+      const ratingDate = asDateISO(data.ratingDate, "Datum");
+      const rating = Number(data.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        throw new Error("Fire-o-meter måste vara ett heltal mellan 1 och 5.");
+      }
+
+      const dayIndex = calcDayIndex(user.profile.startDate, ratingDate);
+      if (dayIndex < 0 || dayIndex >= 112) {
+        throw new Error("Fire-o-meter kan bara sparas inom programmets 112 dagar.");
+      }
+
+      user.fireRatings = sanitizeFireRatings(user.fireRatings);
+      user.fireRatings[ratingDate] = rating;
       user.updatedAt = new Date().toISOString();
 
       await saveUser(pool, username, user);
