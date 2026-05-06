@@ -44,7 +44,9 @@ const EXERCISE_GUIDE_ALIASES = {
     "rumanska marklyft (rdl)": "rumänska marklyft (rdl)",
     "liggande bencurl": "liggande eller staende bencurl",
     "hip thrusts": "hip thrust skivstang eller maskin",
-    "triceps overhead (eller sled push/assault bike)": "triceps overhead extension (kabel eller hantel)"
+    "triceps overhead": "triceps overhead extension (kabel eller hantel)",
+    "triceps overhead (eller sled push/assault bike)": "triceps overhead extension (kabel eller hantel)",
+    "triceps overhead med hantel": "triceps overhead extension (kabel eller hantel)"
   },
   hemma: {
     "pull ups/chins eller bandchins": "pull ups eller negativa chin ups",
@@ -64,6 +66,8 @@ const EXERCISE_GUIDE_ALIASES = {
     "rdl med hantlar": "rumanskt marklyft hantlar rdl",
     "liggande bencurl med band/halduk": "liggande bencurl med halband",
     "hip thrust": "hip thrust med hantel eller kroppsvikt",
+    "triceps overhead": "triceps overhead extension (kabel eller hantel)",
+    "triceps overhead med hantel": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead med hantel (eller sled/assault bike om tillgang finns)": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead med hantel (eller sled/assault bike om tillgang)": "triceps overhead extension (kabel eller hantel)"
   }
@@ -1267,7 +1271,6 @@ function buildFoodInfoHtml(context) {
       ]),
       renderMealRecipeSection("Viktigt att följa", [
         "Prioritera proteinet i varje måltid.",
-        "Ta en proteinshake efter varje tyngre pass.",
         "Lyssna på kroppen: om du blir extremt yr eller tappar styrka på gymmet, öka portionerna något.",
         "Håll det sockerfritt: 112 är det nolltolerans som gäller för att maximera resultaten.",
       ]),
