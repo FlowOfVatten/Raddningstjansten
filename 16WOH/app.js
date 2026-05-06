@@ -300,11 +300,6 @@ const dinners = [
 
 const snacks = [
   {
-    key: "mellis-shake",
-    text: "Mellanmål: proteinshake direkt efter pass",
-    ingredients: [{ name: "Proteinpulver", amount: 30, unit: "g" }],
-  },
-  {
     key: "mellis-keso",
     text: "Mellanmål: keso + äpple + kanel",
     ingredients: [
@@ -1271,6 +1266,7 @@ function buildFoodInfoHtml(context) {
       ]),
       renderMealRecipeSection("Viktigt att följa", [
         "Prioritera proteinet i varje måltid.",
+        "Efter tyngre gympass: ta en proteinshake utöver den vanliga måltidsplanen.",
         "Lyssna på kroppen: om du blir extremt yr eller tappar styrka på gymmet, öka portionerna något.",
         "Håll det sockerfritt: 112 är det nolltolerans som gäller för att maximera resultaten.",
       ]),
