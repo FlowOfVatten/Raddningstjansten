@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>112 Dagar i beredskap</title>
+    <title>112DIB</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,9 +20,9 @@
     <main class="app">
       <header class="hero">
         <p class="tag">Räddningstjänsten • träning • kost</p>
-        <h1>112 Dagar i beredskap</h1>
+        <h1>112DIB</h1>
         <p class="sub">
-          Logga in eller skapa konto för att följa ditt 112-dagarsupplägg med tydlig kalender, matlådor och veckouppföljning.
+          Logga in eller skapa konto för att följa ditt 112DIB-upplägg med tydlig kalender, matlådor och veckouppföljning.
         </p>
       </header>
 
@@ -166,7 +166,7 @@
           <div class="graph-block">
             <div class="graph-head">
               <h3>Utveckling vecka för vecka</h3>
-              <p class="muted">Vikt och midjemått jämfört över hela 112-dagarsperioden.</p>
+              <p class="muted">Vikt och midjemått jämfört över hela 112DIB-perioden.</p>
             </div>
             <div id="progressGraph" class="progress-graph"></div>
           </div>
@@ -192,13 +192,19 @@
             <button id="exportWeekPdf" class="btn btn-primary" type="button">Exportera vecka (PDF)</button>
           </div>
           <div class="details-block">
-            <h4>Träningsplan</h4>
+            <div class="details-head">
+              <h4>Träningsplan</h4>
+              <button id="showBlockInfoBtn" class="inline-info-link" type="button">Blockinformation</button>
+            </div>
             <p class="muted" style="margin:0 0 6px;font-size:0.82rem">Klicka på ett övningsnamn för instruktioner.</p>
             <ul id="trainingList"></ul>
           </div>
 
           <div class="details-block">
-            <h4>Matplan</h4>
+            <div class="details-head">
+              <h4>Matplan</h4>
+              <button id="showFoodInfoBtn" class="inline-info-link" type="button">Instruktioner</button>
+            </div>
             <ul id="foodList"></ul>
           </div>
           <div class="details-block">

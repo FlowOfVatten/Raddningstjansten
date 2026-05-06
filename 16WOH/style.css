@@ -573,6 +573,35 @@ input[type="date"] {
   color: var(--accent);
 }
 
+.details-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.details-head h4 {
+  margin: 0;
+}
+
+.inline-info-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.inline-info-link:hover {
+  color: #f7c060;
+}
+
 .details-block {
   margin-top: 14px;
 }
@@ -794,6 +823,10 @@ input[type="date"] {
   margin-top: 12px;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.info-card .recipe-grid {
+  margin-top: 14px;
 }
 
 .exercise-link {

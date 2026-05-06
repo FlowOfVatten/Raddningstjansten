@@ -36,15 +36,15 @@ const EXERCISE_GUIDE_ALIASES = {
     "hangande benlyft": "hangande benlyft eller dead bug",
     "lutande hantelpress": "lutande bankpress hantel eller skivstang",
     "militarpress": "militarpress skivstang eller hantlar",
-    "knaboj (prioritera fri stang)": "hackknaboj eller skivstangsknaboj",
+    "knaboj (prioritera fri stang)": "skivstångsknäböj",
     "gangutfall": "gangutfall hantlar",
     "benspark": "benspark leg extension",
     "staende sidolyft": "staende sidolyft hantlar",
     "rear delt flyes": "rear delt fly maskin eller bojd hantelvariant",
-    "rumanska marklyft (rdl)": "rumanskt marklyft rdl",
+    "rumanska marklyft (rdl)": "rumänska marklyft (rdl)",
     "liggande bencurl": "liggande eller staende bencurl",
     "hip thrusts": "hip thrust skivstang eller maskin",
-    "triceps overhead (eller sled push/assault bike)": "skullcrusher eller triceps overhead"
+    "triceps overhead (eller sled push/assault bike)": "triceps overhead extension (kabel eller hantel)"
   },
   hemma: {
     "pull ups/chins eller bandchins": "pull ups eller negativa chin ups",
@@ -64,7 +64,8 @@ const EXERCISE_GUIDE_ALIASES = {
     "rdl med hantlar": "rumanskt marklyft hantlar rdl",
     "liggande bencurl med band/halduk": "liggande bencurl med halband",
     "hip thrust": "hip thrust med hantel eller kroppsvikt",
-    "triceps overhead med hantel (eller sled/assault bike om tillgang)": "skull crusher hantlar"
+    "triceps overhead med hantel (eller sled/assault bike om tillgang finns)": "triceps overhead extension (kabel eller hantel)",
+    "triceps overhead med hantel (eller sled/assault bike om tillgang)": "triceps overhead extension (kabel eller hantel)"
   }
 };
 
@@ -364,6 +365,8 @@ const dom = {
   detailsSubtitle: document.getElementById("detailsSubtitle"),
   trainingList: document.getElementById("trainingList"),
   foodList: document.getElementById("foodList"),
+  showBlockInfoBtn: document.getElementById("showBlockInfoBtn"),
+  showFoodInfoBtn: document.getElementById("showFoodInfoBtn"),
   exportWeekPdf: document.getElementById("exportWeekPdf"),
   shoppingDays: document.getElementById("shoppingDays"),
   generateShopping: document.getElementById("generateShopping"),
@@ -599,6 +602,8 @@ function bindEvents() {
   });
 
   dom.exportWeekPdf.addEventListener("click", exportWeekToPdf);
+  dom.showBlockInfoBtn.addEventListener("click", openBlockInfoDetail);
+  dom.showFoodInfoBtn.addEventListener("click", openFoodInfoDetail);
   dom.generateShopping.addEventListener("click", renderShoppingList);
   dom.shoppingDays.addEventListener("change", renderShoppingList);
   dom.shoppingToggle.addEventListener("click", () => {
@@ -942,6 +947,21 @@ function renderMealRecipeSection(title, items) {
   `;
 }
 
+function renderInfoCardHtml(chip, title, intro, sections) {
+  return `
+    <article class="recipe-card info-card">
+      <header class="recipe-card-head">
+        <span class="recipe-chip">${escapeHtml(chip)}</span>
+        <h4>${escapeHtml(title)}</h4>
+        <p>${escapeHtml(intro)}</p>
+      </header>
+      <div class="recipe-grid">
+        ${sections.join("")}
+      </div>
+    </article>
+  `;
+}
+
 function formatDefaultMealIngredients(meal) {
   const ingredients = Array.isArray(meal?.ingredients) ? meal.ingredients : [];
   return ingredients.map((it) => `${it.name}: ${it.amount} ${it.unit}`);
@@ -1038,7 +1058,11 @@ function renderTrainingList(entries) {
 
 
 function renderGuideTextHtml(guideText) {
-  const escaped = escapeHtml(String(guideText || "")).replace(/\n/g, "<br>");
+  const cleanedText = String(guideText || "")
+    .split("\n")
+    .filter((line) => !/^Rek(?:\/tempo)?(?:\s*\([^)]*\))?:/i.test(line.trim()))
+    .join("\n");
+  const escaped = escapeHtml(cleanedText).replace(/\n/g, "<br>");
   return `<p style="margin:0;line-height:1.7;white-space:normal">${escaped}</p>`;
 }
 
@@ -1063,26 +1087,211 @@ async function openExerciseDetail(svName) {
   }
 }
 
+function openInfoDetail(title, html, source) {
+  dom.exerciseModalTitle.textContent = title;
+  dom.exerciseModalImages.innerHTML = "";
+  dom.exerciseModalDesc.innerHTML = html;
+  if (dom.exerciseModalSource) {
+    dom.exerciseModalSource.textContent = source || "Källa: 112DIB-regler i appen";
+  }
+  dom.exerciseModal.hidden = false;
+}
+
+function getWorkoutTypeForDay(dayInWeek) {
+  if (dayInWeek === 0) return "rygg-vader";
+  if (dayInWeek === 1) return "bröst-biceps";
+  if (dayInWeek === 2) return "quads";
+  if (dayInWeek === 3) return "axlar-core";
+  if (dayInWeek === 4) return "hamstrings-armar";
+  if (dayInWeek === 5) return "aktiv-recovery";
+  return "återhämtning";
+}
+
+function getTrainingStage(week) {
+  if (week <= 4) return "fas1";
+  if (week <= 8) return "fas2";
+  if (week <= 12) return "fas3";
+  if (week <= 15) return "fas4";
+  return "test";
+}
+
+function getRestRules(stage) {
+  return {
+    restStandard: stage === "fas1" ? "60 sek" : stage === "test" ? "60 sek" : "45 sek",
+    restHeavy: stage === "fas1" ? "max 90 sek" : stage === "fas4" ? "max 45 sek" : stage === "test" ? "max 90 sek" : "80-90 sek",
+  };
+}
+
+function getProgramContext() {
+  if (!state.startDate) {
+    return null;
+  }
+
+  const dayIndex = diffDays(state.startDate, state.selectedDate);
+  if (dayIndex < 0 || dayIndex >= PROGRAM_DAYS) {
+    return null;
+  }
+
+  const week = Math.floor(dayIndex / 7) + 1;
+  const dayInWeek = dayIndex % 7;
+  const workoutType = getWorkoutTypeForDay(dayInWeek);
+  const stage = getTrainingStage(week);
+  const phase = getPhase(week);
+  const kostInfo = getKostBlock(week);
+  const trainingDay = workoutType !== "återhämtning" && workoutType !== "aktiv-recovery";
+
+  return {
+    dayIndex,
+    week,
+    phase,
+    stage,
+    kostInfo,
+    workoutType,
+    trainingDay,
+  };
+}
+
+function getWorkoutTypeLabel(workoutType) {
+  const labels = {
+    "rygg-vader": "Måndag: Drag & bål",
+    "bröst-biceps": "Tisdag: Press & armar",
+    "quads": "Onsdag: Underkropp",
+    "axlar-core": "Torsdag: Axlar & stabilitet",
+    "hamstrings-armar": "Fredag: Bakre kedjan & puls",
+    "aktiv-recovery": "Lördag: Aktiv återhämtning",
+    "återhämtning": "Söndag: Vilodag",
+  };
+  return labels[workoutType] || "Dagens upplägg";
+}
+
+function buildBlockInfoHtml(context) {
+  const activeContext = context || {
+    week: 1,
+    stage: "fas1",
+    workoutType: "rygg-vader",
+  };
+  const { restStandard, restHeavy } = getRestRules(activeContext.stage);
+  const stageTitle = {
+    fas1: "Fas 1: Grund",
+    fas2: "Fas 2: Bygg",
+    fas3: "Fas 3: Press",
+    fas4: "Fas 4: Final",
+    test: "Vecka 16: Testvecka",
+  }[activeContext.stage] || "Aktuellt block";
+
+  const phaseRules = {
+    fas1: [
+      "RPE 7-8. Lämna 1-2 repetitioner i reserv i baslyften.",
+      "Bygg teknik och rytm före viktökningar.",
+    ],
+    fas2: [
+      "Håll samma struktur men arbeta tyngre och mer beslutsamt i varje set.",
+      "På återhämtningsdagar kan 1-2 powerwalks per vecka bytas mot ruck med 10-15 kg.",
+    ],
+    fas3: [
+      "Sista setet i varje övning är AMRAP, men stanna vid högst +2 repetitioner och bryt före teknisk kollaps.",
+      "Lägg till ett extra krävande konditionspass en gång per vecka.",
+      "På återhämtningsdagar kan 1-2 powerwalks per vecka bytas mot ruck med 10-15 kg.",
+    ],
+    fas4: [
+      "Måndagspasset genomförs fastande.",
+      "Torsdagspasset genomförs sent på kvällen.",
+      "Farmers walk ska alltid nå minst 3 längder och finishers fullföljs alltid.",
+      "Inga viktökningar i den här fasen. Behåll vikterna trots trötthet.",
+    ],
+    test: [
+      "Testveckan körs med 3 x 6 före respektive testmoment.",
+      "Fokusera på ren teknik, tydlig uppvärmning och logga varje resultat.",
+    ],
+  };
+
+  const todayRules = {
+    "aktiv-recovery": [
+      "Ingen styrketräning i dag.",
+      "Håll tempot lugnt och prioritera rörlighet, promenad eller lätt cykel/jogg.",
+    ],
+    "återhämtning": [
+      "Ingen styrketräning i dag.",
+      "Prioritera sömn, lugn promenad och rörlighet.",
+    ],
+  };
+
+  const sections = [
+    renderMealRecipeSection("Grundregler", [
+      "Powerwalk 60 minuter per dag minst 5 dagar per vecka.",
+      `Vilotid: ${restStandard} normalt, ${restHeavy} på tunga baslyft.`,
+      "Failure används bara i kroppsviktsövningar och finishers, aldrig i baslyft.",
+    ]),
+    renderMealRecipeSection(stageTitle, phaseRules[activeContext.stage] || []),
+    renderMealRecipeSection(getWorkoutTypeLabel(activeContext.workoutType), todayRules[activeContext.workoutType] || [
+      "Följ dagens set, repetitioner och finisher enligt träningsplanen.",
+      "Kvalitet går före tempo i varje repetition.",
+    ]),
+  ].filter(Boolean);
+
+  return renderInfoCardHtml(
+    "Info",
+    `Blockinformation vecka ${activeContext.week}`,
+    "Här ligger alla regler som gäller för blocket så att träningslistan kan vara ren och tydlig.",
+    sections,
+  );
+}
+
+function buildFoodInfoHtml(context) {
+  const activeContext = context || {
+    week: 1,
+    phase: "grund",
+    kostInfo: getKostBlock(1),
+    trainingDay: true,
+  };
+
+  const carbRule = activeContext.trainingDay
+    ? "Kolhydrater: 1-2 kupade händer till lunch och middag."
+    : "Kolhydrater: 0,5-1 kupad hand till lunch och fokus på grönsaker till middag.";
+
+  const hydration = activeContext.phase === "final"
+    ? "Vätska: 3,0-3,5 liter vatten plus elektrolyter."
+    : "Vätska: minst 2,5-3,0 liter vatten.";
+
+  return renderInfoCardHtml(
+    "Kost",
+    `Instruktioner vecka ${activeContext.week}`,
+    `Aktuellt kostblock: ${activeContext.kostInfo.blockType} (Block ${activeContext.kostInfo.block}).`,
+    [
+      renderMealRecipeSection("Basriktlinjer", [
+        "Portionsguide: protein 2 handflator plus grönsaker 2 nävar per huvudmål.",
+        carbRule,
+        "Fettkälla: 1-2 tummar per huvudmål.",
+        hydration,
+        "Ätfönster: 10:00-18:00.",
+      ]),
+      renderMealRecipeSection("Viktigt att följa", [
+        "Prioritera proteinet i varje måltid.",
+        "Ta en proteinshake efter varje tyngre pass.",
+        "Lyssna på kroppen: om du blir extremt yr eller tappar styrka på gymmet, öka portionerna något.",
+        "Håll det sockerfritt: 112 är det nolltolerans som gäller för att maximera resultaten.",
+      ]),
+    ],
+  );
+}
+
+function openBlockInfoDetail() {
+  const context = getProgramContext();
+  openInfoDetail("Blockinformation", buildBlockInfoHtml(context), "Källa: 112DIB träningsblock");
+}
+
+function openFoodInfoDetail() {
+  const context = getProgramContext();
+  openInfoDetail("Instruktioner", buildFoodInfoHtml(context), "Källa: 112DIB kostblock");
+}
+
 function getDailyPlan(dayIndex, date) {
   const week = Math.floor(dayIndex / 7) + 1;
   const dayInWeek = dayIndex % 7;
   const phase = getPhase(week);
 
-  // 5 styrkepass man-fre. Ingen styrka pa lor/sön.
-  let workoutType = "återhämtning";
-  if (dayInWeek === 0) {
-    workoutType = "rygg-vader";
-  } else if (dayInWeek === 1) {
-    workoutType = "bröst-biceps";
-  } else if (dayInWeek === 2) {
-    workoutType = "quads";
-  } else if (dayInWeek === 3) {
-    workoutType = "axlar-core";
-  } else if (dayInWeek === 4) {
-    workoutType = "hamstrings-armar";
-  } else if (dayInWeek === 5) {
-    workoutType = "aktiv-recovery";
-  }
+  // 5 styrkepass mån-fre. Ingen styrka på lör/sön.
+  const workoutType = getWorkoutTypeForDay(dayInWeek);
 
   const isHome = state.auth.profile?.trainingMode === "hemma";
   const training = isHome
@@ -1119,63 +1328,49 @@ function getKostBlock(week) {
 }
 
 function buildTraining(type, phase, week) {
-  const pw = "Powerwalk: 60 min per dag, minst 5 dagar per vecka.";
-  const stage = week <= 4 ? "fas1" : week <= 8 ? "fas2" : week <= 12 ? "fas3" : week <= 15 ? "fas4" : "test";
-
-  const restStandard = stage === "fas1" ? "60 sek" : stage === "test" ? "60 sek" : "45 sek";
-  const restHeavy = stage === "fas1" ? "max 90 sek" : stage === "fas4" ? "max 45 sek" : stage === "test" ? "max 90 sek" : "80-90 sek";
-
-  const baseRules = [
-    pw,
-    `Vila: ${restStandard} standard, ${restHeavy} pa tunga baslyft.`,
-    "Failure: aldrig pa baslyft. Endast pa kroppsvikt/finishers.",
-    ...(stage === "fas1" ? ["RPE: 7-8. Hall 1-2 reps i reserv pa baslyften."] : []),
-  ];
+  const stage = getTrainingStage(week);
+  const { restStandard, restHeavy } = getRestRules(stage);
 
   if (stage === "test") {
     if (type === "rygg-vader") {
       return [
-        ...baseRules,
-        "— VECKA 16 TEST: MANDAG —",
+        "— VECKA 16 TEST: MÅNDAG —",
         "Latsdrag eller chins: 3 x 6",
         "Sittande rodd: 3 x 6",
         "Rack pulls: 3 x 6",
-        "Hangande benlyft: 3 x 6",
+        "Hängande benlyft: 3 x 6",
         "Test: max chins",
       ];
     }
 
     if (type === "bröst-biceps") {
       return [
-        ...baseRules,
         "— VECKA 16 TEST: TISDAG —",
         "Lutande hantelpress: 3 x 6",
-        "Militarpress: 3 x 6",
+        "Militärpress: 3 x 6",
         "Dips: 3 x 6",
-        "EZ-stangscurl: 3 x 6",
+        "EZ-stångscurl: 3 x 6",
         "Test: 500 m rodd (tid)",
       ];
     }
 
     if (type === "quads") {
       return [
-        ...baseRules,
         "— VECKA 16 TEST: ONSDAG —",
-        "Knaboj: 3 x 6",
-        "Gangutfall: 3 x 6 steg per ben",
+        "Knäböj: 3 x 6",
+        "Gångutfall: 3 x 6 steg per ben",
         "Benspark: 3 x 6",
         "Dragonflyes: 3 x 6",
-        "Test: farmers walk max distans utan slapp",
+        "Test: farmers walk max distans utan släpp",
       ];
     }
 
     if (type === "axlar-core") {
       return [
-        ...baseRules,
         "— VECKA 16 TEST: TORSDAG —",
-        "Staende sidolyft: 3 x 6",
+        "Stående sidolyft: 3 x 6",
         "Rear delt flyes: 3 x 6",
-        "Farmers walk: 3 langder",
+        "Farmers walk: 3 längder",
         "Plankan: 3 x 60 sek",
         "Test: burpees 10 minuter totalt",
       ];
@@ -1183,14 +1378,13 @@ function buildTraining(type, phase, week) {
 
     if (type === "hamstrings-armar") {
       return [
-        ...baseRules,
         "— VECKA 16 TEST: FREDAG —",
-        "Rumanska marklyft (RDL): 3 x 6",
+        "Rumänska marklyft (RDL): 3 x 6",
         "Liggande bencurl: 3 x 6",
         "Hip thrusts: 3 x 6",
         "Triceps overhead: 3 x 6",
-        "Test: 5 km gang/lopning (valfritt)",
-        "Avslut: lang powerwalk/ruck + latt helkroppscirkel",
+        "Test: 5 km gång/löpning (valfritt)",
+        "Avslut: lång powerwalk/ruck plus lätt helkroppscirkel",
       ];
     }
   }
@@ -1198,99 +1392,83 @@ function buildTraining(type, phase, week) {
   if (type === "rygg-vader") {
     const burpeeMinutes = stage === "fas1" ? 5 : stage === "fas2" ? 6 : 7;
     return [
-      ...baseRules,
-      "— MANDAG: Drag & bal —",
+      "— MÅNDAG: Drag & bål —",
       `Latsdrag eller chins: 6 x 6 | ${restStandard} vila`,
       `Sittande rodd: 6 x 6 | ${restStandard} vila`,
       `Rack pulls: 4 x 6 | ${restHeavy} vila`,
-      `Hangande benlyft: 6 x 6 | ${restStandard} vila`,
+      `Hängande benlyft: 6 x 6 | ${restStandard} vila`,
       `Finisher: ${burpeeMinutes} minuter burpees (max antal)`,
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: detta pass genomfors fastande."] : []),
     ];
   }
 
   if (type === "bröst-biceps") {
     return [
-      ...baseRules,
       "— TISDAG: Press & armar —",
       `Lutande hantelpress: 6 x 6 | ${restStandard} vila`,
-      `Militarpress: 6 x 6 | ${restStandard} vila`,
+      `Militärpress: 6 x 6 | ${restStandard} vila`,
       `Dips: 6 x 6 | ${restStandard} vila (varannan vecka superset med chins)`,
-      `EZ-stangscurl: 6 x 6 | ${restStandard} vila`,
-      "Finisher: armhavningar 3 set till total failure",
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
+      `EZ-stångscurl: 6 x 6 | ${restStandard} vila`,
+      "Finisher: armhävningar 3 set till total failure",
     ];
   }
 
   if (type === "quads") {
     const legFinisher = stage === "fas3" || stage === "fas4"
-      ? "Finisher: 2 rundor 500 m maxrodd eller 2 min lopband pa maxlutning/tempo"
+      ? "Finisher: 2 rundor 500 m maxrodd eller 2 min löpband på maxlutning/tempo"
       : stage === "fas2"
-        ? "Finisher: 500 m maxrodd eller 2 min lopband, oka tempot 10-15 %"
-        : "Finisher: 500 m maxrodd eller 2 min lopband pa maxlutning/tempo";
+        ? "Finisher: 500 m maxrodd eller 2 min löpband, öka tempot 10-15 %"
+        : "Finisher: 500 m maxrodd eller 2 min löpband på maxlutning/tempo";
 
     return [
-      ...baseRules,
       "— ONSDAG: Underkropp —",
-      `Knaboj (prioritera fri stang): 6 x 6 | ${restHeavy} vila`,
-      `Gangutfall: 6 x 6 steg per ben | ${restStandard} vila`,
+      `Knäböj (prioritera fri stång): 6 x 6 | ${restHeavy} vila`,
+      `Gångutfall: 6 x 6 steg per ben | ${restStandard} vila`,
       `Benspark: 4 x 6 | ${restStandard} vila`,
       `Dragonflyes: 6 x 6 | ${restStandard} vila`,
       legFinisher,
-      ...(stage === "fas3" ? ["Dubbelpass (1 gang/vecka): lagg till extra kravande konditionspass samma dag."] : []),
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
     ];
   }
 
   if (type === "axlar-core") {
     const climberSets = stage === "fas1" || stage === "fas2" ? "4 x 45 sek" : "5 x 45 sek";
     return [
-      ...baseRules,
-      "— TORSDAG: Axlar & stabilitet (16WOH-special) —",
-      `Staende sidolyft: 6 x 6 | ${restStandard} vila`,
+      "— TORSDAG: Axlar & stabilitet (112DIB-special) —",
+      `Stående sidolyft: 6 x 6 | ${restStandard} vila`,
       `Rear delt flyes: 6 x 6 | ${restStandard} vila`,
-      "Farmers walk: 6 langder (sa tungt att greppet utmanas)",
+      "Farmers walk: 6 längder (så tungt att greppet utmanas)",
       `Plankan: 6 set x 1 minut | ${restStandard} vila`,
       `Finisher: mountain climbers ${climberSets}`,
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: detta pass genomfors sent pa kvallen."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: farmers walk minst 3 langder och finishers fullfoljs alltid."] : []),
     ];
   }
 
   if (type === "hamstrings-armar") {
     const swings = stage === "fas1" ? "4 x 20" : "5 x 20";
     return [
-      ...baseRules,
       "— FREDAG: Bakre kedjan & puls —",
-      `Rumanska marklyft (RDL): 6 x 6 | ${restHeavy} vila`,
+      `Rumänska marklyft (RDL): 6 x 6 | ${restHeavy} vila`,
       `Liggande bencurl: 6 x 6 | ${restStandard} vila`,
       `Hip thrusts: 6 x 6 | ${restStandard} vila`,
       `Triceps overhead (eller sled push/assault bike): 6 x 6 | ${restStandard} vila`,
       `Finisher: kettlebell-svingar ${swings}`,
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: inga viktokningar. Behall vikterna trots trotthet."] : []),
     ];
   }
 
   if (type === "aktiv-recovery") {
     return [
-      pw,
-      "— AKTIV RECOVERY (LORDAG) —",
-      "Ingen styrketraning idag.",
+      "Powerwalk: 60 min i lugnt tempo.",
+      "— AKTIV ÅTERHÄMTNING (LÖRDAG) —",
+      "Ingen styrketräning i dag.",
       "Lugn cykel eller crosstrainer: 25-35 min i lugnt tempo",
-      "Rorlighet 20 min: hoft, axlar, brostrygg och vader",
-      ...(stage === "fas2" || stage === "fas3" ? ["Ruck: byt 1-2 powerwalks per vecka mot 10-15 kg ruck."] : []),
+      "Rörlighet 20 min: höft, axlar, bröstrygg och vader",
     ];
   }
 
   return [
-    "— VILDAG (SONDAG) —",
-    "Ingen styrketraning.",
-    "Aktiv aterhamtning: 30-40 min lugn promenad utomhus",
-    "Rorlighet eller yoga 20 min",
-    "Prioritera somn 7-9 timmar",
+    "— VILODAG (SÖNDAG) —",
+    "Ingen styrketräning.",
+    "Aktiv återhämtning: 30-40 min lugn promenad utomhus",
+    "Rörlighet eller yoga 20 min",
+    "Prioritera sömn 7-9 timmar",
   ];
 }
 
@@ -1307,73 +1485,58 @@ function getDailyMeals(dayIndex) {
 }
 
 function buildTrainingHome(type, phase, week) {
-  const pw = "Powerwalk: 60 min per dag, minst 5 dagar per vecka.";
-  const stage = week <= 4 ? "fas1" : week <= 8 ? "fas2" : week <= 12 ? "fas3" : week <= 15 ? "fas4" : "test";
-
-  const restStandard = stage === "fas1" ? "60 sek" : stage === "test" ? "60 sek" : "45 sek";
-  const restHeavy = stage === "fas1" ? "max 90 sek" : stage === "fas4" ? "max 45 sek" : stage === "test" ? "max 90 sek" : "80-90 sek";
-
-  const baseRules = [
-    pw,
-    `Vila: ${restStandard} standard, ${restHeavy} pa tunga baslyft.`,
-    "Failure: aldrig pa baslyft. Endast pa kroppsvikt/finishers.",
-    ...(stage === "fas1" ? ["RPE: 7-8. Hall 1-2 reps i reserv pa baslyften."] : []),
-  ];
+  const stage = getTrainingStage(week);
+  const { restStandard, restHeavy } = getRestRules(stage);
 
   if (stage === "test") {
     if (type === "rygg-vader") {
       return [
-        ...baseRules,
-        "— HEMMA TESTVECKA: MANDAG —",
+        "— HEMMA TESTVECKA: MÅNDAG —",
         "Pull-ups/chins eller bandchins: 3 x 6",
         "Enarmsrodd med hantel: 3 x 6 per arm",
         "Rack pull-variant med hantlar: 3 x 6",
-        "Hangande benlyft: 3 x 6",
+        "Hängande benlyft: 3 x 6",
         "Test: max chins/pull-ups",
       ];
     }
     if (type === "bröst-biceps") {
       return [
-        ...baseRules,
         "— HEMMA TESTVECKA: TISDAG —",
         "Lutande hantelpress: 3 x 6",
-        "Militarpress hantlar: 3 x 6",
+        "Militärpress hantlar: 3 x 6",
         "Dips mellan stolar/bankar: 3 x 6",
-        "EZ-ersattning: hantelcurl strikt: 3 x 6",
-        "Test: 500 m rodd eller 2 min max assault bike/lopning",
+        "EZ-ersättning: hantelcurl strikt: 3 x 6",
+        "Test: 500 m rodd eller 2 min max assault bike/löpning",
       ];
     }
     if (type === "quads") {
       return [
-        ...baseRules,
         "— HEMMA TESTVECKA: ONSDAG —",
         "Goblet squat: 3 x 6",
-        "Gangutfall: 3 x 6 steg per ben",
+        "Gångutfall: 3 x 6 steg per ben",
         "Benspark bodyweight/band: 3 x 6",
         "Dragonflyes: 3 x 6",
-        "Test: farmers walk max distans utan slapp",
+        "Test: farmers walk max distans utan släpp",
       ];
     }
     if (type === "axlar-core") {
       return [
-        ...baseRules,
         "— HEMMA TESTVECKA: TORSDAG —",
-        "Staende sidolyft: 3 x 6",
+        "Stående sidolyft: 3 x 6",
         "Rear delt flyes: 3 x 6",
-        "Farmers walk: 3 langder",
+        "Farmers walk: 3 längder",
         "Plankan: 3 x 60 sek",
         "Test: burpees 10 minuter totalt",
       ];
     }
     if (type === "hamstrings-armar") {
       return [
-        ...baseRules,
         "— HEMMA TESTVECKA: FREDAG —",
         "RDL med hantlar: 3 x 6",
-        "Liggande bencurl med band/halduk: 3 x 6",
+        "Liggande bencurl med band/handduk: 3 x 6",
         "Hip thrust: 3 x 6",
         "Triceps overhead med hantel: 3 x 6",
-        "Test: 5 km gang/lopning (valfritt)",
+        "Test: 5 km gång/löpning (valfritt)",
       ];
     }
   }
@@ -1381,130 +1544,94 @@ function buildTrainingHome(type, phase, week) {
   if (type === "rygg-vader") {
     const burpeeMinutes = stage === "fas1" ? 5 : stage === "fas2" ? 6 : 7;
     return [
-      ...baseRules,
-      "— HEMMA MANDAG: Drag & bal —",
+      "— HEMMA MÅNDAG: Drag & bål —",
       `Pull-ups/chins eller bandchins: 6 x 6 | ${restStandard} vila`,
       `Sittande rodd med band eller hantelrodd: 6 x 6 | ${restStandard} vila`,
       `Rack pull-variant med hantlar: 4 x 6 | ${restHeavy} vila`,
-      `Hangande benlyft eller liggande benlyft: 6 x 6 | ${restStandard} vila`,
+      `Hängande benlyft eller liggande benlyft: 6 x 6 | ${restStandard} vila`,
       `Finisher: ${burpeeMinutes} minuter burpees (max antal)`,
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: detta pass genomfors fastande."] : []),
     ];
   }
 
   if (type === "bröst-biceps") {
     return [
-      ...baseRules,
       "— HEMMA TISDAG: Press & armar —",
       `Lutande hantelpress: 6 x 6 | ${restStandard} vila`,
-      `Militarpress hantlar: 6 x 6 | ${restStandard} vila`,
+      `Militärpress hantlar: 6 x 6 | ${restStandard} vila`,
       `Dips mellan stolar/bankar: 6 x 6 | ${restStandard} vila (varannan vecka superset med chins)`,
       `Hantelcurl strikt: 6 x 6 | ${restStandard} vila`,
-      "Finisher: armhavningar 3 set till total failure",
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
+      "Finisher: armhävningar 3 set till total failure",
     ];
   }
 
   if (type === "quads") {
     const legFinisher = stage === "fas3" || stage === "fas4"
-      ? "Finisher: 2 rundor 500 m maxrodd eller 2 min lopband pa maxlutning/tempo"
+      ? "Finisher: 2 rundor 500 m maxrodd eller 2 min löpband på maxlutning/tempo"
       : stage === "fas2"
-        ? "Finisher: 500 m maxrodd/lopband, oka tempot 10-15 %"
-        : "Finisher: 500 m maxrodd eller 2 min lopband pa maxlutning/tempo";
+        ? "Finisher: 500 m maxrodd/löpband, öka tempot 10-15 %"
+        : "Finisher: 500 m maxrodd eller 2 min löpband på maxlutning/tempo";
 
     return [
-      ...baseRules,
       "— HEMMA ONSDAG: Underkropp —",
       `Goblet squat: 6 x 6 | ${restHeavy} vila`,
-      `Gangutfall: 6 x 6 steg per ben | ${restStandard} vila`,
+      `Gångutfall: 6 x 6 steg per ben | ${restStandard} vila`,
       `Benspark bodyweight/band: 4 x 6 | ${restStandard} vila`,
       `Dragonflyes: 6 x 6 | ${restStandard} vila`,
       legFinisher,
-      ...(stage === "fas3" ? ["Dubbelpass (1 gang/vecka): lagg till extra kravande konditionspass samma dag."] : []),
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
     ];
   }
 
   if (type === "axlar-core") {
     const climberSets = stage === "fas1" || stage === "fas2" ? "4 x 45 sek" : "5 x 45 sek";
     return [
-      ...baseRules,
       "— HEMMA TORSDAG: Axlar & stabilitet —",
-      `Staende sidolyft: 6 x 6 | ${restStandard} vila`,
+      `Stående sidolyft: 6 x 6 | ${restStandard} vila`,
       `Rear delt flyes: 6 x 6 | ${restStandard} vila`,
-      "Farmers walk: 6 langder med tung vikt",
+      "Farmers walk: 6 längder med tung vikt",
       `Plankan: 6 set x 1 minut | ${restStandard} vila`,
       `Finisher: mountain climbers ${climberSets}`,
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: detta pass genomfors sent pa kvallen."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: farmers walk minst 3 langder och finishers fullfoljs alltid."] : []),
     ];
   }
 
   if (type === "hamstrings-armar") {
     const swings = stage === "fas1" ? "4 x 20" : "5 x 20";
     return [
-      ...baseRules,
       "— HEMMA FREDAG: Bakre kedjan & puls —",
       `RDL med hantlar: 6 x 6 | ${restHeavy} vila`,
-      `Liggande bencurl med band/halduk: 6 x 6 | ${restStandard} vila`,
+      `Liggande bencurl med band/handduk: 6 x 6 | ${restStandard} vila`,
       `Hip thrust: 6 x 6 | ${restStandard} vila`,
-      `Triceps overhead med hantel (eller sled/assault bike om tillgang): 6 x 6 | ${restStandard} vila`,
+      `Triceps overhead med hantel (eller sled/assault bike om tillgång finns): 6 x 6 | ${restStandard} vila`,
       `Finisher: kettlebell-svingar ${swings}`,
-      ...(stage === "fas3" ? ["Sista set i varje ovning: AMRAP, max +2 reps, aldrig teknisk kollaps."] : []),
-      ...(stage === "fas4" ? ["Fas 4-regel: inga viktokningar. Behall vikterna trots trotthet."] : []),
     ];
   }
 
   if (type === "aktiv-recovery") {
     return [
-      pw,
-      "— AKTIV RECOVERY (LORDAG) —",
-      "Ingen styrketraning idag.",
-      "Lugn promenad eller latt jogg: 25-35 min vid lag anstrangning",
-      "Rorlighet 20 min: hoft, axlar, brostrygg och vader",
-      ...(stage === "fas2" || stage === "fas3" ? ["Ruck: byt 1-2 powerwalks per vecka mot 10-15 kg ruck."] : []),
+      "Powerwalk: 60 min i lugnt tempo.",
+      "— AKTIV ÅTERHÄMTNING (LÖRDAG) —",
+      "Ingen styrketräning i dag.",
+      "Lugn promenad eller lätt jogg: 25-35 min vid låg ansträngning",
+      "Rörlighet 20 min: höft, axlar, bröstrygg och vader",
     ];
   }
 
   return [
-    "— VILDAG (SONDAG) —",
-    "Ingen styrketraning.",
-    "Aktiv aterhamtning: 30-40 min lugn promenad utomhus",
-    "Rorlighet eller yoga 20 min",
-    "Prioritera somn 7-9 timmar",
+    "— VILODAG (SÖNDAG) —",
+    "Ingen styrketräning.",
+    "Aktiv återhämtning: 30-40 min lugn promenad utomhus",
+    "Rörlighet eller yoga 20 min",
+    "Prioritera sömn 7-9 timmar",
   ];
 }
 
 function buildFood(dayIndex, workoutType, phase) {
   const meals = getDailyMeals(dayIndex);
-  const trainingDay = workoutType !== "återhämtning" && workoutType !== "aktiv-recovery";
-
-  const carbRule = trainingDay
-    ? "Kolhydrater: 1-2 kupade händer till lunch och middag"
-    : "Kolhydrater: 0.5-1 kupad hand till lunch, fokus på grönsaker till middag";
-
-  const hydration =
-    phase === "final"
-      ? "Vätska: 3.0-3.5 liter vatten + elektrolyter"
-      : "Vätska: minst 2.5-3.0 liter vatten";
-
-  const portionGuide =
-    "Portionsguide: protein 2 handflator + grönsaker 2 nävar per huvudmål";
-
-  const fatGuide = "Fettkälla: 1-2 tummar per huvudmål";
 
   return {
     lines: [
       meals.breakfast.text,
       meals.lunch.text,
       meals.snack.text,
-      "__SEP__",
-      portionGuide,
-      carbRule,
-      fatGuide,
-      hydration,
     ],
     mealKeys: [meals.breakfast.key, meals.lunch.key, meals.snack.key],
   };

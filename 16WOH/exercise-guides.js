@@ -119,6 +119,11 @@ Cues: Bröst upp. Knän ut. Tryck golvet bort.
 Vanliga fel: Knän in, faller fram, tappar bål.
 Rek/tempo: 6-12 reps. 3 s ner / 1-2 s upp.`,
 
+    "skivstångsknäböj": `Startposition: Stången på övre delen av ryggen (trapezius), fötter axelbrett, blicken framåt.
+Utförande: Sätt dig bakåt/nedåt som på en stol tills låren är minst parallella med golvet. Pressa upp till startläge.
+Cues: Tyngden på hela foten. Knän i linje med tårna. Stolt bröst.
+Vanliga fel: Knän faller inåt, ryggen fälls för mycket framåt (fällkniv), lyfter hälarna.`,
+
     "gångutfall hantlar": `Startposition: Hantlar vid sida, bål spänd.
 Utförande:
 1. Kliv fram ett lagom långt steg.
@@ -343,6 +348,11 @@ Cues: Ryggen låst. Tryck hälar i golv. Känn stretch i baksida lår.
 Vanliga fel: Böjer för mycket i knä, rundar rygg, tappar stången från kroppen.
 Rek/tempo: 6-12 reps. 3 s ner / 1-2 s upp.`,
 
+    "rumänska marklyft (rdl)": `Startposition: Håll skivstång eller hantlar framför låren. Rak rygg, lätt böjda knän (låsta i den vinkeln).
+Utförande: Skjut bak höften så långt det går medan stången glider tätt utmed benen. Vänd när det sträcker i baksidan.
+Cues: Tänk att du ska stänga en låda med rumpan. "Pausa" stretchen i botten.
+Vanliga fel: Kröker ryggen, böjer knäna för mycket (blir en vanlig marklyft), stången kommer för långt ifrån kroppen.`,
+
     "hip thrust skivstång eller maskin": `Startposition: Övre rygg mot bänk, fötter axelbrett. Stång över höften (med vaddering).
 Utförande:
 1. Sänk höften kontrollerat.
@@ -379,6 +389,11 @@ Startposition: Armar över huvudet, armbågar nära.
 Utförande: Sträck armbågar, sänk långsamt bakom huvud.
 Cues: Håll armbågarna tajt.
 Rek: 10-15 reps.`,
+
+    "triceps overhead extension (kabel eller hantel)": `Startposition: Håll rep (kabel) eller hantel bakom huvudet med armbågarna pekande uppåt.
+Utförande: Sträck armarna rakt upp mot taket tills triceps är helt spänd. Sänk kontrollerat tillbaka.
+Cues: Fixera armbågarna nära öronen. Full sträckning i toppen.
+Vanliga fel: Armbågarna åker ut åt sidorna, svankar för mycket med ryggen, halva repetitioner.`,
 
     "fst-stil sidolyft": `Startposition: Stå upprätt med hantlar vid sidan, armbågar lätt böjda. Välj mycket lätt vikt.
 Utförande: Lyft ut till axelhöjd, sänk långsamt utan vila i botten.
@@ -533,6 +548,8 @@ Utförande: Sänk kroppen genom att böja armbågar till ca 90°, pressa upp.
 Cues: Axlar bak. Armbågar pekar bak.
 Vanliga fel: Går för djupt (axelstress), axlar åker upp.
 Rek: 8-15 reps.`,
+
+    "triceps overhead extension (kabel eller hantel)": gym["triceps overhead extension (kabel eller hantel)"],
 
     "skull crusher hantlar": `Startposition: Ligg på golv/bänk, hantlar rakt upp.
 Utförande: Böj armbågar, sänk hantlar mot sida av huvud, sträck upp.
