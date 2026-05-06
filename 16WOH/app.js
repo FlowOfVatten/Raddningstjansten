@@ -2162,12 +2162,16 @@ function renderProgressGraph() {
   ])].sort((a, b) => a - b);
   const minWeekIndex = weekIndices[0];
   const maxWeekIndex = weekIndices[weekIndices.length - 1];
-  const weekCount = maxWeekIndex - minWeekIndex + 1;
-  const weekWidth = innerWidth / Math.max(weekCount, 1);
+  const maxFireEndWeek = fireAverages.length
+    ? Math.max(...fireAverages.map((entry) => Number(entry.weekIndex) + 1))
+    : maxWeekIndex;
+  const maxAxisWeekIndex = Math.max(maxWeekIndex, maxFireEndWeek);
+  const axisWeekSpan = Math.max(1, maxAxisWeekIndex - minWeekIndex);
+  const xForWeek = (weekIndex) => padding.left + ((weekIndex - minWeekIndex) / axisWeekSpan) * innerWidth;
   const xByWeek = new Map(
     weekIndices.map((weekIndex) => [
       weekIndex,
-      padding.left + (weekIndex - minWeekIndex + 0.5) * weekWidth,
+      xForWeek(weekIndex),
     ])
   );
 
@@ -2195,13 +2199,15 @@ function renderProgressGraph() {
         return "";
       }
 
-      const x = padding.left + (weekIndex - minWeekIndex) * weekWidth;
+      const barStartX = xForWeek(weekIndex);
+      const barEndX = xForWeek(weekIndex + 1);
+      const barWidth = Math.max(0, barEndX - barStartX);
       const barHeight = (Math.max(1, Math.min(5, Number(entry.average) || 0)) / 5) * innerHeight;
       const y = padding.top + innerHeight - barHeight;
       return `
         <g>
           <title>Fire-o-meter vecka ${entry.weekIndex}: ${entry.average.toFixed(1)} av 5</title>
-          <rect class="graph-fire-bar" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${weekWidth.toFixed(2)}" height="${barHeight.toFixed(2)}" style="fill:${entry.color}"></rect>
+          <rect class="graph-fire-bar" x="${barStartX.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${barHeight.toFixed(2)}" style="fill:${entry.color}"></rect>
         </g>
       `;
     })
@@ -2220,9 +2226,14 @@ function renderProgressGraph() {
     })
     .join("");
 
-  const weekLabels = weekIndices
+  const axisWeeks = [];
+  for (let week = minWeekIndex; week <= maxAxisWeekIndex; week += 1) {
+    axisWeeks.push(week);
+  }
+
+  const weekLabels = axisWeeks
     .map((weekIndex) => {
-      const x = xByWeek.get(weekIndex);
+      const x = xForWeek(weekIndex);
       return `<text class="graph-label" x="${x.toFixed(2)}" y="${height - 12}" text-anchor="middle">${escapeHtml(`v${weekIndex}`)}</text>`;
     })
     .join("");
