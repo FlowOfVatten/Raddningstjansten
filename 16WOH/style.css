@@ -240,6 +240,42 @@ body {
   margin: 6px 0 0;
 }
 
+.progress-status-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.progress-status-card {
+  flex: 1 1 260px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+}
+
+.progress-status-title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.progress-status-line {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.progress-status-number-weight {
+  color: #f7a521;
+}
+
+.progress-status-number-waist {
+  color: #cf2f24;
+}
+
 .progress-graph {
   margin-top: 10px;
   border: 1px solid var(--line);
@@ -1104,6 +1140,10 @@ input[type="date"] {
   .graph-legend {
     gap: 10px;
     font-size: 0.82rem;
+  }
+
+  .progress-status-card {
+    flex: 1 1 100%;
   }
 }
 

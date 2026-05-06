@@ -429,6 +429,7 @@ const dom = {
   saveCheckinBtn: document.getElementById("saveCheckinBtn"),
   checkinInfo: document.getElementById("checkinInfo"),
   checkinList: document.getElementById("checkinList"),
+  progressStatus: document.getElementById("progressStatus"),
   progressGraph: document.getElementById("progressGraph"),
 };
 
@@ -2091,9 +2092,12 @@ function renderAccountSection() {
       dom.authStatus.textContent = "Skapa konto eller logga in för att spara vikt och mått.";
     }
     dom.checkinInfo.textContent = "";
+    dom.progressStatus.innerHTML = "";
     dom.progressGraph.innerHTML = '<div class="graph-empty">Grafen visas när du har loggat in och sparat veckouppföljningar.</div>';
     return;
   }
+
+  renderProgressStatus();
 
   if (!dom.memberBreakfast.value && state.auth.profile?.breakfastKey) {
     dom.memberBreakfast.value = state.auth.profile.breakfastKey;
@@ -2131,6 +2135,62 @@ function renderAccountSection() {
       li.append(text, deleteBtn);
       dom.checkinList.appendChild(li);
     });
+}
+
+function renderProgressStatus() {
+  if (!dom.progressStatus) {
+    return;
+  }
+
+  const profile = state.auth.profile || {};
+  const latest = [...state.auth.checkins]
+    .filter((entry) => Number.isFinite(Number(entry.weekIndex)))
+    .sort((a, b) => Number(a.weekIndex) - Number(b.weekIndex))
+    .at(-1) || null;
+
+  const startWeight = Number(profile.startWeightKg);
+  const startWaist = Number(profile.startWaistCm);
+  const nowWeight = Number.isFinite(Number(latest?.weightKg)) ? Number(latest.weightKg) : startWeight;
+  const nowWaist = Number.isFinite(Number(latest?.waistCm)) ? Number(latest.waistCm) : startWaist;
+
+  dom.progressStatus.innerHTML = `
+    ${renderProgressStatusCard("Vikt", startWeight, nowWeight, "kg", "weight")}
+    ${renderProgressStatusCard("Midja", startWaist, nowWaist, "cm", "waist")}
+  `;
+}
+
+function renderProgressStatusCard(label, start, current, unit, metricClass) {
+  const hasStart = Number.isFinite(start);
+  const hasCurrent = Number.isFinite(current);
+
+  if (!hasStart && !hasCurrent) {
+    return `
+      <div class="progress-status-card">
+        <p class="progress-status-title">${escapeHtml(label)}</p>
+        <p class="progress-status-line">Saknar data</p>
+      </div>
+    `;
+  }
+
+  const safeStart = hasStart ? start : current;
+  const safeCurrent = hasCurrent ? current : start;
+  const diff = safeCurrent - safeStart;
+  const diffPrefix = diff > 0 ? "+" : "";
+  const numberClass = `progress-status-number-${metricClass}`;
+
+  return `
+    <div class="progress-status-card">
+      <p class="progress-status-title">${escapeHtml(label)}</p>
+      <p class="progress-status-line">
+        Start:
+        <span class="${numberClass}">${safeStart.toFixed(1)} ${escapeHtml(unit)}</span>
+        &#10142;
+        Nu:
+        <strong class="${numberClass}">${safeCurrent.toFixed(1)} ${escapeHtml(unit)}</strong>
+        (<strong class="${numberClass}">${diffPrefix}${diff.toFixed(1)} ${escapeHtml(unit)}</strong>)
+      </p>
+    </div>
+  `;
 }
 
 function renderProgressGraph() {
