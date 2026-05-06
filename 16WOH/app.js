@@ -2160,11 +2160,14 @@ function renderProgressGraph() {
     ...checkins.map((entry) => Number(entry.weekIndex)),
     ...fireAverages.map((entry) => Number(entry.weekIndex)),
   ])].sort((a, b) => a - b);
-  const xStep = weekIndices.length === 1 ? innerWidth / 2 : innerWidth / (weekIndices.length - 1);
+  const minWeekIndex = weekIndices[0];
+  const maxWeekIndex = weekIndices[weekIndices.length - 1];
+  const weekCount = maxWeekIndex - minWeekIndex + 1;
+  const weekWidth = innerWidth / Math.max(weekCount, 1);
   const xByWeek = new Map(
-    weekIndices.map((weekIndex, index) => [
+    weekIndices.map((weekIndex) => [
       weekIndex,
-      padding.left + (weekIndices.length === 1 ? innerWidth / 2 : xStep * index),
+      padding.left + (weekIndex - minWeekIndex + 0.5) * weekWidth,
     ])
   );
 
@@ -2185,19 +2188,20 @@ function renderProgressGraph() {
     })
     .join(" ");
 
-  const fireSegments = fireAverages
+  const fireBars = fireAverages
     .map((entry) => {
-      const x = xByWeek.get(Number(entry.weekIndex));
-      if (!Number.isFinite(x)) {
+      const weekIndex = Number(entry.weekIndex);
+      if (!Number.isFinite(weekIndex)) {
         return "";
       }
 
-      const half = weekIndices.length === 1 ? Math.min(56, innerWidth * 0.22) : Math.max(14, Math.min(34, xStep * 0.32));
-      const y = padding.top + 26;
+      const x = padding.left + (weekIndex - minWeekIndex) * weekWidth;
+      const barHeight = (Math.max(1, Math.min(5, Number(entry.average) || 0)) / 5) * innerHeight;
+      const y = padding.top + innerHeight - barHeight;
       return `
         <g>
           <title>Fire-o-meter vecka ${entry.weekIndex}: ${entry.average.toFixed(1)} av 5</title>
-          <line class="graph-fire-average" x1="${(x - half).toFixed(2)}" y1="${y.toFixed(2)}" x2="${(x + half).toFixed(2)}" y2="${y.toFixed(2)}" style="stroke:${entry.color}"></line>
+          <rect class="graph-fire-bar" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${weekWidth.toFixed(2)}" height="${barHeight.toFixed(2)}" style="fill:${entry.color}"></rect>
         </g>
       `;
     })
@@ -2227,14 +2231,14 @@ function renderProgressGraph() {
     <div class="graph-legend">
       <span><i style="background:#f7a521"></i>Vikt (kg)</span>
       <span><i style="background:#cf2f24"></i>Midja (cm)</span>
-      <span><i class="legend-line" style="background:linear-gradient(90deg,#8e969d,#f28b23,#cf2f24,#fff3c2)"></i>Fire-o-meter snitt</span>
+      <span><i class="legend-bar" style="background:linear-gradient(90deg,#8e969d,#f28b23,#cf2f24,#fff3c2)"></i>Fire-o-meter snitt</span>
     </div>
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Graf över vikt och midjemått per vecka">
       <line class="graph-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + innerHeight}"></line>
       <line class="graph-axis" x1="${padding.left}" y1="${padding.top + innerHeight}" x2="${padding.left + innerWidth}" y2="${padding.top + innerHeight}"></line>
+      ${fireBars}
       <path class="graph-weight" d="${weightPath}"></path>
       <path class="graph-waist" d="${waistPath}"></path>
-      ${fireSegments}
       ${dots}
       ${weekLabels}
       <text class="graph-label" x="${padding.left}" y="14">Vikt ${weightBounds.min}-${weightBounds.max} kg</text>

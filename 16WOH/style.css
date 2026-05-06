@@ -278,6 +278,7 @@ body {
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95));
 }
 
 .graph-waist {
@@ -286,14 +287,19 @@ body {
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95));
 }
 
 .graph-dot-weight {
   fill: #f7a521;
+  stroke: #000;
+  stroke-width: 1.4;
 }
 
 .graph-dot-waist {
   fill: #cf2f24;
+  stroke: #000;
+  stroke-width: 1.4;
 }
 
 .graph-legend {
@@ -319,16 +325,15 @@ body {
   border-radius: 999px;
 }
 
-.graph-legend i.legend-line {
-  width: 20px;
-  height: 4px;
-  border-radius: 999px;
+.graph-legend i.legend-bar {
+  width: 18px;
+  height: 12px;
+  border-radius: 4px;
+  opacity: 0.45;
 }
 
-.graph-fire-average {
-  stroke-width: 6;
-  stroke-linecap: round;
-  opacity: 0.95;
+.graph-fire-bar {
+  opacity: 0.3;
 }
 
 .profile-grid,
