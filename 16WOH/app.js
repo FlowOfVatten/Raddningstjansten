@@ -938,7 +938,7 @@ function renderFoodList() {
     <article class="manual-launch-card">
       <div class="manual-launch-copy">
         <p class="manual-launch-title">&#x1F4D8; Kost-manualen</p>
-        <p class="manual-launch-text">Snabbversion av kostråden. Öppna manualen för hela upplägget.</p>
+        <p class="manual-launch-text">Din kropp byggs i köket, men definieras på gymmet.</p>
       </div>
       <div class="manual-actions">
         <button id="openFoodManualBtn" class="btn btn-primary" type="button">Öppna Kost-manual</button>
@@ -2415,8 +2415,8 @@ function getWeeklyFireAverages() {
 
   const weekCount = Math.floor(currentDayIndex / 7) + 1;
 
-  return Array.from({ length: weekCount }, (_, weekIndex) => {
-    const weekStartDay = weekIndex * 7;
+  return Array.from({ length: weekCount }, (_, weekOffset) => {
+    const weekStartDay = weekOffset * 7;
     const elapsedDays = Math.min(7, currentDayIndex - weekStartDay + 1);
     const ratings = Array.from({ length: elapsedDays }, (_, dayOffset) => {
       const dayIndex = weekStartDay + dayOffset;
@@ -2426,7 +2426,7 @@ function getWeeklyFireAverages() {
     const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
 
     return {
-      weekIndex,
+      weekIndex: weekOffset + 1,
       average,
       daysCount: elapsedDays,
       color: getFireAverageColor(average),
