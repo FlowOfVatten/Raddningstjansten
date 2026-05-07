@@ -55,6 +55,7 @@ const EXERCISE_GUIDE_ALIASES = {
     "knaboj": "skivstångsknäböj",
     "triceps overhead": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead extension (kabel eller hantel)": "triceps overhead extension (kabel eller hantel)",
+    "triceps overhead extension kabel eller hantel": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead (eller sled push/assault bike)": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead med hantel": "triceps overhead extension (kabel eller hantel)"
   },
@@ -162,6 +163,14 @@ function extractExerciseLinkParts(entry) {
 
   if (/^ruck$/i.test(label)) {
     return { linkText: "Ruck", guideName: "Ruck", restPart };
+  }
+
+  if (/^kn[äa]b[öo]j\s*\(skivst[åa]ng\)$/i.test(label)) {
+    return { linkText: "Knäböj (Skivstång)", guideName: "Knäböj (Skivstång)", restPart };
+  }
+
+  if (/^triceps overhead extension\s*\(kabel eller hantel\)$/i.test(label)) {
+    return { linkText: "Triceps Overhead Extension (Kabel eller hantel)", guideName: "Triceps Overhead Extension (Kabel eller hantel)", restPart };
   }
 
   if (/amrap/i.test(afterColon)) {
@@ -946,8 +955,7 @@ function renderFoodList() {
   dom.foodList.innerHTML = `
     <article class="manual-launch-card">
       <div class="manual-launch-copy">
-        <span class="recipe-chip">112DIB</span>
-        <p class="manual-launch-title">&#x1F4D8; Öppna Kost-manualen i eget fönster</p>
+        <p class="manual-launch-title">Kost-manualen</p>
         <p class="manual-launch-text">Läs riktlinjer för fasta, måltider, protein, skift och pannben utan att vänsterspalten blir trång.</p>
       </div>
       <div class="manual-actions">
@@ -1569,7 +1577,7 @@ function buildTraining(type, phase, week) {
       `Rumänska marklyft (RDL): 6 x 6 | ${restHeavy} vila`,
       `Liggande bencurl: 6 x 6 | ${restStandard} vila`,
       `Hip thrusts: 6 x 6 | ${restStandard} vila`,
-      `Triceps overhead (eller sled push/assault bike): 6 x 6 | ${restStandard} vila`,
+      `Triceps Overhead Extension (Kabel eller hantel): 6 x 6 | ${restHeavy} vila`,
       `Finisher: kettlebell-svingar ${swings}`,
     ];
   }
