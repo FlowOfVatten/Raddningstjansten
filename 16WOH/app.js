@@ -375,7 +375,6 @@ const dom = {
   trainingList: document.getElementById("trainingList"),
   foodList: document.getElementById("foodList"),
   showBlockInfoBtn: document.getElementById("showBlockInfoBtn"),
-  showFoodInfoBtn: document.getElementById("showFoodInfoBtn"),
   exportWeekPdf: document.getElementById("exportWeekPdf"),
   fireMeter: document.getElementById("fireMeter"),
   fireMeterValue: document.getElementById("fireMeterValue"),
@@ -619,7 +618,6 @@ function bindEvents() {
 
   dom.exportWeekPdf.addEventListener("click", exportWeekToPdf);
   dom.showBlockInfoBtn.addEventListener("click", openBlockInfoDetail);
-  dom.showFoodInfoBtn.addEventListener("click", openFoodInfoDetail);
   dom.generateShopping.addEventListener("click", renderShoppingList);
   dom.shoppingDays.addEventListener("change", renderShoppingList);
   dom.shoppingToggle.addEventListener("click", () => {
@@ -811,12 +809,12 @@ function buildDayCell(date) {
 
 function renderDetails() {
   clearLists();
+  renderFoodList();
 
   if (!state.startDate) {
     dom.detailsTitle.textContent = "Välj ett startdatum";
     dom.detailsSubtitle.textContent = "Kalendern fylls när programmet är startat.";
     addListItem(dom.trainingList, "Ingen plan ännu.");
-    addListItem(dom.foodList, "Välj datum för att skapa kostplan.");
     renderFireMeter();
     return;
   }
@@ -827,7 +825,6 @@ function renderDetails() {
   if (dayIndex < 0) {
     dom.detailsSubtitle.textContent = "Programmet har inte startat denna dag.";
     addListItem(dom.trainingList, "Vila eller valfri lätt promenad.");
-    addListItem(dom.foodList, "Förbered matlådor och inköpslista.");
     renderFireMeter();
     return;
   }
@@ -835,7 +832,6 @@ function renderDetails() {
   if (dayIndex >= PROGRAM_DAYS) {
     dom.detailsSubtitle.textContent = "16 veckor är genomförda. Bra jobbat!";
     addListItem(dom.trainingList, "Återhämtning eller fortsättningsprogram.");
-    addListItem(dom.foodList, "Behåll dina basrutiner med hög proteinnivå.");
     renderFireMeter();
     return;
   }
@@ -844,7 +840,6 @@ function renderDetails() {
   const kostInfo = getKostBlock(plan.week);
   dom.detailsSubtitle.textContent = `Vecka ${plan.week} av 16 · Dag ${dayIndex + 1} · ${kostInfo.blockType} (Block ${kostInfo.block})`;
   renderTrainingList(plan.training);
-  renderFoodList(plan.food, plan.mealKeys);
   renderFireMeter();
 }
 
@@ -943,62 +938,67 @@ async function saveFireRating(rating) {
   }
 }
 
-function renderFoodList(foodLines, mealKeys) {
-  let mealIdx = 0;
-  foodLines.forEach((entry) => {
-    if (entry === "__SEP__") {
-      const hr = document.createElement("hr");
-      hr.className = "food-divider";
-      dom.foodList.appendChild(hr);
-      return;
-    }
+function renderFoodList() {
+  dom.foodList.innerHTML = `
+    <article class="manual-card">
+      <header class="manual-head">
+        <span class="recipe-chip">112DIB</span>
+        <h4>&#x1F4D8; KOST-MANUAL: 112 DAGAR I BEREDSKAP</h4>
+        <p class="manual-quote"><strong>Disciplin</strong> är att välja mellan vad du vill ha nu och vad du vill ha mest.</p>
+      </header>
+      <div class="manual-grid">
+        <section class="manual-section">
+          <h5>&#x23F1;&#xFE0F; Ätfönster & fasta</h5>
+          <p class="manual-copy">Vi använder periodisk fasta för att maximera fettförbränningen. Allt kaloriintag sker inom ett begränsat tidsfönster.</p>
+          <ul>
+            <li><strong>Standard:</strong> 10:00 - 18:00.</li>
+            <li><strong>Flexibelt:</strong> 12:00 - 20:00 vid sena pass eller skift.</li>
+            <li><strong>Utanför fönstret:</strong> endast vatten, svart kaffe eller te.</li>
+          </ul>
+        </section>
+        <section class="manual-section">
+          <h5>&#x1F969; Grundprinciper</h5>
+          <ul>
+            <li><strong>Basen:</strong> rent protein som nötkött, kyckling, fisk och ägg tillsammans med ovanmarksgrönsaker som broccoli, spenat och blomkål. Lägg till en mindre mängd hälsosamt fett som avokado eller olivolja.</li>
+            <li><strong>Undvik:</strong> socker, vitt mjöl, pasta, ris, bröd och alkohol.</li>
+            <li><strong>Vätska:</strong> drick minst 3 liter vatten per dag.</li>
+          </ul>
+        </section>
+        <section class="manual-section">
+          <h5>&#x1F373; Måltidsriktlinjer</h5>
+          <ul>
+            <li><strong>Frukost kl. 10:00/12:00:</strong> bryt fastan med protein och fett.</li>
+            <li><strong>Val:</strong> omelett på 3 ägg, naturell kvarg med nötter eller havregrynsgröt med proteinpulver på träningsdagar.</li>
+            <li><strong>Lunch & middag:</strong> fyll tallriken med grönt och protein.</li>
+            <li><strong>Tips:</strong> byt ut pastan mot zoodles eller blomkålsris.</li>
+            <li><strong>Mellanmål:</strong> endast vid behov, som kokt ägg, en näve naturella nötter eller ett par skivor kalkon.</li>
+          </ul>
+        </section>
+        <section class="manual-section">
+          <h5>&#x1F4AA; Protein & träning</h5>
+          <ul>
+            <li><strong>Verktyget protein:</strong> direkt efter varje gympass bör du få i dig protein. En shake är det smidigaste verktyget.</li>
+            <li><strong>Verktyget kolhydrater:</strong> om du känner dig helt tömd i musklerna under de senare faserna, lägg till en portion sötpotatis i måltiden efter träningen för att ladda depåerna.</li>
+          </ul>
+        </section>
+        <section class="manual-section manual-section-wide">
+          <h5>&#x1F692; Verkligheten: larm & skift</h5>
+          <ul>
+            <li><strong>Vid nattarbete:</strong> om du måste äta utanför fönstret, välj en lätt proteinkälla som ägg eller shake. Återgå till ordinarie ätfönster så snart som möjligt nästa dag.</li>
+            <li><strong>Pannben:</strong> om du faller ur ramen en dag, analysera varför, logga din Fire-o-meter och kom ihåg att nästa måltid är en ny chans att göra rätt.</li>
+          </ul>
+        </section>
+      </div>
+      <div class="manual-actions">
+        <button id="openRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration? Se 112DIB-recept.</button>
+      </div>
+    </article>
+  `;
 
-    const isPrimaryMealLine = mealIdx < mealKeys.length;
-    if (!isPrimaryMealLine) {
-      addListItem(dom.foodList, entry);
-      return;
-    }
-
-    const mealKey = mealKeys[mealIdx];
-    mealIdx += 1;
-
-    if (!mealKey.startsWith("lunch")) {
-      addListItem(dom.foodList, entry);
-      return;
-    }
-
-    // Use the recipe catalog title as the displayed name if available.
-    const catalogEntry = getCatalogRecipeEntry(mealKey);
-    const recipeName = catalogEntry?.title || entry.replace(/^Lunch:\s*/i, "");
-    const displayText = `Lunch/middag: ${recipeName}`;
-
-    const li = document.createElement("li");
-    li.className = "food-recipe-row";
-
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "exercise-link";
-    btn.textContent = displayText;
-    btn.setAttribute("title", "Klicka för recept");
-    btn.addEventListener("click", () => openMealDetail(mealKey, displayText));
-
-    const refreshBtn = document.createElement("button");
-    refreshBtn.type = "button";
-    refreshBtn.className = "recipe-refresh-btn";
-    refreshBtn.setAttribute("title", "Byt recept för dagen");
-    refreshBtn.setAttribute("aria-label", "Byt recept");
-    refreshBtn.textContent = "↻";
-    refreshBtn.addEventListener("click", () => {
-      const dayIndex = state.startDate ? Math.max(0, diffDays(state.startDate, state.selectedDate)) : 0;
-      state.recipeOffsets[dayIndex] = ((state.recipeOffsets[dayIndex] || 0) + 1);
-      persistRecipeOffsets();
-      renderDetails();
-    });
-
-    li.appendChild(btn);
-    li.appendChild(refreshBtn);
-    dom.foodList.appendChild(li);
-  });
+  const recipeCatalogBtn = document.getElementById("openRecipeCatalogBtn");
+  if (recipeCatalogBtn) {
+    recipeCatalogBtn.addEventListener("click", openRecipeCatalogDetail);
+  }
 }
 
 function resolveMealByKey(mealKey) {
@@ -1148,6 +1148,27 @@ function openMealDetail(mealKey, displayText) {
     dom.exerciseModalSource.textContent = recipeEntry.source;
   }
   dom.exerciseModalDesc.innerHTML = formatMealRecipeHtml(title, meal, recipeEntry);
+}
+
+function openRecipeCatalogDetail() {
+  const recipes = Array.isArray(state.recipeCatalog) ? state.recipeCatalog : [];
+
+  if (!recipes.length) {
+    openInfoDetail(
+      "112DIB-recept",
+      renderInfoCardHtml(
+        "Recept",
+        "112DIB-recept",
+        "Receptregistret är tomt just nu. Ladda om sidan eller kontrollera att receptkatalogen finns tillgänglig.",
+        [renderMealRecipeSection("Status", ["Inga recept kunde läsas in i registret."])]
+      ),
+      "Källa: 112DIB receptregister"
+    );
+    return;
+  }
+
+  const cards = recipes.map((recipe) => formatMealRecipeHtml(recipe.title, null, recipe)).join("");
+  openInfoDetail("112DIB-recept", `<div class="recipe-catalog">${cards}</div>`, "Källa: 112DIB receptregister");
 }
 
 function renderTrainingList(entries) {
