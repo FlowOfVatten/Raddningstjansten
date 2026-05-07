@@ -1542,7 +1542,7 @@ function buildTraining(type, phase, week) {
 
     return [
       "— ONSDAG: Underkropp —",
-      `Knäböj (prioritera fri stång): 6 x 6 | ${restHeavy} vila`,
+      `Knäböj (Skivstång): 6 x 6 | ${restHeavy} vila`,
       `Gångutfall: 6 x 6 steg per ben | ${restStandard} vila`,
       `Benspark: 4 x 6 | ${restStandard} vila`,
       `Dragonflyes: 6 x 6 | ${restStandard} vila`,
@@ -2040,7 +2040,7 @@ async function saveProfile() {
     dom.authStatus.textContent = "Logga in först.";
     return;
   }
-      `Knäböj (Skivstång): 6 x 6 | ${restHeavy} vila`,
+
   try {
     const profileStart = parseDateInput(dom.profileStartDate.value);
     if (!profileStart) {
@@ -2320,7 +2320,7 @@ function renderProgressGraph() {
 
       const barStartX = xForWeek(weekIndex);
       const barEndX = xForWeek(weekIndex + 1);
-          `Triceps Overhead Extension (Kabel eller hantel): 6 x 6 | ${restHeavy} vila`,
+      const barWidth = Math.max(0, barEndX - barStartX);
       const barHeight = (Math.max(1, Math.min(5, Number(entry.average) || 0)) / 5) * innerHeight;
       const y = padding.top + innerHeight - barHeight;
       return `
