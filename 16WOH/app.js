@@ -2278,13 +2278,16 @@ function renderProgressGraph() {
   const maxCheckinWeek = Math.max(...checkins.map((entry) => Number(entry.weekIndex) || 0));
   const fireAverages = getWeeklyFireAverages(maxCheckinWeek);
   const weekIndices = [...new Set([
+    0,
     ...checkins.map((entry) => Number(entry.weekIndex)),
-    ...fireAverages.map((entry) => Number(entry.weekIndex)),
-  ])].sort((a, b) => a - b);
+    ...fireAverages.flatMap((entry) => [Number(entry.weekIndex) - 1, Number(entry.weekIndex)]),
+  ])]
+    .filter((weekIndex) => Number.isFinite(weekIndex) && weekIndex >= 0)
+    .sort((a, b) => a - b);
   const minWeekIndex = weekIndices[0];
   const maxWeekIndex = weekIndices[weekIndices.length - 1];
   const maxFireEndWeek = fireAverages.length
-    ? Math.max(...fireAverages.map((entry) => Number(entry.weekIndex) + 1))
+    ? Math.max(...fireAverages.map((entry) => Number(entry.weekIndex)))
     : maxWeekIndex;
   const maxAxisWeekIndex = Math.max(maxWeekIndex, maxFireEndWeek);
   const axisWeekSpan = Math.max(1, maxAxisWeekIndex - minWeekIndex);
@@ -2320,8 +2323,8 @@ function renderProgressGraph() {
         return "";
       }
 
-      const barStartX = xForWeek(weekIndex);
-      const barEndX = xForWeek(weekIndex + 1);
+      const barStartX = xForWeek(weekIndex - 1);
+      const barEndX = xForWeek(weekIndex);
       const barWidth = Math.max(0, barEndX - barStartX);
       const barHeight = (Math.max(1, Math.min(5, Number(entry.average) || 0)) / 5) * innerHeight;
       const y = padding.top + innerHeight - barHeight;
