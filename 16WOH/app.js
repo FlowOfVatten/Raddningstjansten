@@ -51,6 +51,7 @@ const EXERCISE_GUIDE_ALIASES = {
     "rumanska marklyft (rdl)": "rumänska marklyft (rdl)",
     "liggande bencurl": "liggande eller staende bencurl",
     "hip thrusts": "hip thrust skivstang eller maskin",
+    "knaboj": "skivstångsknäböj",
     "triceps overhead": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead (eller sled push/assault bike)": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead med hantel": "triceps overhead extension (kabel eller hantel)"
@@ -73,6 +74,7 @@ const EXERCISE_GUIDE_ALIASES = {
     "rdl med hantlar": "rumanskt marklyft hantlar rdl",
     "liggande bencurl med band/halduk": "liggande bencurl med halband",
     "hip thrust": "hip thrust med hantel eller kroppsvikt",
+    "knaboj": "hantelknaboj goblet squat",
     "triceps overhead": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead med hantel": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead med hantel (eller sled/assault bike om tillgang finns)": "triceps overhead extension (kabel eller hantel)",
@@ -431,6 +433,7 @@ const dom = {
   checkinList: document.getElementById("checkinList"),
   progressStatus: document.getElementById("progressStatus"),
   progressGraph: document.getElementById("progressGraph"),
+  loadingBar: document.getElementById("loadingBar"),
 };
 
 init();
@@ -1804,24 +1807,46 @@ function applyUserData(user) {
 }
 
 async function accountApi(action, payload) {
-  const response = await fetch(ACCOUNT_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...payload }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
-  let body = null;
   try {
-    body = await response.json();
-  } catch (_err) {
-    throw new Error("API svarade inte med JSON.");
-  }
+    const response = await fetch(ACCOUNT_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...payload }),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    throw new Error(body.error || "Okänt API-fel.");
-  }
+    if (!response.ok) {
+      let errorMsg = `Server error: ${response.status}`;
+      try {
+        const body = await response.json();
+        if (body.error) {
+          errorMsg = body.error;
+        }
+      } catch (_err) {
+        // Om ben inte kan parsas som JSON, use status-meddelandet
+      }
+      throw new Error(errorMsg);
+    }
 
-  return body;
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (_err) {
+      throw new Error("Servern svarade men data var inte giltig. Försök igen.");
+    }
+
+    return body;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Begäran tog för lång tid (30 sekunder). Servern svarar inte. Försök igen senare.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function refreshSession() {
@@ -1938,6 +1963,9 @@ async function loginAccount() {
   }
 
   state.loginInProgress = true;
+  if (dom.loadingBar) {
+    dom.loadingBar.classList.add("active");
+  }
   const oldLoginButtonText = dom.loginBtn.textContent;
   dom.loginBtn.disabled = true;
   dom.loginBtn.textContent = "Loggar in...";
@@ -1956,6 +1984,9 @@ async function loginAccount() {
     state.authMode = "member";
     dom.authStatus.textContent = "Inloggning lyckades.";
   } catch (err) {
+    if (dom.loadingBar) {
+      dom.loadingBar.classList.remove("active");
+    }
     dom.authStatus.textContent = err.message;
   } finally {
     state.loginInProgress = false;
