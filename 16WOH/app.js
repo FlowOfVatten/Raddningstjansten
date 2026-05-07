@@ -2424,10 +2424,19 @@ function getWeeklyFireAverages(maxWeekHint = 0) {
 
   return Array.from({ length: weekCount }, (_, weekOffset) => {
     const weekStartDay = weekOffset * 7;
-    const elapsedDaysRaw = hasStartDate
-      ? Math.min(7, currentDayIndex - weekStartDay + 1)
-      : 7;
-    const elapsedDays = Math.max(1, elapsedDaysRaw);
+    let elapsedDays = 7;
+
+    if (hasStartDate && todayWeekCount > 0) {
+      if (weekOffset < todayWeekCount - 1) {
+        elapsedDays = 7;
+      } else if (weekOffset === todayWeekCount - 1) {
+        elapsedDays = (currentDayIndex % 7) + 1;
+      } else {
+        // Fallback weeks (from checkin data) are treated as complete weeks.
+        elapsedDays = 7;
+      }
+    }
+
     const ratings = Array.from({ length: elapsedDays }, (_, dayOffset) => {
       const dayIndex = weekStartDay + dayOffset;
       return hasStartDate ? (ratingsByDay.get(dayIndex) || 1) : 1;
