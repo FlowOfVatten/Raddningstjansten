@@ -2275,7 +2275,8 @@ function renderProgressGraph() {
   const innerHeight = height - padding.top - padding.bottom;
   const weightValues = checkins.map((entry) => Number(entry.weightKg));
   const waistValues = checkins.map((entry) => Number(entry.waistCm));
-  const fireAverages = getWeeklyFireAverages();
+  const maxCheckinWeek = Math.max(...checkins.map((entry) => Number(entry.weekIndex) || 0));
+  const fireAverages = getWeeklyFireAverages(maxCheckinWeek);
   const weekIndices = [...new Set([
     ...checkins.map((entry) => Number(entry.weekIndex)),
     ...fireAverages.map((entry) => Number(entry.weekIndex)),
@@ -2382,45 +2383,51 @@ function renderProgressGraph() {
   `;
 }
 
-function getWeeklyFireAverages() {
-  if (!state.startDate) {
-    return [];
-  }
+function getWeeklyFireAverages(maxWeekHint = 0) {
+  const hasStartDate = Boolean(state.startDate);
 
   const ratingsByDay = new Map();
   const fireRatings = state.auth.fireRatings && typeof state.auth.fireRatings === "object"
     ? state.auth.fireRatings
     : {};
 
-  Object.entries(fireRatings).forEach(([dateIso, rawRating]) => {
-    const rating = Number(rawRating);
-    const ratingDate = parseDateInput(dateIso);
-    if (!ratingDate || !Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return;
-    }
+  if (hasStartDate) {
+    Object.entries(fireRatings).forEach(([dateIso, rawRating]) => {
+      const rating = Number(rawRating);
+      const ratingDate = parseDateInput(dateIso);
+      if (!ratingDate || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return;
+      }
 
-    const dayIndex = diffDays(state.startDate, ratingDate);
-    if (dayIndex < 0 || dayIndex >= PROGRAM_DAYS) {
-      return;
-    }
+      const dayIndex = diffDays(state.startDate, ratingDate);
+      if (dayIndex < 0 || dayIndex >= PROGRAM_DAYS) {
+        return;
+      }
 
-    ratingsByDay.set(dayIndex, rating);
-  });
+      ratingsByDay.set(dayIndex, rating);
+    });
+  }
 
   const today = stripTime(new Date());
-  const currentDayIndex = Math.min(PROGRAM_DAYS - 1, diffDays(state.startDate, today));
-  if (currentDayIndex < 0) {
+  const currentDayIndex = hasStartDate
+    ? Math.min(PROGRAM_DAYS - 1, diffDays(state.startDate, today))
+    : -1;
+  const todayWeekCount = currentDayIndex >= 0 ? Math.floor(currentDayIndex / 7) + 1 : 0;
+  const weekCount = Math.max(Number(maxWeekHint) || 0, todayWeekCount);
+
+  if (weekCount <= 0) {
     return [];
   }
 
-  const weekCount = Math.floor(currentDayIndex / 7) + 1;
-
   return Array.from({ length: weekCount }, (_, weekOffset) => {
     const weekStartDay = weekOffset * 7;
-    const elapsedDays = Math.min(7, currentDayIndex - weekStartDay + 1);
+    const elapsedDaysRaw = hasStartDate
+      ? Math.min(7, currentDayIndex - weekStartDay + 1)
+      : 7;
+    const elapsedDays = Math.max(1, elapsedDaysRaw);
     const ratings = Array.from({ length: elapsedDays }, (_, dayOffset) => {
       const dayIndex = weekStartDay + dayOffset;
-      return ratingsByDay.get(dayIndex) || 1;
+      return hasStartDate ? (ratingsByDay.get(dayIndex) || 1) : 1;
     });
 
     const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;

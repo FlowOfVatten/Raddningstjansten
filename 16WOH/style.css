@@ -420,7 +420,9 @@ body {
 }
 
 .graph-fire-bar {
-  opacity: 0.3;
+  opacity: 0.55;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.6;
 }
 
 .checkin-panel {
