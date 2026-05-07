@@ -137,24 +137,29 @@
           <button id="saveProfileBtn" class="btn btn-primary" type="button">Spara profil</button>
           <button id="deleteAccountBtn" class="btn btn-ghost delete-account-btn" type="button">Radera konto</button>
 
-          <div class="checkin-grid">
-            <label>
-              Uppföljningsdatum
-              <input id="checkinDate" type="date" />
-            </label>
-            <label>
-              Vikt (kg)
-              <input id="checkinWeight" type="number" min="30" max="300" step="0.1" />
-            </label>
-            <label>
-              Midjemått (cm)
-              <input id="checkinWaist" type="number" min="40" max="200" step="0.1" />
-            </label>
-          </div>
-          <button id="saveCheckinBtn" class="btn btn-ghost" type="button">Spara veckouppföljning</button>
+          <details class="checkin-panel" id="checkinPanel">
+            <summary>Veckouppföljning och historik</summary>
+            <div class="checkin-panel-body">
+              <div class="checkin-grid">
+                <label>
+                  Uppföljningsdatum
+                  <input id="checkinDate" type="date" />
+                </label>
+                <label>
+                  Vikt (kg)
+                  <input id="checkinWeight" type="number" min="30" max="300" step="0.1" />
+                </label>
+                <label>
+                  Midjemått (cm)
+                  <input id="checkinWaist" type="number" min="40" max="200" step="0.1" />
+                </label>
+              </div>
+              <button id="saveCheckinBtn" class="btn btn-ghost" type="button">Spara veckouppföljning</button>
 
-          <p id="checkinInfo" class="muted"></p>
-          <ul id="checkinList"></ul>
+              <p id="checkinInfo" class="muted"></p>
+              <ul id="checkinList"></ul>
+            </div>
+          </details>
 
           <div class="graph-block">
             <div class="graph-head">

@@ -2326,7 +2326,7 @@ function renderProgressGraph() {
       const y = padding.top + innerHeight - barHeight;
       return `
         <g>
-          <title>Fire-o-meter vecka ${entry.weekIndex}: ${entry.average.toFixed(1)} av 5</title>
+          <title>Fire-o-meter vecka ${entry.weekIndex}: ${entry.average.toFixed(1)} av 5 (${entry.daysCount}/7 dagar)</title>
           <rect class="graph-fire-bar" x="${barStartX.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${barHeight.toFixed(2)}" style="fill:${entry.color}"></rect>
         </g>
       `;
@@ -2336,12 +2336,18 @@ function renderProgressGraph() {
   const dots = checkins
     .map((entry) => {
       const x = xByWeek.get(Number(entry.weekIndex));
-      const weightY = mapValueToY(Number(entry.weightKg), weightBounds.min, weightBounds.max, padding.top, innerHeight);
-      const waistY = mapValueToY(Number(entry.waistCm), waistBounds.min, waistBounds.max, padding.top, innerHeight);
+      const weightValue = Number(entry.weightKg);
+      const waistValue = Number(entry.waistCm);
+      const weightY = mapValueToY(weightValue, weightBounds.min, weightBounds.max, padding.top, innerHeight);
+      const waistY = mapValueToY(waistValue, waistBounds.min, waistBounds.max, padding.top, innerHeight);
 
       return `
-        <circle class="graph-dot-weight" cx="${x.toFixed(2)}" cy="${weightY.toFixed(2)}" r="4"></circle>
-        <circle class="graph-dot-waist" cx="${x.toFixed(2)}" cy="${waistY.toFixed(2)}" r="4"></circle>
+        <circle class="graph-dot-weight" cx="${x.toFixed(2)}" cy="${weightY.toFixed(2)}" r="4">
+          <title>Vecka ${entry.weekIndex}: ${weightValue.toFixed(1)} kg</title>
+        </circle>
+        <circle class="graph-dot-waist" cx="${x.toFixed(2)}" cy="${waistY.toFixed(2)}" r="4">
+          <title>Vecka ${entry.weekIndex}: ${waistValue.toFixed(1)} cm</title>
+        </circle>
       `;
     })
     .join("");
@@ -2372,20 +2378,21 @@ function renderProgressGraph() {
       <path class="graph-waist" d="${waistPath}"></path>
       ${dots}
       ${weekLabels}
-      <text class="graph-label" x="${padding.left}" y="14">Vikt ${weightBounds.min}-${weightBounds.max} kg</text>
-      <text class="graph-label" x="${width - padding.right}" y="14" text-anchor="end">Midja ${waistBounds.min}-${waistBounds.max} cm</text>
     </svg>
   `;
 }
 
 function getWeeklyFireAverages() {
-  if (!state.startDate || !state.auth.fireRatings || typeof state.auth.fireRatings !== "object") {
+  if (!state.startDate) {
     return [];
   }
 
-  const ratingsByWeek = new Map();
+  const ratingsByDay = new Map();
+  const fireRatings = state.auth.fireRatings && typeof state.auth.fireRatings === "object"
+    ? state.auth.fireRatings
+    : {};
 
-  Object.entries(state.auth.fireRatings).forEach(([dateIso, rawRating]) => {
+  Object.entries(fireRatings).forEach(([dateIso, rawRating]) => {
     const rating = Number(rawRating);
     const ratingDate = parseDateInput(dateIso);
     if (!ratingDate || !Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -2397,23 +2404,34 @@ function getWeeklyFireAverages() {
       return;
     }
 
-    const weekIndex = Math.floor(dayIndex / 7);
-    const bucket = ratingsByWeek.get(weekIndex) || [];
-    bucket.push(rating);
-    ratingsByWeek.set(weekIndex, bucket);
+    ratingsByDay.set(dayIndex, rating);
   });
 
-  return [...ratingsByWeek.entries()]
-    .filter(([, ratings]) => ratings.length === 7)
-    .map(([weekIndex, ratings]) => {
-      const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
-      return {
-        weekIndex,
-        average,
-        color: getFireAverageColor(average),
-      };
-    })
-    .sort((a, b) => a.weekIndex - b.weekIndex);
+  const today = stripTime(new Date());
+  const currentDayIndex = Math.min(PROGRAM_DAYS - 1, diffDays(state.startDate, today));
+  if (currentDayIndex < 0) {
+    return [];
+  }
+
+  const weekCount = Math.floor(currentDayIndex / 7) + 1;
+
+  return Array.from({ length: weekCount }, (_, weekIndex) => {
+    const weekStartDay = weekIndex * 7;
+    const elapsedDays = Math.min(7, currentDayIndex - weekStartDay + 1);
+    const ratings = Array.from({ length: elapsedDays }, (_, dayOffset) => {
+      const dayIndex = weekStartDay + dayOffset;
+      return ratingsByDay.get(dayIndex) || 1;
+    });
+
+    const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
+
+    return {
+      weekIndex,
+      average,
+      daysCount: elapsedDays,
+      color: getFireAverageColor(average),
+    };
+  }).sort((a, b) => a.weekIndex - b.weekIndex);
 }
 
 function getFireAverageColor(average) {

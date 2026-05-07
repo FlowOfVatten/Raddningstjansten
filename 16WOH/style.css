@@ -423,6 +423,41 @@ body {
   opacity: 0.3;
 }
 
+.checkin-panel {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.checkin-panel summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  font-weight: 800;
+  color: var(--accent);
+  user-select: none;
+}
+
+.checkin-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.checkin-panel summary::after {
+  content: "\25BE";
+  float: right;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.checkin-panel[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.checkin-panel-body {
+  padding: 0 12px 12px;
+}
+
 .profile-grid,
 .checkin-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
