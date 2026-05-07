@@ -942,7 +942,7 @@ function renderFoodList() {
       </div>
       <div class="manual-actions">
         <button id="openFoodManualBtn" class="btn btn-primary" type="button">Öppna Kost-manual</button>
-        <button id="openRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration? Se 112DIB-recept.</button>
+        <button id="openRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration?<br>Se 112DIB-recept.</button>
       </div>
     </article>
   `;
@@ -1364,7 +1364,7 @@ function buildFoodInfoHtml(context) {
       ]),
       renderMealRecipeSection("🍳 Måltidsriktlinjer", [
         "Frukost (kl. 10:00/12:00): bryt fastan med protein och fett.",
-        "Val: omelett på 3 ägg, naturell kvarg med nötter eller, vid träningsdagar, havregrynsgröt med proteinpulver.",
+        "Exempel: omelett på 3 ägg, naturell kvarg med nötter eller, vid träningsdagar, havregrynsgröt med proteinpulver.",
         "Lunch & middag: fyll tallriken med grönt och protein.",
         "Tips: byt ut pastan mot zoodles (zucchini) eller blomkålsris.",
         "Mellanmål: endast vid behov. Välj nödlösningar som ett kokt ägg, en näve naturella nötter eller ett par skivor kalkon.",
@@ -1377,7 +1377,7 @@ function buildFoodInfoHtml(context) {
         "Vid nattarbete: om du måste äta utanför fönstret, välj en lätt proteinkälla som ägg eller shake. Återgå till ordinarie ätfönster så snart som möjligt nästa dag.",
         "Pannben: om du faller ur ramen en dag, analysera varför, logga din Fire-o-meter och kom ihåg: nästa måltid är en ny chans att göra rätt.",
       ]),
-      `<div class="manual-actions"><button id="modalRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration? Se 112DIB-recept.</button></div>`,
+      `<div class="manual-actions"><button id="modalRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration?<br>Se 112DIB-recept.</button></div>`,
     ],
   );
 }

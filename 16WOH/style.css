@@ -730,7 +730,7 @@ input[type="date"] {
 
 .manual-launch-title {
   margin: 0;
-  color: var(--text);
+  color: var(--accent);
   font-weight: 800;
 }
 
