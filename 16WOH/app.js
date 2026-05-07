@@ -476,6 +476,25 @@ function init() {
   if (isLoggedIn()) {
     refreshSession();
   }
+
+  startKeepAlive();
+}
+
+function startKeepAlive() {
+  setInterval(async () => {
+    try {
+      const response = await fetch(window.location.origin + "/api/woh-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "ping" }),
+      });
+      if (!response.ok) {
+        console.warn("Keep-alive ping failed:", response.status);
+      }
+    } catch (err) {
+      console.warn("Keep-alive ping error:", err);
+    }
+  }, 5 * 60 * 1000);
 }
 
 async function loadExternalRecipeCatalog() {

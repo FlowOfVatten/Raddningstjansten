@@ -535,6 +535,12 @@ module.exports = async function (context, req) {
       return json(200, { ok: true, user: sanitizeUser(user) });
     }
 
+    if (action === "ping") {
+      const pool = await getPool();
+      await pool.request().query("SELECT 1");
+      return json(200, { ok: true, message: "pong" });
+    }
+
     return json(400, { error: "Unknown action" });
   } catch (err) {
     context.log.error("woh-account error", err);
