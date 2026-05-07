@@ -155,6 +155,17 @@ async function saveUser(pool, username, payload) {
     `);
 }
 
+async function deleteUser(pool, username) {
+  const keys = [userKey(username), legacyUserKey(username)];
+
+  for (const key of keys) {
+    await pool
+      .request()
+      .input("id", sql.NVarChar(200), key)
+      .query("DELETE FROM app_state WHERE id = @id");
+  }
+}
+
 function sanitizeFireRatings(rawRatings) {
   const sanitized = {};
   if (!rawRatings || typeof rawRatings !== "object" || Array.isArray(rawRatings)) {
@@ -372,6 +383,21 @@ module.exports = async function (context, req) {
 
       await saveUser(pool, username, user);
       return json(200, { ok: true, user: sanitizeUser(user) });
+    }
+
+    if (action === "deleteaccount") {
+      const username = normalizeUsername(data.username);
+      const token = String(data.token || "");
+      assertUsername(username);
+
+      const user = await loadUser(pool, username);
+      if (!user) {
+        return json(404, { error: "Konto hittades inte." });
+      }
+      verifyToken(user, token);
+
+      await deleteUser(pool, username);
+      return json(200, { ok: true });
     }
 
     if (action === "addcheckin") {

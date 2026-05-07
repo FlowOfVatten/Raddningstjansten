@@ -51,8 +51,10 @@ const EXERCISE_GUIDE_ALIASES = {
     "rumanska marklyft (rdl)": "rumänska marklyft (rdl)",
     "liggande bencurl": "liggande eller staende bencurl",
     "hip thrusts": "hip thrust skivstang eller maskin",
+    "knaboj (skivstang)": "skivstångsknäböj",
     "knaboj": "skivstångsknäböj",
     "triceps overhead": "triceps overhead extension (kabel eller hantel)",
+    "triceps overhead extension (kabel eller hantel)": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead (eller sled push/assault bike)": "triceps overhead extension (kabel eller hantel)",
     "triceps overhead med hantel": "triceps overhead extension (kabel eller hantel)"
   },
@@ -418,6 +420,7 @@ const dom = {
   memberWeight: document.getElementById("memberWeight"),
   memberWaist: document.getElementById("memberWaist"),
   saveProfileBtn: document.getElementById("saveProfileBtn"),
+  deleteAccountBtn: document.getElementById("deleteAccountBtn"),
   exerciseModal: document.getElementById("exerciseModal"),
   exerciseModalTitle: document.getElementById("exerciseModalTitle"),
   exerciseModalImages: document.getElementById("exerciseModalImages"),
@@ -432,7 +435,6 @@ const dom = {
   checkinList: document.getElementById("checkinList"),
   progressStatus: document.getElementById("progressStatus"),
   progressGraph: document.getElementById("progressGraph"),
-  loadingBar: document.getElementById("loadingBar"),
 };
 
 init();
@@ -654,6 +656,7 @@ function bindEvents() {
   dom.logoutBtn.addEventListener("click", logoutAccount);
   dom.recoverPasswordBtn.addEventListener("click", recoverPasswordFlow);
   dom.saveProfileBtn.addEventListener("click", saveProfile);
+  dom.deleteAccountBtn.addEventListener("click", deleteAccount);
   dom.saveCheckinBtn.addEventListener("click", saveWeeklyCheckin);
   dom.closeExerciseModalBtn.addEventListener("click", () => { dom.exerciseModal.hidden = true; });
   dom.exerciseModal.addEventListener("click", (e) => {
@@ -702,6 +705,7 @@ function renderStartInfo() {
 function setAuthMode(mode) {
   state.authMode = mode;
   state.showRecovery = false;
+  setLoginLoading(false);
   if (mode === "register" && !dom.registerStartDate.value) {
     dom.registerStartDate.value = state.startDate
       ? formatDateInput(state.startDate)
@@ -940,65 +944,35 @@ async function saveFireRating(rating) {
 
 function renderFoodList() {
   dom.foodList.innerHTML = `
-    <article class="manual-card">
-      <header class="manual-head">
+    <article class="manual-launch-card">
+      <div class="manual-launch-copy">
         <span class="recipe-chip">112DIB</span>
-        <h4>&#x1F4D8; KOST-MANUAL: 112 DAGAR I BEREDSKAP</h4>
-        <p class="manual-quote"><strong>Disciplin</strong> är att välja mellan vad du vill ha nu och vad du vill ha mest.</p>
-      </header>
-      <div class="manual-grid">
-        <section class="manual-section">
-          <h5>&#x23F1;&#xFE0F; Ätfönster & fasta</h5>
-          <p class="manual-copy">Vi använder periodisk fasta för att maximera fettförbränningen. Allt kaloriintag sker inom ett begränsat tidsfönster.</p>
-          <ul>
-            <li><strong>Standard:</strong> 10:00 - 18:00.</li>
-            <li><strong>Flexibelt:</strong> 12:00 - 20:00 vid sena pass eller skift.</li>
-            <li><strong>Utanför fönstret:</strong> endast vatten, svart kaffe eller te.</li>
-          </ul>
-        </section>
-        <section class="manual-section">
-          <h5>&#x1F969; Grundprinciper</h5>
-          <ul>
-            <li><strong>Basen:</strong> rent protein som nötkött, kyckling, fisk och ägg tillsammans med ovanmarksgrönsaker som broccoli, spenat och blomkål. Lägg till en mindre mängd hälsosamt fett som avokado eller olivolja.</li>
-            <li><strong>Undvik:</strong> socker, vitt mjöl, pasta, ris, bröd och alkohol.</li>
-            <li><strong>Vätska:</strong> drick minst 3 liter vatten per dag.</li>
-          </ul>
-        </section>
-        <section class="manual-section">
-          <h5>&#x1F373; Måltidsriktlinjer</h5>
-          <ul>
-            <li><strong>Frukost kl. 10:00/12:00:</strong> bryt fastan med protein och fett.</li>
-            <li><strong>Val:</strong> omelett på 3 ägg, naturell kvarg med nötter eller havregrynsgröt med proteinpulver på träningsdagar.</li>
-            <li><strong>Lunch & middag:</strong> fyll tallriken med grönt och protein.</li>
-            <li><strong>Tips:</strong> byt ut pastan mot zoodles eller blomkålsris.</li>
-            <li><strong>Mellanmål:</strong> endast vid behov, som kokt ägg, en näve naturella nötter eller ett par skivor kalkon.</li>
-          </ul>
-        </section>
-        <section class="manual-section">
-          <h5>&#x1F4AA; Protein & träning</h5>
-          <ul>
-            <li><strong>Verktyget protein:</strong> direkt efter varje gympass bör du få i dig protein. En shake är det smidigaste verktyget.</li>
-            <li><strong>Verktyget kolhydrater:</strong> om du känner dig helt tömd i musklerna under de senare faserna, lägg till en portion sötpotatis i måltiden efter träningen för att ladda depåerna.</li>
-          </ul>
-        </section>
-        <section class="manual-section manual-section-wide">
-          <h5>&#x1F692; Verkligheten: larm & skift</h5>
-          <ul>
-            <li><strong>Vid nattarbete:</strong> om du måste äta utanför fönstret, välj en lätt proteinkälla som ägg eller shake. Återgå till ordinarie ätfönster så snart som möjligt nästa dag.</li>
-            <li><strong>Pannben:</strong> om du faller ur ramen en dag, analysera varför, logga din Fire-o-meter och kom ihåg att nästa måltid är en ny chans att göra rätt.</li>
-          </ul>
-        </section>
+        <p class="manual-launch-title">&#x1F4D8; Öppna Kost-manualen i eget fönster</p>
+        <p class="manual-launch-text">Läs riktlinjer för fasta, måltider, protein, skift och pannben utan att vänsterspalten blir trång.</p>
       </div>
       <div class="manual-actions">
+        <button id="openFoodManualBtn" class="btn btn-primary" type="button">Öppna Kost-manual</button>
         <button id="openRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration? Se 112DIB-recept.</button>
       </div>
     </article>
   `;
 
+  const foodManualBtn = document.getElementById("openFoodManualBtn");
   const recipeCatalogBtn = document.getElementById("openRecipeCatalogBtn");
+  if (foodManualBtn) {
+    foodManualBtn.addEventListener("click", openFoodInfoDetail);
+  }
   if (recipeCatalogBtn) {
     recipeCatalogBtn.addEventListener("click", openRecipeCatalogDetail);
   }
+}
+
+function setLoginLoading(active) {
+  if (!dom.loginView) {
+    return;
+  }
+
+  dom.loginView.classList.toggle("is-loading", Boolean(active));
 }
 
 function resolveMealByKey(mealKey) {
@@ -1382,39 +1356,38 @@ function buildBlockInfoHtml(context) {
 }
 
 function buildFoodInfoHtml(context) {
-  const activeContext = context || {
-    week: 1,
-    phase: "grund",
-    kostInfo: getKostBlock(1),
-    trainingDay: true,
-  };
-
-  const carbRule = activeContext.trainingDay
-    ? "Kolhydrater: 1-2 kupade händer till lunch och middag."
-    : "Kolhydrater: 0,5-1 kupad hand till lunch och fokus på grönsaker till middag.";
-
-  const hydration = activeContext.phase === "final"
-    ? "Vätska: 3,0-3,5 liter vatten plus elektrolyter."
-    : "Vätska: minst 2,5-3,0 liter vatten.";
-
   return renderInfoCardHtml(
-    "Kost",
-    `Instruktioner vecka ${activeContext.week}`,
-    `Aktuellt kostblock: ${activeContext.kostInfo.blockType} (Block ${activeContext.kostInfo.block}).`,
+    "112DIB",
+    "📘 KOST-MANUAL: 112 DAGAR I BEREDSKAP",
+    "Disciplin är att välja mellan vad du vill ha nu och vad du vill ha mest.",
     [
-      renderMealRecipeSection("Basriktlinjer", [
-        "Portionsguide: protein 2 handflator plus grönsaker 2 nävar per huvudmål.",
-        carbRule,
-        "Fettkälla: 1-2 tummar per huvudmål.",
-        hydration,
-        "Ätfönster: 10:00-18:00.",
+      renderMealRecipeSection("⏱️ Ätfönster & fasta", [
+        "Vi använder periodisk fasta för att maximera fettförbränningen. Allt kaloriintag sker inom ett begränsat tidsfönster.",
+        "Standard (rekommenderas): 10:00 - 18:00.",
+        "Flexibelt (vid sena pass/skift): 12:00 - 20:00.",
+        "Utanför fönstret: endast vatten, svart kaffe eller te.",
       ]),
-      renderMealRecipeSection("Viktigt att följa", [
-        "Prioritera proteinet i varje måltid.",
-        "Efter tyngre gympass: ta en proteinshake utöver den vanliga måltidsplanen.",
-        "Lyssna på kroppen: om du blir extremt yr eller tappar styrka på gymmet, öka portionerna något.",
-        "Håll det sockerfritt: 112 är det nolltolerans som gäller för att maximera resultaten.",
+      renderMealRecipeSection("🥩 Grundprinciper", [
+        "Basen: rent protein som nötkött, kyckling, fisk och ägg tillsammans med ovanmarksgrönsaker som broccoli, spenat och blomkål. Lägg till en mindre mängd hälsosamt fett som avokado eller olivolja.",
+        "Undvik: socker, vitt mjöl, pasta, ris, bröd och alkohol.",
+        "Vätska: drick minst 3 liter vatten per dag. Det stödjer prestation, återhämtning och hungerreglering.",
       ]),
+      renderMealRecipeSection("🍳 Måltidsriktlinjer", [
+        "Frukost (kl. 10:00/12:00): bryt fastan med protein och fett.",
+        "Val: omelett på 3 ägg, naturell kvarg med nötter eller, vid träningsdagar, havregrynsgröt med proteinpulver.",
+        "Lunch & middag: fyll tallriken med grönt och protein.",
+        "Tips: byt ut pastan mot zoodles (zucchini) eller blomkålsris.",
+        "Mellanmål: endast vid behov. Välj nödlösningar som ett kokt ägg, en näve naturella nötter eller ett par skivor kalkon.",
+      ]),
+      renderMealRecipeSection("💪 Protein & träning", [
+        "Verktyget protein: direkt efter varje gympass bör du få i dig protein för att effektivt stödja muskeluppbyggnaden. En shake är det smidigaste verktyget.",
+        "Verktyget kolhydrater: kolhydrater som sötpotatis används som bränsle. Om du känner dig helt tömd i musklerna under de senare faserna, lägg till en portion sötpotatis i måltiden efter träningen för att ladda depåerna.",
+      ]),
+      renderMealRecipeSection("🚒 Verkligheten (larm & skift)", [
+        "Vid nattarbete: om du måste äta utanför fönstret, välj en lätt proteinkälla som ägg eller shake. Återgå till ordinarie ätfönster så snart som möjligt nästa dag.",
+        "Pannben: om du faller ur ramen en dag, analysera varför, logga din Fire-o-meter och kom ihåg: nästa måltid är en ny chans att göra rätt.",
+      ]),
+      `<div class="manual-actions"><button id="modalRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration? Se 112DIB-recept.</button></div>`,
     ],
   );
 }
@@ -1426,7 +1399,11 @@ function openBlockInfoDetail() {
 
 function openFoodInfoDetail() {
   const context = getProgramContext();
-  openInfoDetail("Instruktioner", buildFoodInfoHtml(context), "Källa: 112DIB kostblock");
+  openInfoDetail("Kost-manual", buildFoodInfoHtml(context), "Källa: 112DIB kostmanual");
+  const modalRecipeCatalogBtn = document.getElementById("modalRecipeCatalogBtn");
+  if (modalRecipeCatalogBtn) {
+    modalRecipeCatalogBtn.addEventListener("click", openRecipeCatalogDetail);
+  }
 }
 
 function getDailyPlan(dayIndex, date) {
@@ -1916,7 +1893,7 @@ async function registerAccount() {
       password,
       securityQuestion,
       securityAnswer,
-      breakfastKey: dom.registerBreakfast.value,
+      breakfastKey: breakfasts[0].key,
       trainingMode: dom.registerTrainingMode.value,
       heightCm: dom.profileHeight.value,
       startWeightKg: dom.profileWeight.value,
@@ -1984,9 +1961,7 @@ async function loginAccount() {
   }
 
   state.loginInProgress = true;
-  if (dom.loadingBar) {
-    dom.loadingBar.classList.add("active");
-  }
+  setLoginLoading(true);
   const oldLoginButtonText = dom.loginBtn.textContent;
   dom.loginBtn.disabled = true;
   dom.loginBtn.textContent = "Loggar in...";
@@ -2005,12 +1980,10 @@ async function loginAccount() {
     state.authMode = "member";
     dom.authStatus.textContent = "Inloggning lyckades.";
   } catch (err) {
-    if (dom.loadingBar) {
-      dom.loadingBar.classList.remove("active");
-    }
     dom.authStatus.textContent = err.message;
   } finally {
     state.loginInProgress = false;
+    setLoginLoading(false);
     dom.loginBtn.disabled = false;
     dom.loginBtn.textContent = oldLoginButtonText;
   }
@@ -2019,6 +1992,7 @@ async function loginAccount() {
 }
 
 function logoutAccount() {
+  setLoginLoading(false);
   state.auth = { username: "", token: "", profile: null, checkins: [], fireRatings: {} };
   state.authMode = "chooser";
   state.showRecovery = false;
@@ -2029,12 +2003,44 @@ function logoutAccount() {
   renderAll();
 }
 
-async function saveProfile() {
+async function deleteAccount() {
   if (!isLoggedIn()) {
     dom.authStatus.textContent = "Logga in först.";
     return;
   }
 
+  const confirmed = window.confirm("Är du säker på att du vill radera kontot? Detta går inte att ångra.");
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await accountApi("deleteAccount", {
+      username: state.auth.username,
+      token: state.auth.token,
+    });
+
+    state.auth = { username: "", token: "", profile: null, checkins: [], fireRatings: {} };
+    state.authMode = "chooser";
+    state.showRecovery = false;
+    state.showProfile = false;
+    persistAuth();
+    localStorage.removeItem(STORAGE_KEY);
+    dom.loginPassword.value = "";
+    dom.authStatus.textContent = "Kontot raderades.";
+  } catch (err) {
+    dom.authStatus.textContent = err.message;
+  }
+
+  renderAll();
+}
+
+async function saveProfile() {
+  if (!isLoggedIn()) {
+    dom.authStatus.textContent = "Logga in först.";
+    return;
+  }
+      `Knäböj (Skivstång): 6 x 6 | ${restHeavy} vila`,
   try {
     const profileStart = parseDateInput(dom.profileStartDate.value);
     if (!profileStart) {
@@ -2124,6 +2130,7 @@ async function deleteWeeklyCheckin(weekIndex) {
 
 function renderAccountSection() {
   const loggedIn = isLoggedIn();
+  setLoginLoading(state.loginInProgress && !loggedIn && state.authMode === "login");
   dom.authChooser.style.display = !loggedIn && state.authMode === "chooser" ? "block" : "none";
   dom.loginView.style.display = !loggedIn && state.authMode === "login" ? "block" : "none";
   dom.registerView.style.display = !loggedIn && state.authMode === "register" ? "block" : "none";
@@ -2141,7 +2148,7 @@ function renderAccountSection() {
 
   if (!loggedIn) {
     if (!dom.authStatus.textContent || dom.authStatus.textContent === "Utloggad.") {
-      dom.authStatus.textContent = "Skapa konto eller logga in för att spara vikt och mått.";
+      dom.authStatus.textContent = "Skapa konto eller logga in.";
     }
     dom.checkinInfo.textContent = "";
     dom.progressStatus.innerHTML = "";
@@ -2313,7 +2320,7 @@ function renderProgressGraph() {
 
       const barStartX = xForWeek(weekIndex);
       const barEndX = xForWeek(weekIndex + 1);
-      const barWidth = Math.max(0, barEndX - barStartX);
+          `Triceps Overhead Extension (Kabel eller hantel): 6 x 6 | ${restHeavy} vila`,
       const barHeight = (Math.max(1, Math.min(5, Number(entry.average) || 0)) / 5) * innerHeight;
       const y = padding.top + innerHeight - barHeight;
       return `

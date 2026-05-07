@@ -14,21 +14,20 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="loading-bar" id="loadingBar" aria-label="Laddar"></div>
     <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
     <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
 
     <main class="app">
       <header class="hero">
-        <p class="tag">Räddningstjänsten • träning • kost</p>
+        <p class="tag">Räddningstjänsten • träning • kostråd</p>
         <h1>112 Dagar i beredskap</h1>
         <p class="sub">
-          Logga in eller skapa konto för att följa ditt 112DIB-upplägg med tydlig kalender, matlådor och veckouppföljning.
+          Logga in eller skapa konto för att följa ditt 112DIB-upplägg med tydlig kalender och veckouppföljning.
         </p>
       </header>
 
       <section id="accountSection" class="account card">
-        <p id="authStatus" class="muted">Skapa konto eller logga in för att spara vikt, mått och frukostval.</p>
+        <p id="authStatus" class="muted">Skapa konto eller logga in.</p>
         <div id="authChooser" class="auth-chooser">
           <div class="chooser-actions">
             <button id="showLoginBtn" class="btn btn-primary" type="button">Logga in</button>
@@ -36,12 +35,12 @@
           </div>
         </div>
 
-        <div id="loginView" class="auth-view">
+        <div id="loginView" class="auth-view login-view">
           <div class="view-head">
             <h2>Logga in</h2>
             <button id="backFromLoginBtn" class="btn btn-ghost" type="button">Tillbaka</button>
           </div>
-          <p class="muted">Logga in för att se kalender, matplan och tidigare uppföljningar.</p>
+          <p class="muted">Logga in för att se kalender, kost-manual och tidigare uppföljningar.</p>
           <div class="auth-grid auth-grid-simple">
             <input id="loginUsername" type="text" placeholder="Användarnamn" autocomplete="username" />
             <input id="loginPassword" type="password" placeholder="Lösenord" autocomplete="current-password" />
@@ -76,10 +75,6 @@
             <label>
               Startdatum
               <input id="registerStartDate" type="date" />
-            </label>
-            <label class="label-full">
-              Frukost
-              <select id="registerBreakfast"></select>
             </label>
             <label class="label-full">
               Träningstyp
@@ -144,6 +139,7 @@
           </div>
           <p id="startInfo" class="muted"></p>
           <button id="saveProfileBtn" class="btn btn-primary" type="button">Spara profil</button>
+          <button id="deleteAccountBtn" class="btn btn-ghost delete-account-btn" type="button">Radera konto</button>
 
           <div class="checkin-grid">
             <label>
