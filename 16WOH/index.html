@@ -114,10 +114,6 @@
               <input id="profileStartDate" type="date" />
             </label>
             <label class="label-full">
-              Frukost
-              <select id="memberBreakfast"></select>
-            </label>
-            <label class="label-full">
               Träningstyp
               <select id="memberTrainingMode">
                 <option value="gym">Gym</option>
@@ -199,9 +195,6 @@
           </div>
 
           <div class="details-block">
-            <div class="details-head">
-              <h4>&#x1F4D8; Kost-manual</h4>
-            </div>
             <div id="foodList" class="manual-view"></div>
           </div>
           <div id="fireMeter" class="details-block fire-meter-block">
@@ -212,24 +205,6 @@
             <p id="fireMeterInfo" class="muted fire-meter-info">Hur het var dagen? Klicka på en flamma för att logga.</p>
             <div id="fireMeterButtons" class="fire-meter-buttons" role="group" aria-label="Fire-o-meter för vald dag"></div>
             <p id="fireMeterDescription" class="muted fire-meter-description"></p>
-          </div>
-          <div class="details-block">
-            <button id="shoppingToggle" class="shopping-toggle-btn" type="button" aria-expanded="false">
-              Smart inköpslista <span class="toggle-arrow">▼</span>
-            </button>
-            <div id="shoppingContent" hidden>
-              <div class="shopping-tools">
-                <label for="shoppingDays">Planera</label>
-                <select id="shoppingDays">
-                  <option value="3">3 dagar</option>
-                  <option value="7" selected>7 dagar</option>
-                  <option value="14">14 dagar</option>
-                </select>
-                <button id="generateShopping" class="btn btn-ghost" type="button">Uppdatera lista</button>
-              </div>
-              <p id="shoppingInfo" class="muted"></p>
-              <ul id="shoppingList"></ul>
-            </div>
           </div>
         </aside>
       </section>

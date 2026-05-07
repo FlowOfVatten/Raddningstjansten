@@ -166,7 +166,7 @@ function extractExerciseLinkParts(entry) {
   }
 
   if (/^kn[äa]b[öo]j\s*\(skivst[åa]ng\)$/i.test(label)) {
-    return { linkText: "Knäböj (Skivstång)", guideName: "Knäböj (Skivstång)", restPart };
+    return { linkText: "Knäböj (Skivstång)", guideName: "skivstångsknäböj", restPart };
   }
 
   if (/^triceps overhead extension\s*\(kabel eller hantel\)$/i.test(label)) {
@@ -392,12 +392,6 @@ const dom = {
   fireMeterInfo: document.getElementById("fireMeterInfo"),
   fireMeterButtons: document.getElementById("fireMeterButtons"),
   fireMeterDescription: document.getElementById("fireMeterDescription"),
-  shoppingDays: document.getElementById("shoppingDays"),
-  generateShopping: document.getElementById("generateShopping"),
-  shoppingInfo: document.getElementById("shoppingInfo"),
-  shoppingList: document.getElementById("shoppingList"),
-  shoppingToggle: document.getElementById("shoppingToggle"),
-  shoppingContent: document.getElementById("shoppingContent"),
   authStatus: document.getElementById("authStatus"),
   loginUsername: document.getElementById("loginUsername"),
   loginPassword: document.getElementById("loginPassword"),
@@ -423,7 +417,6 @@ const dom = {
   profileHeight: document.getElementById("profileHeight"),
   profileWeight: document.getElementById("profileWeight"),
   profileWaist: document.getElementById("profileWaist"),
-  memberBreakfast: document.getElementById("memberBreakfast"),
   memberTrainingMode: document.getElementById("memberTrainingMode"),
   memberHeight: document.getElementById("memberHeight"),
   memberWeight: document.getElementById("memberWeight"),
@@ -629,15 +622,6 @@ function bindEvents() {
 
   dom.exportWeekPdf.addEventListener("click", exportWeekToPdf);
   dom.showBlockInfoBtn.addEventListener("click", openBlockInfoDetail);
-  dom.generateShopping.addEventListener("click", renderShoppingList);
-  dom.shoppingDays.addEventListener("change", renderShoppingList);
-  dom.shoppingToggle.addEventListener("click", () => {
-    const expanded = dom.shoppingToggle.getAttribute("aria-expanded") === "true";
-    dom.shoppingToggle.setAttribute("aria-expanded", String(!expanded));
-    dom.shoppingContent.hidden = expanded;
-    const arrow = dom.shoppingToggle.querySelector(".toggle-arrow");
-    if (arrow) arrow.textContent = expanded ? "▼" : "▲";
-  });
   dom.fireMeterButtons.addEventListener("click", (event) => {
     const button = event.target.closest("[data-fire-rating]");
     if (!button) {
@@ -678,12 +662,11 @@ function renderAll() {
   renderAccountSection();
   renderCalendar();
   renderDetails();
-  renderShoppingList();
   renderProgressGraph();
 }
 
 function populateBreakfastOptions() {
-  const selects = [dom.registerBreakfast, dom.memberBreakfast];
+  const selects = [dom.registerBreakfast];
 
   selects.forEach((select) => {
     if (!select) {
@@ -813,7 +796,6 @@ function buildDayCell(date) {
     dom.checkinDate.value = formatDateInput(date);
     renderCalendar();
     renderDetails();
-    renderShoppingList();
     renderAccountSection();
   });
 
@@ -955,8 +937,8 @@ function renderFoodList() {
   dom.foodList.innerHTML = `
     <article class="manual-launch-card">
       <div class="manual-launch-copy">
-        <p class="manual-launch-title">Kost-manualen</p>
-        <p class="manual-launch-text">Läs riktlinjer för fasta, måltider, protein, skift och pannben utan att vänsterspalten blir trång.</p>
+        <p class="manual-launch-title">&#x1F4D8; Kost-manualen</p>
+        <p class="manual-launch-text">Snabbversion av kostråden. Öppna manualen för hela upplägget.</p>
       </div>
       <div class="manual-actions">
         <button id="openFoodManualBtn" class="btn btn-primary" type="button">Öppna Kost-manual</button>
@@ -1791,7 +1773,6 @@ function applyUserData(user) {
 
   if (state.auth.profile) {
     const p = state.auth.profile;
-    dom.memberBreakfast.value = p.breakfastKey || breakfasts[0].key;
     dom.memberTrainingMode.value = p.trainingMode || "gym";
     dom.memberHeight.value = p.heightCm ?? "";
     dom.memberWeight.value = p.startWeightKg ?? "";
@@ -2062,7 +2043,7 @@ async function saveProfile() {
     const result = await accountApi("saveProfile", {
       username: state.auth.username,
       token: state.auth.token,
-      breakfastKey: dom.memberBreakfast.value,
+      breakfastKey: state.auth.profile?.breakfastKey || breakfasts[0].key,
       trainingMode: dom.memberTrainingMode.value,
       heightCm: dom.memberHeight.value,
       startWeightKg: dom.memberWeight.value,
@@ -2165,10 +2146,6 @@ function renderAccountSection() {
   }
 
   renderProgressStatus();
-
-  if (!dom.memberBreakfast.value && state.auth.profile?.breakfastKey) {
-    dom.memberBreakfast.value = state.auth.profile.breakfastKey;
-  }
 
   const checkins = [...state.auth.checkins].sort((a, b) => (a.weekIndex || 0) - (b.weekIndex || 0));
   if (!checkins.length) {
