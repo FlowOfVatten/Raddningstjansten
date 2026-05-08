@@ -1370,13 +1370,6 @@ function buildFoodInfoHtml(context) {
     "📘 KOST-MANUAL: 112 DAGAR I BEREDSKAP",
     "Disciplin är att välja mellan vad du vill ha nu och vad du vill ha mest.",
     [
-      renderMealRecipeSection("⏱️ FASTA - REGLER & TILLÄMPNING", [
-        "I 112 DIB används periodisk fasta som ett strukturverktyg.",
-        "Standard (rekommenderas): Ätfönster 10:00-18:00.",
-        "Flexibelt (vid sena pass/skift): Ätfönster 12:00-20:00.",
-        "Utanför ätfönstret: endast vatten, svart kaffe eller te.",
-        "Kalorier räknas inte. Underskottet uppstår som en följd av fasta, livsmedelsval och fysisk belastning.",
-      ]),
       renderMealRecipeSection("🧠 VARFÖR VI FASTAR: SYSTEMISKT ÖVERTAG", [
         "Kaloriunderskott avgör viktminskningen, fastan bygger din robusthet.",
         "I 112 DIB används periodisk fasta (10:00-18:00) inte som en genväg för fettförlust, utan som ett verktyg för att forma en kropp som fungerar under belastning. Genom att begränsa ätfönstret skapar vi ett systemiskt övertag.",
@@ -1385,6 +1378,13 @@ function buildFoodInfoHtml(context) {
         "Kognitiv enkelhet: 112 dagar är lika mycket en mental utmaning som en fysisk. Ett fast tidsfönster för mat minskar beslutsstress och mentalt brus. Energin sparas till träning, arbete och återhämtning.",
         "Biologisk robusthet: fasta kan aktivera cellulära städnings- och stressresponssystem som bidrar till ökad motståndskraft. Målet är inte komfort, utan en kropp som presterar även under hunger, trötthet och press.",
         "Slutsats: vi räknar inte kalorier. Vi programmerar våra vanor för att skapa biologisk stabilitet, psykisk uthållighet och ett starkare pannben.",
+      ]),
+      renderMealRecipeSection("⏱️ FASTA - REGLER & TILLÄMPNING", [
+        "I 112 DIB används periodisk fasta som ett strukturverktyg.",
+        "Standard (rekommenderas): Ätfönster 10:00-18:00.",
+        "Flexibelt (vid sena pass/skift): Ätfönster 12:00-20:00.",
+        "Utanför ätfönstret: endast vatten, svart kaffe eller te.",
+        "Kalorier räknas inte. Underskottet uppstår som en följd av fasta, livsmedelsval och fysisk belastning.",
       ]),
       renderMealRecipeSection("🥩 Grundprinciper", [
         "Basen: rent protein som nötkött, kyckling, fisk och ägg tillsammans med ovanmarksgrönsaker som broccoli, spenat och blomkål. Lägg till en mindre mängd hälsosamt fett som avokado eller olivolja.",
