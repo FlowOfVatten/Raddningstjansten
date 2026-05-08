@@ -1185,12 +1185,74 @@ function renderTrainingList(entries) {
 
 
 function renderGuideTextHtml(guideText) {
-  const cleanedText = String(guideText || "")
+  const cleanedLines = String(guideText || "")
     .split("\n")
-    .filter((line) => !/^Rek(?:\/tempo)?(?:\s*\([^)]*\))?:/i.test(line.trim()))
-    .join("\n");
-  const escaped = escapeHtml(cleanedText).replace(/\n/g, "<br>");
-  return `<p style="margin:0;line-height:1.7;white-space:normal">${escaped}</p>`;
+    .map((line) => line.trim())
+    .filter((line) => line && !/^Rek(?:\/tempo)?(?:\s*\([^)]*\))?:/i.test(line));
+
+  const sections = [];
+  const introLines = [];
+  let currentSection = null;
+
+  const pushSection = () => {
+    if (currentSection && currentSection.lines.length) {
+      sections.push(currentSection);
+    }
+  };
+
+  cleanedLines.forEach((line) => {
+    const match = line.match(/^(Startposition|Utförande|Viktiga cues|Cues|Vanliga fel)\s*:\s*(.*)$/i);
+    if (match) {
+      pushSection();
+      const rawLabel = match[1];
+      const label = /^cues$/i.test(rawLabel) ? "Viktiga cues" : rawLabel;
+      currentSection = { label, lines: [] };
+      if (match[2]) {
+        currentSection.lines.push(match[2]);
+      }
+      return;
+    }
+
+    if (currentSection) {
+      currentSection.lines.push(line);
+      return;
+    }
+
+    introLines.push(line);
+  });
+
+  pushSection();
+
+  const renderLines = (lines) => {
+    if (!lines.length) {
+      return "";
+    }
+
+    const isOrdered = lines.every((line) => /^\d+\.\s+/.test(line));
+    if (isOrdered) {
+      return `
+        <ol class="exercise-guide-list">
+          ${lines.map((line) => `<li>${escapeHtml(line.replace(/^\d+\.\s+/, ""))}</li>`).join("")}
+        </ol>
+      `;
+    }
+
+    return lines
+      .map((line) => `<p class="exercise-guide-line">${escapeHtml(line)}</p>`)
+      .join("");
+  };
+
+  return `
+    <div class="exercise-guide">
+      ${introLines.map((line) => `<p class="exercise-guide-intro">${escapeHtml(line)}</p>`).join("")}
+      ${sections.map((section) => `
+        <section class="exercise-guide-section">
+          <p class="exercise-guide-label">${escapeHtml(section.label)}</p>
+          ${renderLines(section.lines)}
+        </section>
+      `).join("")}
+    </div>
+  `;
 }
 
 async function openExerciseDetail(svName) {
