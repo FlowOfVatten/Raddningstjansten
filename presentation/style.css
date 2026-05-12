@@ -8,9 +8,7 @@
   --line: #dfd5c5;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -20,7 +18,7 @@ body {
 }
 
 .page {
-  width: min(900px, 92vw);
+  width: min(980px, 94vw);
   margin: 0 auto;
   padding: 24px 0 56px;
 }
@@ -38,10 +36,7 @@ body {
   margin: 0 0 6px;
 }
 
-.sub {
-  margin-top: 10px;
-  color: var(--muted);
-}
+.sub { margin-top: 10px; color: var(--muted); }
 
 .card {
   background: var(--card);
@@ -52,11 +47,7 @@ body {
   box-shadow: 0 8px 18px rgb(42 43 47 / 8%);
 }
 
-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
+label { display: block; font-weight: 600; margin-bottom: 8px; }
 
 input {
   width: 100%;
@@ -78,23 +69,12 @@ button {
   color: #fff;
 }
 
-button:hover {
-  filter: brightness(1.05);
-}
+button:hover { filter: brightness(1.05); }
+button.secondary { background: #52626a; }
+.muted { color: var(--muted); }
 
-.muted {
-  color: var(--muted);
-}
-
-.row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.between {
-  justify-content: space-between;
-}
+.row { display: flex; gap: 12px; align-items: center; }
+.between { justify-content: space-between; }
 
 .timer {
   min-width: 64px;
@@ -107,26 +87,39 @@ button:hover {
   color: #7c3119;
 }
 
-.choices {
+.task-list { margin-top: 14px; }
+.task-hint { font-size: 0.9rem; color: var(--muted); margin-bottom: 14px; }
+
+.budget-strip {
+  margin-top: 10px;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 14px;
 }
 
-.choice {
-  text-align: left;
-  background: #23404a;
+.budget-item {
+  background: #f4f1ea;
+  border: 1px solid #ddd4c7;
+  border-radius: 10px;
+  padding: 10px;
 }
 
-.task-list {
-  margin-top: 14px;
-}
-
-.task-hint {
-  font-size: 0.9rem;
+.budget-item span {
+  display: block;
+  font-size: 0.75rem;
   color: var(--muted);
-  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.budget-item strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.05rem;
+}
+
+.budget-item strong.over {
+  color: var(--danger);
 }
 
 .priority-board {
@@ -165,39 +158,20 @@ button:hover {
   color: var(--muted);
 }
 
-.task-slot.filled {
-  border-color: var(--accent);
-  background: #f0fdf7;
-  color: var(--text);
-}
-
-.task-slot.conflict {
-  background: #faf5f0;
-  border-color: var(--danger);
-  animation: blink-conflict 0.6s infinite;
-}
+.task-slot.filled { border-color: var(--accent); background: #f0fdf7; color: var(--text); }
+.task-slot.conflict { background: #faf5f0; border-color: var(--danger); animation: blink-conflict 0.6s infinite; }
 
 @keyframes blink-conflict {
-  0%, 100% {
-    background: #faf5f0;
-  }
-  50% {
-    background: #ffe5e5;
-  }
+  0%, 100% { background: #faf5f0; }
+  50% { background: #ffe5e5; }
 }
 
-.task-pool {
-  margin-bottom: 14px;
-}
-
-.task-pool h3 {
-  margin: 0 0 10px;
-  font-size: 0.95rem;
-}
+.task-pool { margin-bottom: 14px; }
+.task-pool h3 { margin: 0 0 10px; font-size: 0.95rem; }
 
 .tasks {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 8px;
 }
 
@@ -213,31 +187,15 @@ button:hover {
   border: 2px solid transparent;
 }
 
-.task-item:hover {
-  background: #dccbb8;
-  transform: scale(1.02);
-}
-
-.task-item.dragging {
-  opacity: 0.5;
-  cursor: grabbing;
-}
-
-.task-item.locked {
-  opacity: 0.5;
-  border: 2px solid #ffb3b3;
-  background: #fff5f5;
-  cursor: not-allowed;
-  animation: pulse-locked 1s infinite;
-}
+.task-item:hover { background: #dccbb8; transform: scale(1.02); }
+.task-item.dragging { opacity: 0.5; cursor: grabbing; }
+.task-item.taken { opacity: 0.35; border: 2px solid #d24b4b; background: #f6d8d8; cursor: not-allowed; }
+.task-item.locked { opacity: 0.5; border: 2px solid #ffb3b3; background: #fff5f5; cursor: not-allowed; animation: pulse-locked 1s infinite; }
+.task-item.wellbeing { border-color: #7aa58f; background: #dff2e7; }
 
 @keyframes pulse-locked {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgb(255, 107, 107, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 8px 4px rgb(255, 107, 107, 0.1);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255, 107, 107, 0.3); }
+  50% { box-shadow: 0 0 8px 4px rgb(255, 107, 107, 0.1); }
 }
 
 .conflicts {
@@ -249,16 +207,26 @@ button:hover {
   color: #7c2d2d;
 }
 
-.conflict-warning {
-  margin: 0;
-  font-weight: 600;
+.conflict-warning { margin: 0; font-weight: 600; }
+
+.chaos-card {
+  margin-top: 14px;
+  background: #fff1e3;
+  border: 1px solid #f0c398;
+  border-radius: 10px;
+  padding: 12px;
 }
 
-.submit-btn {
-  margin-top: 10px;
-  background: var(--accent);
-  font-weight: 700;
+.chaos-card h3 { margin: 0 0 8px; }
+.chaos-card p { margin: 0 0 10px; }
+
+.chaos-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
+
+.submit-btn { margin-top: 10px; background: var(--accent); font-weight: 700; }
 
 .submitted {
   margin-top: 14px;
@@ -269,20 +237,39 @@ button:hover {
   border: 1px solid #b8e5dc;
 }
 
-.grid {
-  display: grid;
-  gap: 10px;
+.inline-results {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
-.grid.two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.inline-results h3 {
+  margin: 0 0 8px;
 }
 
-.bars {
-  display: grid;
-  gap: 10px;
+.metrics-compare {
+  margin-top: 10px;
 }
 
+.metric-card {
+  background: #f8f2e7;
+  border: 1px solid #dfd5c5;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.metric-card h4 {
+  margin: 0 0 8px;
+}
+
+.metric-card p {
+  margin: 6px 0;
+}
+
+.grid { display: grid; gap: 10px; }
+.grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.bars { display: grid; gap: 10px; }
 .bar-row {
   display: grid;
   grid-template-columns: 180px 1fr 48px;
@@ -303,11 +290,8 @@ button:hover {
 }
 
 @media (max-width: 700px) {
-  .grid.two {
-    grid-template-columns: 1fr;
-  }
-
-  .bar-row {
-    grid-template-columns: 1fr;
-  }
+  .grid.two { grid-template-columns: 1fr; }
+  .bar-row { grid-template-columns: 1fr; }
+  .budget-strip { grid-template-columns: 1fr; }
+  .chaos-actions { grid-template-columns: 1fr; }
 }

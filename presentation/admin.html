@@ -29,6 +29,10 @@
 
     <section class="card">
       <h2>Aktivera scenario</h2>
+      <div class="row between">
+        <p class="muted">Aktiv fas: <strong id="adminPhase">idle</strong></p>
+        <div class="timer" id="adminTimer">--</div>
+      </div>
       <div class="grid two">
         <button class="trigger" data-phase="digitalStress" data-duration="60">Starta Digital Stress (60s)</button>
         <button class="trigger" data-phase="workloadChaos" data-duration="90">Starta Workload Chaos (90s)</button>

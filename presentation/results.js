@@ -36,9 +36,10 @@ async function loadResults() {
   latestResults = data;
   const entries = Object.entries(data.counts || {});
   const max = Math.max(1, ...entries.map(([, value]) => value));
+  const metrics = data.metrics || {};
 
   phaseTitle.textContent = `Senaste scenario: ${data.phase || "okant"}`;
-  totals.textContent = `Totalt svar: ${data.totalAnswers}`;
+  totals.textContent = `Deltagare: ${data.participants || 0} | Leveransscore: ${metrics.avgDeliveryScore || 0} | Wellbeing: ${metrics.avgWellbeingScore || 0} | Overload: ${metrics.avgOverloadMinutes || 0} min`;
 
   bars.innerHTML = "";
   entries.forEach(([key, value]) => {
@@ -65,14 +66,15 @@ function exportCsv() {
 
   const sessionId = sessionInput.value.trim().toUpperCase();
   const timestamp = new Date().toISOString();
-  const rows = [["sessionId", "phase", "choice", "count", "exportedAt"]];
+  const rows = [["sessionId", "phase", "choice", "count", "avgDeliveryScore", "avgWellbeingScore", "avgOverloadMinutes", "exportedAt"]];
   const entries = Object.entries(latestResults.counts || {});
+  const metrics = latestResults.metrics || {};
 
   if (!entries.length) {
-    rows.push([sessionId, latestResults.phase || "", "", 0, timestamp]);
+    rows.push([sessionId, latestResults.phase || "", "", 0, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, timestamp]);
   } else {
     entries.forEach(([choice, count]) => {
-      rows.push([sessionId, latestResults.phase || "", choice, count, timestamp]);
+      rows.push([sessionId, latestResults.phase || "", choice, count, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, timestamp]);
     });
   }
 
@@ -92,10 +94,19 @@ function exportCsv() {
 
 function labelForChoice(choice) {
   const labels = {
-    urgent_incident: "Incident",
-    customer_request: "Kundfraga",
-    prep_meeting: "Mote",
-    ignore_all: "Paus"
+    urgent_incident: "Kritisk incident",
+    customer_call: "Samtal med chefen",
+    email_backlog: "Email backlog",
+    meeting_prep: "Moteforberedelse",
+    sprint_planning: "Sprint planning",
+    code_review: "Code review",
+    documentation: "Dokumentation",
+    team_sync: "Team sync",
+    dev_task: "Utvecklingsuppgift",
+    support_ticket: "Support ticket",
+    coffee_break: "Kaffe/benstrackare",
+    breathing_reset: "Andningspaus",
+    screen_free_lunch: "Lunch utan skarm"
   };
   return labels[choice] || choice;
 }

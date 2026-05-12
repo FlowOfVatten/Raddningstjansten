@@ -31,12 +31,29 @@ module.exports = async function (context, req) {
       });
     }
 
+    if (method === "POST" && action === "claim") {
+      const payload = req.body || {};
+      const ok = await store.claim({
+        sessionId: payload.sessionId,
+        participantId: payload.participantId,
+        claims: payload.claims || []
+      });
+      if (ok === null) {
+        return json(404, { error: "Session not found" });
+      }
+      if (ok === false) {
+        return json(400, { error: "participantId and claims required" });
+      }
+      return json(200, { ok: true });
+    }
+
     if (method === "POST" && action === "submit") {
       const payload = req.body || {};
       const result = await store.submit({
         sessionId: payload.sessionId,
         participantId: payload.participantId,
         ranking: payload.ranking,
+        summary: payload.summary,
         responseTimeMs: payload.responseTimeMs
       });
 
@@ -80,10 +97,20 @@ module.exports = async function (context, req) {
       return json(200, results);
     }
 
+    if (method === "GET" && action === "myresult") {
+      const sessionId = req.query.sessionId;
+      const participantId = req.query.participantId || "";
+      const result = await store.getParticipantResult({ sessionId, participantId });
+      if (!result) {
+        return json(404, { error: "Session or participant not found" });
+      }
+      return json(200, result);
+    }
+
     return json(404, { error: "Unknown action" });
   } catch (error) {
     context.log.error("presentation api error", error);
-    return json(500, { error: "Internal server error" });
+    return json(500, { error: error.message || "Internal server error" });
   }
 };
 
@@ -94,3 +121,5 @@ function json(status, body) {
     body
   };
 }
+
+

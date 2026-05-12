@@ -2,6 +2,8 @@ const sql = require("mssql");
 
 const SESSION_PREFIX = "rto:presentation:session:";
 const ANSWER_PREFIX = "rto:presentation:answer:";
+const CLAIM_PREFIX = "rto:presentation:claim:";
+
 const sessions = new Map();
 let poolPromise = null;
 
@@ -16,15 +18,16 @@ class MemoryPresentationStore {
       message: "Vantar pa att admin startar scenariot.",
       deadlineMs: null,
       createdAt: Date.now(),
+      submissionsByPhase: {},
       answers: [],
-      submissionsByPhase: {}
+      claims: {}
     };
     sessions.set(sessionId, record);
     return { sessionId, adminKey };
   }
 
   getSession(sessionId) {
-    return sessions.get((sessionId || "").toUpperCase()) || null;
+    return sessions.get(normalizeSessionId(sessionId)) || null;
   }
 
   activate({ sessionId, adminKey, phase, durationSec }) {
@@ -40,16 +43,39 @@ class MemoryPresentationStore {
     if (!session.submissionsByPhase[phase]) {
       session.submissionsByPhase[phase] = new Set();
     }
+    if (!session.claims[phase]) {
+      session.claims[phase] = {};
+    }
     return session;
   }
 
-  submit({ sessionId, participantId, choice, responseTimeMs }) {
+  claim({ sessionId, participantId, claims }) {
     const session = this.getSession(sessionId);
     if (!session) {
       return null;
     }
+    if (!participantId || !Array.isArray(claims)) {
+      return false;
+    }
 
-    if (!participantId || !choice) {
+    const phase = session.phase;
+    if (!session.claims[phase]) {
+      session.claims[phase] = {};
+    }
+
+    session.claims[phase][participantId] = {
+      claims,
+      timestamp: Date.now()
+    };
+    return true;
+  }
+
+  submit({ sessionId, participantId, ranking, summary, responseTimeMs }) {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      return null;
+    }
+    if (!participantId || !Array.isArray(ranking) || ranking.length === 0) {
       return false;
     }
 
@@ -68,7 +94,8 @@ class MemoryPresentationStore {
     session.answers.push({
       participantId,
       phase,
-      choice,
+      ranking,
+      summary: sanitizeSummary(summary),
       responseTimeMs,
       timestamp: Date.now()
     });
@@ -93,26 +120,133 @@ class MemoryPresentationStore {
     };
   }
 
+  getConflicts({ sessionId, participantId }) {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const phase = session.phase;
+    const claimMap = session.claims[phase] || {};
+    const myEntry = claimMap[participantId] || { claims: [] };
+    const baseline = buildBaselineRanksFromAnswers(session.answers);
+
+    const ownerByTask = resolveTaskOwners(claimMap, baseline);
+
+    const takenByOthers = myEntry.claims
+      .filter((claim) => claim.taskId && ownerByTask[claim.taskId] && ownerByTask[claim.taskId] !== participantId)
+      .map((claim) => claim.taskId);
+
+    return {
+      takenByOthers,
+      conflictCount: takenByOthers.length
+    };
+  }
+
   getResults(sessionId) {
     const session = this.getSession(sessionId);
     if (!session) {
       return null;
     }
 
-    const counts = {};
-    session.answers.forEach((item) => {
-      if (item.phase !== session.phase && session.phase !== "results") {
-        return;
-      }
-      counts[item.choice] = (counts[item.choice] || 0) + 1;
+    const latestAnswers = latestAnswersByParticipant(session.answers);
+    return buildAggregateResults({
+      phase: session.phase,
+      answers: latestAnswers
     });
+  }
+
+  getParticipantResult({ sessionId, participantId }) {
+    const session = this.getSession(sessionId);
+    if (!session || !participantId) {
+      return null;
+    }
+
+    const latest = pickLatestAnswerForParticipant(session.answers, String(participantId));
+    if (!latest) {
+      return null;
+    }
 
     return {
-      phase: session.phase,
-      totalAnswers: Object.values(counts).reduce((sum, value) => sum + value, 0),
-      counts
+      participantId: String(participantId),
+      phase: latest.phase,
+      ranking: Array.isArray(latest.ranking) ? latest.ranking : [],
+      summary: sanitizeSummary(latest.summary)
     };
   }
+}
+
+function buildAggregateResults({ phase, answers }) {
+  const counts = {};
+  let deliveryScoreSum = 0;
+  let wellbeingScoreSum = 0;
+  let overloadMinutesSum = 0;
+  let participants = 0;
+
+  (answers || []).forEach((item) => {
+    if (!Array.isArray(item.ranking)) {
+      return;
+    }
+    participants += 1;
+
+    item.ranking.forEach((rank, idx) => {
+      if (rank.taskId) {
+        counts[rank.taskId] = (counts[rank.taskId] || 0) + 1;
+        const weight = Math.max(1, 10 - idx);
+        deliveryScoreSum += weight * (rank.wellbeing ? 0.5 : 1);
+      }
+    });
+
+    const s = sanitizeSummary(item.summary);
+    wellbeingScoreSum += s.wellbeingScore;
+    overloadMinutesSum += s.overloadMinutes;
+  });
+
+  return {
+    phase,
+    totalAnswers: Object.values(counts).reduce((sum, value) => sum + value, 0),
+    participants,
+    counts,
+    metrics: {
+      avgDeliveryScore: participants ? round1(deliveryScoreSum / participants) : 0,
+      avgWellbeingScore: participants ? round1(wellbeingScoreSum / participants) : 0,
+      avgOverloadMinutes: participants ? round1(overloadMinutesSum / participants) : 0
+    }
+  };
+}
+
+function latestAnswersByParticipant(rows) {
+  const byParticipant = new Map();
+  (rows || []).forEach((entry) => {
+    if (!entry || !entry.participantId) {
+      return;
+    }
+
+    const pid = String(entry.participantId);
+    const current = byParticipant.get(pid);
+    if (!current || Number(entry.timestamp || 0) > Number(current.timestamp || 0)) {
+      byParticipant.set(pid, entry);
+    }
+  });
+  return Array.from(byParticipant.values());
+}
+
+function pickLatestAnswerForParticipant(rows, participantId) {
+  const pid = String(participantId || "");
+  if (!pid) {
+    return null;
+  }
+
+  let best = null;
+  (rows || []).forEach((entry) => {
+    if (!entry || String(entry.participantId || "") !== pid) {
+      return;
+    }
+    if (!best || Number(entry.timestamp || 0) > Number(best.timestamp || 0)) {
+      best = entry;
+    }
+  });
+  return best;
 }
 
 class SqlPresentationStore {
@@ -138,7 +272,6 @@ class SqlPresentationStore {
     if (!normalized) {
       return null;
     }
-
     const pool = await getPool();
     return readAppState(pool, sessionStateId(normalized));
   }
@@ -163,8 +296,8 @@ class SqlPresentationStore {
     return updated;
   }
 
-  async submit({ sessionId, participantId, choice, responseTimeMs }) {
-    if (!participantId || !choice) {
+  async claim({ sessionId, participantId, claims }) {
+    if (!participantId || !Array.isArray(claims)) {
       return false;
     }
 
@@ -173,17 +306,41 @@ class SqlPresentationStore {
       return null;
     }
 
-    const answer = {
+    const payload = {
       sessionId: session.sessionId,
-      participantId: String(participantId),
       phase: session.phase,
-      choice: String(choice),
+      participantId: String(participantId),
+      claims,
+      timestamp: Date.now()
+    };
+
+    const pool = await getPool();
+    await upsertAppState(pool, claimStateId(payload), payload);
+    return true;
+  }
+
+  async submit({ sessionId, participantId, ranking, summary, responseTimeMs }) {
+    if (!participantId || !Array.isArray(ranking) || ranking.length === 0) {
+      return false;
+    }
+
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const payload = {
+      sessionId: session.sessionId,
+      phase: session.phase,
+      participantId: String(participantId),
+      ranking,
+      summary: sanitizeSummary(summary),
       responseTimeMs: responseTimeMs == null ? null : Number(responseTimeMs),
       timestamp: Date.now()
     };
 
     const pool = await getPool();
-    await upsertAppState(pool, answerStateId(answer), answer);
+    await upsertAppState(pool, answerStateId(payload), payload);
     return true;
   }
 
@@ -209,6 +366,48 @@ class SqlPresentationStore {
     };
   }
 
+  async getConflicts({ sessionId, participantId }) {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const pool = await getPool();
+
+    const claimsResult = await pool.request()
+      .input("claimPrefix", sql.NVarChar(200), `${CLAIM_PREFIX}${session.sessionId}:${session.phase}:`)
+      .query("SELECT payload FROM app_state WHERE id LIKE @claimPrefix + '%' ");
+
+    const answersResult = await pool.request()
+      .input("answerPrefix", sql.NVarChar(200), `${ANSWER_PREFIX}${session.sessionId}:digitalStress:`)
+      .query("SELECT payload FROM app_state WHERE id LIKE @answerPrefix + '%' ");
+
+    const claimMap = {};
+    for (const row of claimsResult.recordset) {
+      const payload = safeJsonParse(row.payload);
+      if (!payload || !Array.isArray(payload.claims) || !payload.participantId) {
+        continue;
+      }
+      claimMap[payload.participantId] = {
+        claims: payload.claims,
+        timestamp: Number(payload.timestamp || Date.now())
+      };
+    }
+
+    const baseline = buildBaselineRanksFromRows(answersResult.recordset);
+    const myEntry = claimMap[participantId] || { claims: [] };
+    const ownerByTask = resolveTaskOwners(claimMap, baseline);
+
+    const takenByOthers = myEntry.claims
+      .filter((claim) => claim.taskId && ownerByTask[claim.taskId] && ownerByTask[claim.taskId] !== participantId)
+      .map((claim) => claim.taskId);
+
+    return {
+      takenByOthers,
+      conflictCount: takenByOthers.length
+    };
+  }
+
   async getResults(sessionId) {
     const session = await this.getSession(sessionId);
     if (!session) {
@@ -220,24 +419,168 @@ class SqlPresentationStore {
       .input("prefix", sql.NVarChar(200), `${ANSWER_PREFIX}${session.sessionId}:`)
       .query("SELECT payload FROM app_state WHERE id LIKE @prefix + '%' ");
 
-    const counts = {};
-    for (const row of result.recordset) {
-      const answer = safeJsonParse(row.payload);
-      if (!answer || !answer.choice) {
-        continue;
-      }
-      if (session.phase !== "results" && answer.phase !== session.phase) {
-        continue;
-      }
-      counts[answer.choice] = (counts[answer.choice] || 0) + 1;
+    const rows = result.recordset
+      .map((row) => safeJsonParse(row.payload))
+      .filter(Boolean);
+
+    const latestAnswers = latestAnswersByParticipant(rows);
+    return buildAggregateResults({
+      phase: session.phase,
+      answers: latestAnswers
+    });
+  }
+
+  async getParticipantResult({ sessionId, participantId }) {
+    const session = await this.getSession(sessionId);
+    if (!session || !participantId) {
+      return null;
+    }
+
+    const pool = await getPool();
+    const result = await pool.request()
+      .input("prefix", sql.NVarChar(200), `${ANSWER_PREFIX}${session.sessionId}:`)
+      .query("SELECT payload FROM app_state WHERE id LIKE @prefix + '%' ");
+
+    const rows = result.recordset
+      .map((row) => safeJsonParse(row.payload))
+      .filter(Boolean);
+
+    const latest = pickLatestAnswerForParticipant(rows, String(participantId));
+    if (!latest) {
+      return null;
     }
 
     return {
-      phase: session.phase,
-      totalAnswers: Object.values(counts).reduce((sum, value) => sum + value, 0),
-      counts
+      participantId: String(participantId),
+      phase: latest.phase,
+      ranking: Array.isArray(latest.ranking) ? latest.ranking : [],
+      summary: sanitizeSummary(latest.summary)
     };
   }
+}
+
+function resolveTaskOwners(claimMap, baselineRanks) {
+  const ownerByTask = {};
+
+  Object.entries(claimMap).forEach(([pid, entry]) => {
+    const claims = Array.isArray(entry.claims) ? entry.claims : [];
+    claims.forEach((claim) => {
+      const taskId = claim.taskId;
+      if (!taskId) {
+        return;
+      }
+
+      const contender = {
+        pid,
+        baselineRank: getBaselineRank(baselineRanks, pid, taskId),
+        claimRank: Number(claim.rank || 999),
+        claimTs: Number(entry.timestamp || Date.now())
+      };
+
+      const currentOwnerPid = ownerByTask[taskId];
+      if (!currentOwnerPid) {
+        ownerByTask[taskId] = pid;
+        return;
+      }
+
+      const current = {
+        pid: currentOwnerPid,
+        baselineRank: getBaselineRank(baselineRanks, currentOwnerPid, taskId),
+        claimRank: findClaimRank(claimMap[currentOwnerPid], taskId),
+        claimTs: Number((claimMap[currentOwnerPid] || {}).timestamp || Date.now())
+      };
+
+      if (isContenderStronger(contender, current)) {
+        ownerByTask[taskId] = pid;
+      }
+    });
+  });
+
+  return ownerByTask;
+}
+
+function isContenderStronger(a, b) {
+  if (a.baselineRank !== b.baselineRank) {
+    return a.baselineRank < b.baselineRank;
+  }
+  if (a.claimRank !== b.claimRank) {
+    return a.claimRank < b.claimRank;
+  }
+  return a.claimTs < b.claimTs;
+}
+
+function findClaimRank(entry, taskId) {
+  if (!entry || !Array.isArray(entry.claims)) {
+    return 999;
+  }
+  const claim = entry.claims.find((item) => item.taskId === taskId);
+  return claim ? Number(claim.rank || 999) : 999;
+}
+
+function buildBaselineRanksFromAnswers(answers) {
+  const map = {};
+  answers
+    .filter((item) => item.phase === "digitalStress" && Array.isArray(item.ranking))
+    .forEach((item) => {
+      const pid = String(item.participantId || "");
+      if (!pid) {
+        return;
+      }
+      if (!map[pid]) {
+        map[pid] = {};
+      }
+      item.ranking.forEach((rank) => {
+        if (rank.taskId) {
+          map[pid][rank.taskId] = Number(rank.rank || 999);
+        }
+      });
+    });
+  return map;
+}
+
+function buildBaselineRanksFromRows(rows) {
+  const map = {};
+  rows.forEach((row) => {
+    const payload = safeJsonParse(row.payload);
+    if (!payload || !Array.isArray(payload.ranking) || !payload.participantId) {
+      return;
+    }
+    const pid = String(payload.participantId);
+    map[pid] = map[pid] || {};
+    payload.ranking.forEach((rank) => {
+      if (rank.taskId) {
+        map[pid][rank.taskId] = Number(rank.rank || 999);
+      }
+    });
+  });
+  return map;
+}
+
+function getBaselineRank(map, participantId, taskId) {
+  const byUser = map[participantId] || {};
+  return Number(byUser[taskId] || 999);
+}
+
+function sanitizeSummary(input) {
+  const src = input && typeof input === "object" ? input : {};
+  return {
+    plannedMinutes: toNum(src.plannedMinutes),
+    chaosPenaltyMinutes: toNum(src.chaosPenaltyMinutes),
+    totalMinutes: toNum(src.totalMinutes),
+    remainingMinutes: toNum(src.remainingMinutes),
+    wellbeingTaskCount: toNum(src.wellbeingTaskCount),
+    wellbeingScore: toNum(src.wellbeingScore),
+    overloadMinutes: toNum(src.overloadMinutes)
+  };
+}
+
+function toNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function round1(value) {
+  return Math.round(value * 10) / 10;
 }
 
 function resolveConnectionString() {
@@ -309,12 +652,19 @@ function answerStateId({ sessionId, phase, participantId }) {
   return `${ANSWER_PREFIX}${normalizedSessionId}:${normalizedPhase}:${normalizedParticipantId}`;
 }
 
+function claimStateId({ sessionId, phase, participantId }) {
+  const normalizedSessionId = normalizeSessionId(sessionId);
+  const normalizedPhase = String(phase || "idle");
+  const normalizedParticipantId = String(participantId || "");
+  return `${CLAIM_PREFIX}${normalizedSessionId}:${normalizedPhase}:${normalizedParticipantId}`;
+}
+
 function phaseMessage(phase) {
   if (phase === "digitalStress") {
-    return "Du har 60 sekunder. Valj vad du gor forst nar allt kommer samtidigt.";
+    return "Digital stress: bygg en topp-10 plan som far plats i en 8h arbetsdag.";
   }
   if (phase === "workloadChaos") {
-    return "Prioritera under tidspress. Du har 90 sekunder pa dig.";
+    return "Chaos: avbrott och sociala val kostar tid. Hall balansen mellan leverans och hallbarhet.";
   }
   if (phase === "results") {
     return "Tack. Resultat presenteras nu.";

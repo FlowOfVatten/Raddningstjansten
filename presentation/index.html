@@ -28,43 +28,59 @@
       </div>
       <p id="scenarioText">Du far instruktioner nar scenariot startar.</p>
 
+      <div class="budget-strip" id="budgetStrip" hidden>
+        <div class="budget-item"><span>Anvand tid</span><strong id="budgetUsed">0 min</strong></div>
+        <div class="budget-item"><span>Kvar av 8h</span><strong id="budgetRemaining">480 min</strong></div>
+        <div class="budget-item"><span>Wellbeing</span><strong id="wellbeingValue">0</strong></div>
+      </div>
+
       <div id="taskList" class="task-list" hidden>
-        <p class="task-hint" id="taskHint">Prioritera genom att dra uppgifterna i ordningsfolj (1=viktigast)</p>
-        <div id="priorityBoard" class="priority-board">
-          <div class="rank-row rank-1">
-            <span class="rank-label">1</span>
-            <div class="task-slot" data-rank="1"></div>
-          </div>
-          <div class="rank-row rank-2">
-            <span class="rank-label">2</span>
-            <div class="task-slot" data-rank="2"></div>
-          </div>
-          <div class="rank-row rank-3">
-            <span class="rank-label">3</span>
-            <div class="task-slot" data-rank="3"></div>
-          </div>
-          <div class="rank-row rank-4">
-            <span class="rank-label">4</span>
-            <div class="task-slot" data-rank="4"></div>
-          </div>
-          <div class="rank-row rank-5">
-            <span class="rank-label">5</span>
-            <div class="task-slot" data-rank="5"></div>
-          </div>
-        </div>
+        <p class="task-hint" id="taskHint">Dra uppgifter till topp 10. Vissa val stjal tid men bygger hallbarhet.</p>
+        <div id="priorityBoard" class="priority-board"></div>
+
         <div id="taskPool" class="task-pool">
           <h3>Uppgifter att prioritera</h3>
           <div id="tasks" class="tasks"></div>
         </div>
+
         <div id="conflicts" class="conflicts" hidden>
-          <p class="conflict-warning">Andra deltagare tar samma resurser!</p>
+          <p class="conflict-warning">Resurskonflikt: hogst prioritet i Digital Stress har forratt.</p>
         </div>
+
+        <div id="chaosCard" class="chaos-card" hidden>
+          <h3 id="chaosTitle">Kaoskort</h3>
+          <p id="chaosText">Situation...</p>
+          <div class="chaos-actions">
+            <button id="chaosOptionA" type="button"></button>
+            <button id="chaosOptionB" type="button" class="secondary"></button>
+          </div>
+        </div>
+
         <button id="submitPriorities" class="submit-btn" hidden>Skicka prioritering</button>
       </div>
 
       <div id="submitted" class="submitted" hidden>
         <strong>Din prioritering ar skickad. Vanta pa resultaten.</strong>
       </div>
+
+      <section id="inlineResults" class="inline-results" hidden>
+        <h3>Resultat</h3>
+        <p id="inlineResultsSummary" class="muted"></p>
+        <div class="grid two metrics-compare">
+          <div class="metric-card">
+            <h4>Dina resultat</h4>
+            <p>Delivery score: <strong id="myDelivery">-</strong></p>
+            <p>Wellbeing: <strong id="myWellbeing">-</strong></p>
+            <p>Overload: <strong id="myOverload">-</strong></p>
+          </div>
+          <div class="metric-card">
+            <h4>Gruppsnitt</h4>
+            <p>Delivery score: <strong id="groupDelivery">-</strong></p>
+            <p>Wellbeing: <strong id="groupWellbeing">-</strong></p>
+            <p>Overload: <strong id="groupOverload">-</strong></p>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 
