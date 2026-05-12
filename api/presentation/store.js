@@ -26,7 +26,8 @@ class MemoryPresentationStore {
       submissionsByPhase: {},
       answers: [],
       claims: {},
-      participants: new Set()
+      participants: new Set(),
+      readyParticipants: new Set()
     };
     sessions.set(sessionId, record);
     return { sessionId, adminKey };
@@ -69,6 +70,7 @@ class MemoryPresentationStore {
       session.phase = "briefing";
       session.deadlineMs = null;
       session.briefingSlide = 0;
+      session.readyParticipants.clear();
       session.message = phaseMessage("briefing", { slide: 1, total: maxSlides });
       return session;
     }
@@ -92,11 +94,26 @@ class MemoryPresentationStore {
     if (normalized === "end") {
       session.phase = "idle";
       session.deadlineMs = null;
+      session.readyParticipants.clear();
       session.message = "Briefing complete. Start the game when everyone is ready.";
       return session;
     }
 
     return session;
+  }
+
+  markParticipantReady({ sessionId, participantId }) {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    if (participantId) {
+      session.participants.add(String(participantId));
+      session.readyParticipants.add(String(participantId));
+    }
+
+    return { readyCount: session.readyParticipants.size };
   }
 
   claim({ sessionId, participantId, claims }) {
@@ -169,6 +186,7 @@ class MemoryPresentationStore {
     const phase = session.phase;
     const phaseSet = session.submissionsByPhase[phase] || new Set();
     const submitted = Boolean(participantId) && phaseSet.has(`${phase}:${participantId}`);
+    const participantReady = Boolean(participantId) && session.readyParticipants.has(String(participantId));
 
     return {
       phase: session.phase,
@@ -176,6 +194,8 @@ class MemoryPresentationStore {
       deadlineMs: session.deadlineMs,
       submitted,
       participantCount: session.participants.size,
+      readyCount: session.readyParticipants.size,
+      participantReady,
       briefingSlide: Number(session.briefingSlide || 0),
       briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES)
     };
@@ -605,6 +625,34 @@ class SqlPresentationStore {
     return true;
   }
 
+  async markParticipantReady({ sessionId, participantId }) {
+    let session = await this.getSession(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    if (!participantId) {
+      return null;
+    }
+
+    const pool = await getPool();
+    const readyStateId = `${PRESENCE_PREFIX}${session.sessionId}:ready:${String(participantId)}`;
+    await upsertAppState(pool, readyStateId, {
+      sessionId: session.sessionId,
+      participantId: String(participantId),
+      readyAt: Date.now()
+    });
+
+    // Get current ready count
+    const readyPrefix = `${PRESENCE_PREFIX}${session.sessionId}:ready:`;
+    const readyResult = await pool.request()
+      .input("readyPrefix", sql.NVarChar(200), readyPrefix)
+      .query("SELECT COUNT(1) AS total FROM app_state WHERE id LIKE @readyPrefix + '%' ");
+    const readyCount = Number((readyResult.recordset[0] || {}).total || 0);
+
+    return { readyCount };
+  }
+
   async participantState({ sessionId, participantId }) {
     let session = await this.getSession(sessionId);
     if (!session) {
@@ -628,6 +676,13 @@ class SqlPresentationStore {
       .query("SELECT COUNT(1) AS total FROM app_state WHERE id LIKE @presencePrefix + '%' ");
     const participantCount = Number((presenceResult.recordset[0] || {}).total || 0);
 
+    // Count ready participants - they're stored with a "ready:" prefix
+    const readyPrefix = `${PRESENCE_PREFIX}${session.sessionId}:ready:`;
+    const readyResult = await pool.request()
+      .input("readyPrefix", sql.NVarChar(200), readyPrefix)
+      .query("SELECT COUNT(1) AS total FROM app_state WHERE id LIKE @readyPrefix + '%' ");
+    const readyCount = Number((readyResult.recordset[0] || {}).total || 0);
+
     const id = answerStateId({
       sessionId: session.sessionId,
       phase: session.phase,
@@ -641,6 +696,7 @@ class SqlPresentationStore {
       deadlineMs: session.deadlineMs,
       submitted,
       participantCount,
+      readyCount,
       briefingSlide: Number(session.briefingSlide || 0),
       briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES)
     };

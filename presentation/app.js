@@ -15,6 +15,9 @@ const briefingDeck = document.getElementById("briefingDeck");
 const briefingMeta = document.getElementById("briefingMeta");
 const briefingHeadline = document.getElementById("briefingHeadline");
 const briefingBody = document.getElementById("briefingBody");
+const briefingPrev = document.getElementById("briefingPrev");
+const briefingNext = document.getElementById("briefingNext");
+const briefingReady = document.getElementById("briefingReady");
 const timerEl = document.getElementById("timer");
 const taskList = document.getElementById("taskList");
 const priorityBoard = document.getElementById("priorityBoard");
@@ -88,6 +91,8 @@ let focusPenaltySec = 0;
 let interruptionCount = 0;
 let wellbeingBreakCount = 0;
 let wellbeingBreakMinutes = 0;
+let localBriefingSlide = 0;
+let hasMarkedReady = false;
 const wellbeingCooldownById = new Map();
 const channelStats = {
   handled: 0,
@@ -194,6 +199,25 @@ joinBtn.addEventListener("click", () => {
   scenarioCard.hidden = false;
   startPolling();
 });
+
+if (briefingPrev) {
+  briefingPrev.addEventListener("click", () => {
+    localBriefingSlide = Math.max(0, localBriefingSlide - 1);
+    renderBriefingControlsState();
+  });
+}
+
+if (briefingNext) {
+  briefingNext.addEventListener("click", () => {
+    const briefingTotal = BRIEFING_SLIDES.length || 6;
+    localBriefingSlide = Math.min(briefingTotal - 1, localBriefingSlide + 1);
+    renderBriefingControlsState();
+  });
+}
+
+if (briefingReady) {
+  briefingReady.addEventListener("click", markBriefingReady);
+}
 
 if (submitBtn) {
   submitBtn.hidden = true;
@@ -501,7 +525,19 @@ function renderBriefingSlide(slideIndex, totalSlides) {
   }
 
   const total = Math.max(1, Number(totalSlides || BRIEFING_SLIDES.length || 1));
-  const safeIndex = Math.max(0, Math.min(total - 1, Number(slideIndex || 0)));
+  localBriefingSlide = Number(slideIndex || 0);
+  hasMarkedReady = false;
+  
+  renderBriefingControlsState();
+}
+
+function renderBriefingControlsState() {
+  if (!briefingDeck) {
+    return;
+  }
+
+  const total = BRIEFING_SLIDES.length || 6;
+  const safeIndex = Math.max(0, Math.min(total - 1, Number(localBriefingSlide || 0)));
   const slide = BRIEFING_SLIDES[safeIndex] || BRIEFING_SLIDES[BRIEFING_SLIDES.length - 1] || {
     title: "Briefing",
     body: "Please wait for the facilitator."
@@ -515,10 +551,53 @@ function renderBriefingSlide(slideIndex, totalSlides) {
   inlineResults.hidden = true;
 
   scenarioTitle.textContent = phaseCopy.briefing;
-  scenarioText.textContent = "Follow the briefing on this screen. The game starts after the facilitator begins the scenario.";
+  scenarioText.textContent = "Follow the briefing on this screen. Navigate through slides and click Ready when you're done.";
   briefingMeta.textContent = `Slide ${safeIndex + 1}/${total}`;
   briefingHeadline.textContent = slide.title;
   briefingBody.textContent = slide.body;
+  
+  // Show Ready button only on the last slide
+  if (briefingReady) {
+    briefingReady.hidden = safeIndex !== total - 1 || hasMarkedReady;
+  }
+  
+  // Disable Previous on first slide
+  if (briefingPrev) {
+    briefingPrev.disabled = safeIndex === 0;
+  }
+  
+  // Disable Next on last slide
+  if (briefingNext) {
+    briefingNext.disabled = safeIndex === total - 1;
+  }
+}
+
+async function markBriefingReady() {
+  if (!activeSessionId || !participantId) {
+    joinStatus.textContent = "Session not initialized.";
+    return;
+  }
+
+  const res = await fetch(`${API_BASE}/briefingready`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: activeSessionId,
+      participantId
+    })
+  });
+
+  if (!res.ok) {
+    joinStatus.textContent = "Failed to mark ready.";
+    return;
+  }
+
+  const data = await res.json();
+  hasMarkedReady = true;
+  if (briefingReady) {
+    briefingReady.hidden = true;
+  }
+  joinStatus.textContent = `Ready! (${data.readyCount} participants ready)`;
 }
 
 function hideBriefingSlide() {

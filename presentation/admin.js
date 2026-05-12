@@ -12,6 +12,7 @@ const revealResultsBtn = document.getElementById("revealResults");
 const adminPhase = document.getElementById("adminPhase");
 const adminTimer = document.getElementById("adminTimer");
 const joinedCount = document.getElementById("joinedCount");
+const readyCount = document.getElementById("readyCount");
 const refreshStateBtn = document.getElementById("refreshState");
 const lastUpdated = document.getElementById("lastUpdated");
 const briefingSlideLabel = document.getElementById("briefingSlideLabel");
@@ -169,6 +170,7 @@ async function syncAdminState() {
   const state = await res.json();
   adminPhase.textContent = state.phase || "idle";
   joinedCount.textContent = String(state.participantCount || 0);
+  readyCount.textContent = String(state.readyCount || 0);
   renderBriefingLabel(state);
   lastStateUpdateMs = Date.now();
   renderLastUpdated();

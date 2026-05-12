@@ -90,6 +90,20 @@ module.exports = async function (context, req) {
       return json(200, { ok: true });
     }
 
+    if (method === "POST" && action === "briefingready") {
+      const payload = req.body || {};
+      const result = await store.markParticipantReady({
+        sessionId: payload.sessionId,
+        participantId: payload.participantId
+      });
+
+      if (!result) {
+        return json(404, { error: "Session not found" });
+      }
+
+      return json(200, { ok: true, readyCount: result.readyCount });
+    }
+
     if (method === "GET" && action === "conflicts") {
       const sessionId = req.query.sessionId;
       const participantId = req.query.participantId || "";
