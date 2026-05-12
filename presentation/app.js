@@ -13,6 +13,7 @@ const timerEl = document.getElementById("timer");
 const taskList = document.getElementById("taskList");
 const priorityBoard = document.getElementById("priorityBoard");
 const taskPool = document.getElementById("tasks");
+const taskPoolPanel = document.getElementById("taskPoolPanel");
 const conflictsEl = document.getElementById("conflicts");
 const submitBtn = document.getElementById("submitPriorities");
 const submittedEl = document.getElementById("submitted");
@@ -120,6 +121,23 @@ priorityBoard.addEventListener("drop", (e) => {
   }
 });
 
+priorityBoard.addEventListener("dragstart", (e) => {
+  const slotTask = e.target.closest(".slot-task");
+  if (!slotTask) {
+    return;
+  }
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", slotTask.dataset.taskId);
+  slotTask.classList.add("dragging");
+});
+
+priorityBoard.addEventListener("dragend", (e) => {
+  const slotTask = e.target.closest(".slot-task");
+  if (slotTask) {
+    slotTask.classList.remove("dragging");
+  }
+});
+
 taskPool.addEventListener("dragstart", (e) => {
   const task = e.target.closest(".task-item");
   if (!task || task.classList.contains("locked") || task.classList.contains("taken")) {
@@ -134,6 +152,19 @@ taskPool.addEventListener("dragend", (e) => {
   const task = e.target.closest(".task-item");
   if (task) {
     task.classList.remove("dragging");
+  }
+});
+
+taskPoolPanel.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+});
+
+taskPoolPanel.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const taskId = e.dataTransfer.getData("text/plain");
+  if (taskId) {
+    removeTaskFromPriorities(taskId);
   }
 });
 
@@ -478,6 +509,24 @@ function moveTaskToSlot(taskId, rankIndex) {
   }
 }
 
+function removeTaskFromPriorities(taskId) {
+  const existingIndex = currentPriorities.findIndex((p) => p && p.id === taskId);
+  if (existingIndex === -1) {
+    return;
+  }
+
+  currentPriorities[existingIndex] = null;
+  claimMetaByTask.delete(taskId);
+
+  renderSlots();
+  renderTasks();
+  renderBudget();
+
+  if (currentPhase === "workloadChaos") {
+    syncClaims();
+  }
+}
+
 function renderSlots() {
   priorityBoard.querySelectorAll(".task-slot").forEach((slot, idx) => {
     slot.innerHTML = "";
@@ -488,7 +537,12 @@ function renderSlots() {
     }
 
     const healthTag = task.wellbeing ? " +wellbeing" : "";
-    slot.textContent = `${task.label} (${task.minutes}m${healthTag})`;
+    const pill = document.createElement("div");
+    pill.className = "slot-task";
+    pill.draggable = true;
+    pill.dataset.taskId = task.id;
+    pill.textContent = `${task.label} (${task.minutes}m${healthTag})`;
+    slot.appendChild(pill);
     slot.classList.add("filled");
     if (takenByOthers.has(task.id)) {
       slot.classList.add("conflict");

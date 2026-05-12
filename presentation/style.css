@@ -124,6 +124,13 @@ button.secondary { background: #52626a; }
 .task-list { margin-top: 14px; }
 .task-hint { font-size: 0.9rem; color: var(--muted); margin-bottom: 14px; }
 
+.task-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 12px;
+  align-items: start;
+}
+
 .budget-strip {
   margin-top: 10px;
   display: grid;
@@ -160,7 +167,7 @@ button.secondary { background: #52626a; }
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   padding: 12px;
   background: #f9f7f2;
   border-radius: 10px;
@@ -185,17 +192,35 @@ button.secondary { background: #52626a; }
   border-radius: 8px;
   padding: 8px;
   background: #fff;
-  transition: all 0.2s;
+  transition: border-color 0.2s, background-color 0.2s;
   display: flex;
   align-items: center;
-  font-weight: 600;
   color: var(--muted);
 }
 
 .task-slot.filled { border-color: var(--accent); background: #f0fdf7; color: var(--text); }
 .task-slot.conflict { background: #fff1ee; border-color: var(--danger); }
 
-.task-pool { margin-bottom: 14px; }
+.slot-task {
+  width: 100%;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-weight: 600;
+  background: rgb(15 123 108 / 10%);
+  cursor: grab;
+  user-select: none;
+}
+
+.slot-task.dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
+.task-pool {
+  margin-bottom: 14px;
+  position: sticky;
+  top: 14px;
+}
 .task-pool h3 { margin: 0 0 10px; font-size: 0.95rem; }
 
 .tasks {
@@ -219,13 +244,8 @@ button.secondary { background: #52626a; }
 .task-item:hover { background: #dccbb8; transform: scale(1.02); }
 .task-item.dragging { opacity: 0.5; cursor: grabbing; }
 .task-item.taken { opacity: 0.35; border: 2px solid #d24b4b; background: #f6d8d8; cursor: not-allowed; }
-.task-item.locked { opacity: 0.5; border: 2px solid #ffb3b3; background: #fff5f5; cursor: not-allowed; animation: pulse-locked 1s infinite; }
+.task-item.locked { opacity: 0.5; border: 2px solid #ffb3b3; background: #fff5f5; cursor: not-allowed; }
 .task-item.wellbeing { border-color: #7aa58f; background: #dff2e7; }
-
-@keyframes pulse-locked {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(255, 107, 107, 0.3); }
-  50% { box-shadow: 0 0 8px 4px rgb(255, 107, 107, 0.1); }
-}
 
 .conflicts {
   margin-top: 14px;
@@ -357,6 +377,14 @@ button.secondary { background: #52626a; }
   }
 
   .event-panel {
+    position: static;
+  }
+
+  .task-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .task-pool {
     position: static;
   }
 
