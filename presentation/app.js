@@ -47,6 +47,7 @@ const groupWellbeing = document.getElementById("groupWellbeing");
 const groupOverload = document.getElementById("groupOverload");
 
 const participantId = getOrCreateParticipantId();
+let audioContext = null;
 let activeSessionId = "";
 let pollHandle = null;
 let timerHandle = null;
@@ -95,52 +96,52 @@ const channelStats = {
 const TASKS = createTaskCatalog();
 
 const phaseCopy = {
-  idle: "Vantar pa aktivering",
-  digitalStress: "Digital Stress - Prioritera topp 10 inom en 8h arbetsdag",
-  workloadChaos: "Chaos - kanalspam, avbrott och reaktivt arbete",
-  results: "Resultatlage"
+  idle: "Waiting for activation",
+  digitalStress: "Digital Stress - Prioritize top 10 for an 8-hour workday",
+  workloadChaos: "Chaos - channel spam, interruptions, and reactive work",
+  results: "Results mode"
 };
 
 const CHAOS_INTERRUPTS = [
   {
     id: "family-call",
     atSec: 16,
-    title: "Telefonen ringer",
-    text: "En familjemedlem ringer mitt i din hogsta prioritet. Hur agerar du?",
+    title: "Phone call from manager",
+    text: "Your operations manager calls during your highest-priority task. How do you respond?",
     options: [
-      { key: "answer", label: "Svara direkt", penaltyMinutes: 10, wellbeingDelta: 1 },
-      { key: "ignore", label: "Ignorera samtalet", penaltyMinutes: 0, wellbeingDelta: -1 }
+      { key: "answer", label: "Answer immediately", penaltyMinutes: 10, wellbeingDelta: 1 },
+      { key: "ignore", label: "Ignore and continue", penaltyMinutes: 0, wellbeingDelta: -1 }
     ]
   },
   {
     id: "colleague-dropin",
     atSec: 35,
-    title: "Kollega glider in",
-    text: "En kollega dyker upp och vill prata igenom ett sidoproblem.",
+    title: "Unplanned colleague interruption",
+    text: "A colleague appears and asks for help on a side problem.",
     options: [
-      { key: "help", label: "Hjalp kollegan", penaltyMinutes: 15, wellbeingDelta: 1 },
-      { key: "decline", label: "Avvisa och fortsatt", penaltyMinutes: 0, wellbeingDelta: -1 }
+      { key: "help", label: "Help the colleague", penaltyMinutes: 15, wellbeingDelta: 1 },
+      { key: "decline", label: "Decline and continue", penaltyMinutes: 0, wellbeingDelta: -1 }
     ]
   }
 ];
 
 const CHANNEL_ALERT_TEMPLATES = [
-  { issueKey: "billing-lock", title: "Kund kan inte logga in", preferredChannel: "urgent", important: true, falseFire: false },
-  { issueKey: "billing-lock", title: "Kund kan inte logga in", preferredChannel: "urgent", important: true, falseFire: false },
-  { issueKey: "sprint-note", title: "Ny kommentar i sprintdokument", preferredChannel: "teams", important: false, falseFire: false },
-  { issueKey: "system-noise", title: "Auto-varning: hog CPU i testmiljo", preferredChannel: "mail", important: false, falseFire: true },
-  { issueKey: "vip-mail", title: "VIP-kund vill ha snabb status", preferredChannel: "mail", important: true, falseFire: false },
-  { issueKey: "meeting-echo", title: "Mote flyttat? Flera versioner", preferredChannel: "teams", important: false, falseFire: true },
-  { issueKey: "security-flag", title: "Mojlig security-avvikelse", preferredChannel: "urgent", important: true, falseFire: false },
-  { issueKey: "security-flag", title: "Mojlig security-avvikelse", preferredChannel: "urgent", important: true, falseFire: false },
-  { issueKey: "doc-ping", title: "Behov av snabb textjustering", preferredChannel: "teams", important: false, falseFire: false },
-  { issueKey: "customer-nps", title: "Missnojd kund i NPS", preferredChannel: "mail", important: true, falseFire: false }
+  { issueKey: "major-incident", title: "Customer outage reported", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "major-incident", title: "Customer outage reported", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "problem-case", title: "Problem ticket receives new diagnostics", preferredChannel: "teams", important: false, falseFire: false },
+  { issueKey: "monitoring-noise", title: "Auto alert: high CPU in test environment", preferredChannel: "mail", important: false, falseFire: true },
+  { issueKey: "vip-status", title: "VIP stakeholder asks for immediate status", preferredChannel: "mail", important: true, falseFire: false },
+  { issueKey: "meeting-noise", title: "Meeting time changed twice", preferredChannel: "teams", important: false, falseFire: true },
+  { issueKey: "security-flag", title: "Potential security deviation detected", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "security-flag", title: "Potential security deviation detected", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "maintenance-note", title: "Weekend maintenance plan needs update", preferredChannel: "teams", important: false, falseFire: false },
+  { issueKey: "customer-risk", title: "Escalated customer dissatisfaction case", preferredChannel: "mail", important: true, falseFire: false }
 ];
 
 const WELLBEING_OPTIONS = [
-  { id: "micro-break", label: "2-min andningspaus", minutes: 2, wellbeingDelta: 1, cooldownSec: 12 },
-  { id: "water-break", label: "Vatten + kort stretch", minutes: 4, wellbeingDelta: 1, cooldownSec: 16 },
-  { id: "desk-break", label: "Kaffe och benstrackare", minutes: 8, wellbeingDelta: 2, cooldownSec: 24 }
+  { id: "micro-break", label: "2-minute breathing reset", minutes: 2, wellbeingDelta: 1, cooldownSec: 12 },
+  { id: "water-break", label: "Water and short stretch", minutes: 4, wellbeingDelta: 1, cooldownSec: 16 },
+  { id: "desk-break", label: "Coffee and walk", minutes: 8, wellbeingDelta: 2, cooldownSec: 24 }
 ];
 
 buildPriorityBoard(TOP_SLOTS);
@@ -152,11 +153,12 @@ renderWellbeingActions();
 joinBtn.addEventListener("click", () => {
   const sessionId = sessionInput.value.trim().toUpperCase();
   if (!sessionId) {
-    joinStatus.textContent = "Fyll i ett session-ID.";
+    joinStatus.textContent = "Enter a session ID.";
     return;
   }
+  ensureAudioContext();
   activeSessionId = sessionId;
-  joinStatus.textContent = "Ansluten. Vantar pa scenario...";
+  joinStatus.textContent = "Connected. Waiting for scenario...";
   scenarioCard.hidden = false;
   startPolling();
 });
@@ -272,22 +274,22 @@ function buildPriorityBoard(size) {
 
 function createTaskCatalog() {
   const labels = [
-    "Kritisk incident", "Chefssamtal", "Email backlog", "Moteforberedelse", "Sprintplanering",
-    "Kodgranskning", "Dokumentation", "Team sync", "Utvecklingsuppgift", "Supportticket",
-    "Kunduppfoljning", "Bug triage", "Miljorapport", "Dashboard-fel", "Security review",
-    "Onboarding-fraga", "Dataexport", "Kvalitetskontroll", "Feature test", "Regressionstest",
-    "Release-plan", "Riskanalys", "Anbudsfraga", "Incidentrapport", "API-felanalys",
-    "Integrationstest", "Prioriteringsmote", "Ledningsunderlag", "Sprintretro", "Planeringsstopp",
-    "Akut kundarende", "Patchvalidering", "Statusrapport", "Budgetunderlag", "Nattjobb-fel",
-    "SLA-uppfoljning", "Rotorsaksanalys", "DevOps-larm", "Behorighetsfraga", "Kapacitetsplan",
-    "Prestandatest", "Workshopforberedelse", "Mentorstod", "Kunskapsdelning", "Veckoavslut"
+    "Major incident triage", "Escalation bridge update", "Inbox backlog cleanup", "Operations standup prep", "Weekly capacity planning",
+    "Change review for production", "Runbook documentation update", "Cross-team sync", "Lifecycle backlog refinement", "Service desk ticket burst",
+    "Critical customer follow-up", "Problem ticket triage", "Environment health report", "Monitoring dashboard anomaly", "Security deviation review",
+    "New teammate onboarding support", "Operational data export", "Quality gate check", "Maintenance readiness test", "Regression verification",
+    "Release go-live plan", "Risk assessment refresh", "Vendor coordination request", "Incident postmortem draft", "API failure diagnostics",
+    "Integration verification", "Priority committee input", "Leadership status pack", "Retrospective action follow-up", "Planning freeze decision",
+    "Urgent customer escalation", "Patch validation", "Stakeholder status summary", "Budget impact estimate", "Night shift failure review",
+    "SLA follow-up", "Root cause analysis", "Ops alert swarm", "Access request review", "Capacity forecast update",
+    "Performance validation", "Workshop prep", "Mentoring support", "Knowledge transfer", "Weekend maintenance checklist"
   ];
 
   return labels.map((label, idx) => {
     const id = `task_${String(idx + 1).padStart(2, "0")}`;
     const wellbeing = false;
     const minutes = 30 + (idx % 6) * 12;
-    const lockedMs = idx % 4 === 0 ? 12000 : idx % 7 === 0 ? 7000 : 0;
+    const lockedMs = 0;
     const clarity = idx % 3 === 0 ? "unclear" : "clear";
     const doneTarget = clarity === "unclear" ? (idx % 2 === 0 ? "goodEnough" : "perfect") : "goodEnough";
     return {
@@ -319,7 +321,7 @@ async function syncState() {
   const url = `${API_BASE}/state?sessionId=${encodeURIComponent(activeSessionId)}&participantId=${encodeURIComponent(participantId)}`;
   const res = await fetch(url);
   if (!res.ok) {
-    joinStatus.textContent = "Session hittades inte.";
+    joinStatus.textContent = "Session not found.";
     return;
   }
 
@@ -327,7 +329,7 @@ async function syncState() {
   currentPhase = state.phase || "idle";
   deadlineMs = state.deadlineMs || null;
   scenarioTitle.textContent = phaseCopy[currentPhase] || "Scenario";
-  scenarioText.textContent = state.message || "Folj instruktionerna pa skarmen.";
+  scenarioText.textContent = state.message || "Follow the on-screen instructions.";
 
   const interactive = currentPhase === "digitalStress" || currentPhase === "workloadChaos";
   const submitted = Boolean(state.submitted);
@@ -430,13 +432,13 @@ function initializePhase({ carryForward = false } = {}) {
     });
   }
 
-  logEvent(`Fas startad: ${phaseCopy[currentPhase]}.`, "phase");
+  logEvent(`Phase started: ${phaseCopy[currentPhase]}.`, "phase");
   if (currentPhase === "workloadChaos") {
-    logEvent("KAOS PA JOBBET - prioriteringen kan rasa nar resurser tas av andra.", "chaos");
+    logEvent("WORKLOAD CHAOS - your priorities can collapse when resources are claimed by others.", "chaos");
     if (carryForward) {
-      logEvent("Autoovergang till Chaos: tidigare prioriteringar foljer med.", "warn");
+      logEvent("Auto transition to Chaos: earlier priorities are carried over.", "warn");
     }
-    logEvent("Kaosregler: rang + snabbhet avgor vem som behaller en uppgift.", "phase");
+    logEvent("Chaos rules: rank plus speed decides who keeps a task.", "phase");
     startFocusTicker();
   } else {
     stopFocusTicker();
@@ -473,7 +475,7 @@ function renderWellbeingActions() {
     wellbeingActions.appendChild(btn);
   });
 
-  wellbeingStats.textContent = `Tagna raster: ${wellbeingBreakCount} | Tid: ${wellbeingBreakMinutes} min`;
+  wellbeingStats.textContent = `Breaks taken: ${wellbeingBreakCount} | Time: ${wellbeingBreakMinutes} min`;
 }
 
 function takeWellbeingBreak(breakId) {
@@ -495,11 +497,11 @@ function takeWellbeingBreak(breakId) {
   wellbeingCooldownById.set(option.id, now + option.cooldownSec * 1000);
 
   if (currentPhase === "workloadChaos") {
-    applyFocusInterruption(`Tog rast: ${option.label}`, 3);
+    applyFocusInterruption(`Took break: ${option.label}`, 3);
     focusPenaltySec = Math.max(0, focusPenaltySec - 2);
   }
 
-  logEvent(`Wellbeing-rast: ${option.label}.`, "choice");
+  logEvent(`Wellbeing break: ${option.label}.`, "choice");
   renderWellbeingActions();
   renderBudget();
 }
@@ -549,7 +551,7 @@ function renderChannelInbox() {
   }
 
   if (!activeAlerts.length) {
-    channelInbox.innerHTML = "<p class='muted'>Inga nya kanalhändelser.</p>";
+    channelInbox.innerHTML = "<p class='muted'>No new channel events.</p>";
     return;
   }
 
@@ -560,12 +562,12 @@ function renderChannelInbox() {
     card.innerHTML = `
       <div class="alert-row">
         <span class="channel-badge ${alert.channel}">${alert.channel}</span>
-        <span>${alert.important ? "Viktig" : "Lag prioritet"}</span>
+        <span>${alert.important ? "High priority" : "Low priority"}</span>
       </div>
       <strong>${alert.title}</strong>
       <div class="alert-actions">
-        <button data-action="handle" data-alert-id="${alert.id}" type="button">Hantera</button>
-        <button data-action="defer" data-alert-id="${alert.id}" type="button" class="secondary">Skjut upp</button>
+        <button data-action="handle" data-alert-id="${alert.id}" type="button">Handle</button>
+        <button data-action="defer" data-alert-id="${alert.id}" type="button" class="secondary">Defer</button>
       </div>
     `;
     channelInbox.appendChild(card);
@@ -580,8 +582,8 @@ function runChaosInterrupts() {
     if (elapsedSec >= interrupt.atSec && !firedInterrupts.has(interrupt.id)) {
       firedInterrupts.add(interrupt.id);
       showChaosOverlay(interrupt);
-      applyFocusInterruption(`Avbrott: ${interrupt.title}`, 10);
-      logEvent(`Avbrott: ${interrupt.title}.`, "warn");
+      applyFocusInterruption(`Interruption: ${interrupt.title}`, 10);
+      logEvent(`Interruption: ${interrupt.title}.`, "warn");
     }
   });
 
@@ -603,7 +605,7 @@ function runChaosInterrupts() {
       }
     }
     renderChannelInbox();
-    logEvent(`Kanalhändelse via ${item.channel}: ${item.title}.`, "warn");
+    logEvent(`Channel event via ${item.channel}: ${item.title}.`, "warn");
   });
 
   const stillActive = [];
@@ -614,7 +616,7 @@ function runChaosInterrupts() {
       if (alert.important) {
         chaosPenaltyMinutes += 6;
       }
-      logEvent(`Missad kanalhändelse: ${alert.title}.`, "conflict");
+      logEvent(`Missed channel event: ${alert.title}.`, "conflict");
       return;
     }
     stillActive.push(alert);
@@ -632,19 +634,19 @@ function handleAlert(alertId) {
   const alert = activeAlerts[idx];
   activeAlerts.splice(idx, 1);
   channelStats.handled += 1;
-  applyFocusInterruption(`Bytte till kanal ${alert.channel}`, 8);
+  applyFocusInterruption(`Switched to channel ${alert.channel}`, 8);
 
   if (alert.falseFire) {
     channelStats.falseFires += 1;
     chaosPenaltyMinutes += 8;
     chaosWellbeingDelta -= 1;
-    logEvent(`Falskt brandlarm hanterat: ${alert.title}.`, "conflict");
+    logEvent(`False alarm handled: ${alert.title}.`, "conflict");
   } else if (alert.channel === alert.preferredChannel) {
     channelStats.correct += 1;
-    logEvent(`Ratt kanalval: ${alert.title}.`, "choice");
+    logEvent(`Correct channel choice: ${alert.title}.`, "choice");
   } else {
     chaosPenaltyMinutes += alert.important ? 7 : 4;
-    logEvent(`Fel kanal for ${alert.title}.`, "conflict");
+    logEvent(`Wrong channel for ${alert.title}.`, "conflict");
   }
 
   renderChannelInbox();
@@ -663,7 +665,7 @@ function deferAlert(alertId) {
   if (alert.important) {
     chaosPenaltyMinutes += 3;
   }
-  logEvent(`Skot upp kanalhändelse: ${alert.title}.`, "info");
+  logEvent(`Deferred channel event: ${alert.title}.`, "info");
   renderChannelInbox();
   renderBudget();
 }
@@ -674,6 +676,7 @@ function showChaosOverlay(card) {
   chaosTextEl.textContent = card.text;
   chaosOptionA.textContent = card.options[0].label;
   chaosOptionB.textContent = card.options[1].label;
+  playChaosCue(card.id);
   chaosOverlayEl.hidden = false;
 }
 
@@ -705,8 +708,8 @@ function decideChaosOption(index) {
     wellbeingDelta: Number(option.wellbeingDelta || 0)
   });
 
-  scenarioText.textContent = `Val registrerat: ${option.label} (${option.penaltyMinutes || 0} min).`;
-  logEvent(`Val: ${option.label}. +${option.penaltyMinutes || 0} min.`, "choice");
+  scenarioText.textContent = `Choice recorded: ${option.label} (${option.penaltyMinutes || 0} min).`;
+  logEvent(`Choice: ${option.label}. +${option.penaltyMinutes || 0} min.`, "choice");
   hideChaosOverlay();
   renderBudget();
 }
@@ -762,29 +765,27 @@ function applyFocusInterruption(reason, penaltySeconds) {
   interruptionCount += 1;
   focusPenaltySec = Math.max(focusPenaltySec, penaltySeconds);
   focusProducedSec = Math.max(0, focusProducedSec - 2);
-  logEvent(`Fokustapp: ${reason}.`, "conflict");
+  logEvent(`Focus drop: ${reason}.`, "conflict");
   renderFocusPanel();
 }
 
 function renderFocusPanel() {
   const focusTask = currentPriorities[0];
   focusTarget.textContent = focusTask
-    ? `Aktiv fokusuppgift: ${focusTask.label}`
-    : "Ingen aktiv fokusuppgift.";
+    ? `Active focus task: ${focusTask.label}`
+    : "No active focus task.";
 
   const efficiency = focusWorkedSec > 0 ? Math.round((focusProducedSec / focusWorkedSec) * 100) : 0;
   focusBarFill.style.width = `${Math.max(0, Math.min(100, efficiency))}%`;
-  focusStats.textContent = `Arbetad tid: ${focusWorkedSec}s | Producerat varde: ${focusProducedSec}s`;
+  focusStats.textContent = `Worked time: ${focusWorkedSec}s | Produced value: ${focusProducedSec}s`;
 }
 
 function isTaskLocked(task, now) {
-  const baseUnlock = taskUnlockTimes.get(task.id) || 0;
-  return baseUnlock > now;
+  return false;
 }
 
 function lockSecondsLeft(task, now) {
-  const baseUnlock = taskUnlockTimes.get(task.id) || 0;
-  return Math.max(0, Math.ceil((baseUnlock - now) / 1000));
+  return 0;
 }
 
 function renderTasks() {
@@ -811,16 +812,16 @@ function renderTasks() {
     taskDiv.dataset.taskId = task.id;
     taskDiv.draggable = !isTaken && !isLocked;
 
-    const clarityTag = task.clarity === "unclear" ? " | Otydlig" : "";
+    const clarityTag = task.clarity === "unclear" ? " | Unclear" : "";
     const minutes = computeTaskMinutes(task);
     taskDiv.textContent = isLocked ? `${task.label} (${lockSecsLeft}s)` : `${task.label} (${minutes}m${clarityTag})`;
     taskDiv.title = isLocked
-      ? `Tillganglig om ${lockSecsLeft} sekunder`
+      ? `Available in ${lockSecsLeft} seconds`
       : isTaken
-        ? "Denna uppgift ar redan tagen av snabbare deltagare pa samma/hogre rank"
+        ? "This task is already claimed by faster participants at the same/higher rank"
         : task.clarity === "unclear"
-          ? "Otydligt mal: valj Bra nog eller Perfekt i prioriteringsrutan"
-          : "Dra till en rank-slot";
+          ? "Unclear outcome: choose Good enough or Perfect in the priority slot"
+          : "Drag to a rank slot";
 
     taskPool.appendChild(taskDiv);
   });
@@ -856,7 +857,7 @@ function moveTaskToSlot(taskId, rankIndex) {
   }
 
   if (currentPhase === "workloadChaos") {
-    applyFocusInterruption("Omprioritering", 6);
+    applyFocusInterruption("Reprioritization", 6);
   }
 
   reconcileClaimMeta();
@@ -879,7 +880,7 @@ function removeTaskFromPriorities(taskId) {
   claimMetaByTask.delete(taskId);
 
   if (currentPhase === "workloadChaos") {
-    applyFocusInterruption("Tog bort uppgift ur ranking", 5);
+    applyFocusInterruption("Removed task from ranking", 5);
   }
 
   renderSlots();
@@ -902,7 +903,7 @@ function toggleTaskQuality(taskId) {
   qualityChoiceByTaskId.set(taskId, next);
 
   if (currentPhase === "workloadChaos") {
-    applyFocusInterruption("Andrade kvalitetsniva", 4);
+    applyFocusInterruption("Changed quality level", 4);
   }
 
   renderSlots();
@@ -936,7 +937,7 @@ function renderSlots() {
       chip.type = "button";
       chip.className = `quality-chip${quality === "perfect" ? " perfect" : ""}`;
       chip.dataset.taskId = task.id;
-      chip.textContent = quality === "perfect" ? "Perfekt" : "Bra nog";
+      chip.textContent = quality === "perfect" ? "Perfect" : "Good enough";
       pill.appendChild(chip);
     }
 
@@ -1091,12 +1092,12 @@ async function checkForConflicts() {
   }
 
   if (knockedOut > 0) {
-    applyFocusInterruption("Forlorade prioriterad resurs", 9);
+    applyFocusInterruption("Lost prioritized resource", 9);
     const preview = removedLabels.slice(0, 3).join(", ");
-    scenarioText.textContent = `Kaos! ${knockedOut} val forlorades till snabbare deltagare.`;
-    logEvent(`Forlorade ${knockedOut} uppgifter: ${preview}${removedLabels.length > 3 ? "..." : ""}`, "conflict");
+    scenarioText.textContent = `Chaos! ${knockedOut} choices were lost to faster participants.`;
+    logEvent(`Lost ${knockedOut} tasks: ${preview}${removedLabels.length > 3 ? "..." : ""}`, "conflict");
   } else if (signature !== lastTakenSignature && signature) {
-    logEvent("Resurskonflikter uppdaterades.", "info");
+    logEvent("Resource conflicts updated.", "info");
   }
   lastTakenSignature = signature;
 
@@ -1141,7 +1142,7 @@ function rotateTaskWaveIfNeeded(force = false) {
   taskWaveIndex = (taskWaveIndex + TASK_WAVE_SIZE) % Math.max(taskWaveOrder.length, 1);
 
   if (!force) {
-    logEvent(`Nytt inflode av uppgifter: ${currentWaveTaskIds.length} tillgangliga i ${TASK_WAVE_SECONDS}s.`, "info");
+    logEvent(`New task inflow: ${currentWaveTaskIds.length} available for ${TASK_WAVE_SECONDS}s.`, "info");
   }
 }
 
@@ -1197,7 +1198,7 @@ async function submitPriorities({ allowPartial = false, fromTimer = false } = {}
 
   const filled = currentPriorities.filter(Boolean);
   if (!allowPartial && filled.length < TOP_SLOTS) {
-    alert(`Du maste prioritera topp ${TOP_SLOTS} uppgifter innan du skickar.`);
+    alert(`You must prioritize top ${TOP_SLOTS} tasks before submitting.`);
     return;
   }
 
@@ -1228,7 +1229,7 @@ async function submitPriorities({ allowPartial = false, fromTimer = false } = {}
   });
 
   if (!res.ok) {
-    joinStatus.textContent = "Kunde inte skicka prioritering.";
+    joinStatus.textContent = "Could not submit priorities.";
     hasAutoSubmitted = false;
     return;
   }
@@ -1241,11 +1242,11 @@ async function submitPriorities({ allowPartial = false, fromTimer = false } = {}
   stopUnlockCheck();
   stopFocusTicker();
   if (fromTimer) {
-    logEvent("Tiden ar slut - prioritering sparades automatiskt.", "phase");
-    scenarioText.textContent = "Tiden ar slut. Din prioritering sparades automatiskt.";
+    logEvent("Time is up - priorities were auto-saved.", "phase");
+    scenarioText.textContent = "Time is up. Your priorities were auto-saved.";
     showEndOverlay();
   } else {
-    logEvent("Prioritering skickad.", "phase");
+    logEvent("Priorities submitted.", "phase");
   }
 }
 
@@ -1276,12 +1277,12 @@ async function showInlineResults() {
     myDelivery.textContent = String(myScore);
     myWellbeing.textContent = String(mySummary.wellbeingScore ?? 0);
     myOverload.textContent = `${mySummary.overloadMinutes ?? 0} min`;
-    inlineResultsSummary.textContent = `Din senaste inlamning jamfors med ${groupData.participants || 0} deltagare.`;
+    inlineResultsSummary.textContent = `Your latest submission is compared with ${groupData.participants || 0} participants.`;
   } else {
     myDelivery.textContent = "-";
     myWellbeing.textContent = "-";
     myOverload.textContent = "-";
-    inlineResultsSummary.textContent = "Du har ingen inlamning att visa for den har sessionen an.";
+    inlineResultsSummary.textContent = "You do not have a submission for this session yet.";
   }
 
   inlineResults.hidden = false;
@@ -1311,6 +1312,97 @@ function getOrCreateParticipantId() {
 
 function round1(value) {
   return Math.round(Number(value || 0) * 10) / 10;
+}
+
+function ensureAudioContext() {
+  if (!audioContext) {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) {
+      return null;
+    }
+    audioContext = new AudioCtor();
+  }
+
+  if (audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+
+  return audioContext;
+}
+
+function playChaosCue(cardId) {
+  const context = ensureAudioContext();
+  if (!context) {
+    return;
+  }
+
+  if (cardId === "family-call") {
+    playPhoneRing(context);
+    return;
+  }
+
+  if (cardId === "colleague-dropin") {
+    playDoorKnock(context);
+  }
+}
+
+function playPhoneRing(context) {
+  const start = context.currentTime + 0.02;
+  const burstOffsets = [0, 0.32, 0.9, 1.22];
+
+  burstOffsets.forEach((offset) => {
+    playTone(context, start + offset, 0.16, 880, "triangle", 0.035);
+    playTone(context, start + offset + 0.17, 0.16, 660, "triangle", 0.03);
+  });
+}
+
+function playDoorKnock(context) {
+  const start = context.currentTime + 0.02;
+  [0, 0.18, 0.62].forEach((offset, index) => {
+    playKnockHit(context, start + offset, 0.12, 150 - index * 20, 0.05);
+  });
+}
+
+function playTone(context, startTime, duration, frequency, type, volume) {
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, startTime);
+
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration + 0.02);
+}
+
+function playKnockHit(context, startTime, duration, baseFrequency, volume) {
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const filter = context.createBiquadFilter();
+
+  oscillator.type = "triangle";
+  oscillator.frequency.setValueAtTime(baseFrequency, startTime);
+  oscillator.frequency.exponentialRampToValueAtTime(baseFrequency * 0.6, startTime + duration);
+
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(900, startTime);
+
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+  oscillator.connect(filter);
+  filter.connect(gain);
+  gain.connect(context.destination);
+
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration + 0.02);
 }
 
 const params = new URLSearchParams(window.location.search);

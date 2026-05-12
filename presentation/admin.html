@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,41 +10,46 @@
   <main class="page admin">
     <header class="hero">
       <p class="kicker">Admin Control</p>
-      <h1>Styr live-scenarion</h1>
-      <p class="sub">Skapa session och trigga stresslagen live.</p>
+      <h1>Control live scenarios</h1>
+      <p class="sub">Create a session and trigger stress phases live.</p>
     </header>
 
     <section class="card controls">
-      <button id="createSession" type="button">Skapa ny session</button>
+      <button id="createSession" type="button">Create new session</button>
       <div class="grid two">
-        <label>Session-ID
+        <label>Session ID
           <input id="sessionId" readonly>
         </label>
-        <label>Admin-nyckel
+        <label>Admin key
           <input id="adminKey" readonly>
         </label>
       </div>
-      <p class="muted">Spara admin-nyckeln. Den behovs for att styra sessionen.</p>
+      <p class="muted">Save the admin key. It is required to control the session.</p>
     </section>
 
     <section class="card">
-      <h2>Aktivera scenario</h2>
+      <h2>Activate scenario</h2>
       <div class="row between">
-        <p class="muted">Aktiv fas: <strong id="adminPhase">idle</strong></p>
+        <p class="muted">Active phase: <strong id="adminPhase">idle</strong></p>
         <div class="timer" id="adminTimer">--</div>
       </div>
-      <div class="grid two">
-        <button class="trigger" data-phase="digitalStress" data-duration="60">Starta Spel (60s Digital Stress -> auto Chaos)</button>
+      <div class="row between">
+        <p class="muted">Joined participants: <strong id="joinedCount">0</strong></p>
+        <button id="refreshState" type="button" class="secondary">Refresh</button>
       </div>
-      <p class="muted">Efter 60 sekunder i Digital Stress vaxlar spelet automatiskt till Chaos.</p>
-      <button id="revealResults" type="button">Visa resultatlage</button>
+      <p class="muted" id="lastUpdated">Last updated: never</p>
+      <div class="grid two">
+        <button class="trigger" data-phase="digitalStress" data-duration="60">Start game (60s Digital Stress -> auto Chaos)</button>
+      </div>
+      <p class="muted">After 60 seconds in Digital Stress, the game automatically switches to Chaos.</p>
+      <button id="revealResults" type="button">Reveal results mode</button>
       <p id="adminStatus" class="muted"></p>
     </section>
 
     <section class="card">
-      <h2>Snabblankar</h2>
-      <p>Deltagare: <code id="participantLink">-</code></p>
-      <p>Resultat: <code id="resultsLink">-</code></p>
+      <h2>Quick links</h2>
+      <p>Participant: <code id="participantLink">-</code></p>
+      <p>Results: <code id="resultsLink">-</code></p>
     </section>
   </main>
 

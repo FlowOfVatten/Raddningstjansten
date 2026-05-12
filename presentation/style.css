@@ -550,6 +550,56 @@ button.secondary { background: #52626a; }
 .grid { display: grid; gap: 10px; }
 .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.metric-tile {
+  background: #f4f1ea;
+  border: 1px solid #ddd4c7;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.metric-tile span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-tile strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.2rem;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.insight-card {
+  background: #f8f2e7;
+  border: 1px solid #dfd5c5;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.insight-card h3 {
+  margin: 0 0 10px;
+}
+
+.compact-bars .bar-row {
+  grid-template-columns: 160px 1fr 88px;
+}
+
 .bars { display: grid; gap: 10px; }
 .bar-row {
   display: grid;
@@ -609,6 +659,7 @@ button.secondary { background: #52626a; }
   }
 
   .grid.two { grid-template-columns: 1fr; }
+  .results-grid { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 1fr; }
   .budget-strip { grid-template-columns: 1fr; }
   .chaos-actions { grid-template-columns: 1fr; }

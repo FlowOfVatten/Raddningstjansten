@@ -1,4 +1,5 @@
 const API_BASE = "/api/presentation";
+const ADMIN_POLL_MS = 60 * 1000;
 
 const createSessionBtn = document.getElementById("createSession");
 const sessionInput = document.getElementById("sessionId");
@@ -10,14 +11,23 @@ const triggerButtons = [...document.querySelectorAll(".trigger")];
 const revealResultsBtn = document.getElementById("revealResults");
 const adminPhase = document.getElementById("adminPhase");
 const adminTimer = document.getElementById("adminTimer");
+const joinedCount = document.getElementById("joinedCount");
+const refreshStateBtn = document.getElementById("refreshState");
+const lastUpdated = document.getElementById("lastUpdated");
 
 let adminPollHandle = null;
 let timerHandle = null;
 let deadlineMs = null;
+let lastStateUpdateMs = null;
+let lastUpdatedHandle = null;
 
 createSessionBtn.addEventListener("click", createSession);
 triggerButtons.forEach((btn) => btn.addEventListener("click", () => activate(btn)));
 revealResultsBtn.addEventListener("click", revealResults);
+refreshStateBtn.addEventListener("click", () => {
+  syncAdminState();
+});
+startLastUpdatedTicker();
 
 async function createSession() {
   const res = await fetch(`${API_BASE}/createSession`, {
@@ -27,7 +37,7 @@ async function createSession() {
   });
 
   if (!res.ok) {
-    adminStatus.textContent = "Kunde inte skapa session.";
+    adminStatus.textContent = "Could not create session.";
     return;
   }
 
@@ -36,13 +46,13 @@ async function createSession() {
   adminKeyInput.value = data.adminKey;
   participantLink.textContent = `${location.origin}${location.pathname.replace("admin.html", "index.html")}?session=${data.sessionId}`;
   resultsLink.textContent = `${location.origin}${location.pathname.replace("admin.html", "results.html")}?session=${data.sessionId}`;
-  adminStatus.textContent = "Session skapad.";
+  adminStatus.textContent = "Session created.";
   startAdminPolling();
 }
 
 async function activate(button) {
   if (!sessionInput.value || !adminKeyInput.value) {
-    adminStatus.textContent = "Skapa session forst.";
+    adminStatus.textContent = "Create a session first.";
     return;
   }
 
@@ -61,17 +71,17 @@ async function activate(button) {
   });
 
   if (!res.ok) {
-    adminStatus.textContent = "Aktivering misslyckades.";
+    adminStatus.textContent = "Activation failed.";
     return;
   }
 
-  adminStatus.textContent = `Scenario ${phase} aktivt.`;
+  adminStatus.textContent = `Scenario ${phase} is active.`;
   await syncAdminState();
 }
 
 async function revealResults() {
   if (!sessionInput.value || !adminKeyInput.value) {
-    adminStatus.textContent = "Skapa session forst.";
+    adminStatus.textContent = "Create a session first.";
     return;
   }
 
@@ -87,11 +97,11 @@ async function revealResults() {
   });
 
   if (!res.ok) {
-    adminStatus.textContent = "Kunde inte visa resultatlage.";
+    adminStatus.textContent = "Could not reveal results mode.";
     return;
   }
 
-  adminStatus.textContent = "Resultatlage aktivt.";
+  adminStatus.textContent = "Results mode is active.";
   await syncAdminState();
 }
 
@@ -100,7 +110,7 @@ function startAdminPolling() {
     clearInterval(adminPollHandle);
   }
   syncAdminState();
-  adminPollHandle = setInterval(syncAdminState, 700);
+  adminPollHandle = setInterval(syncAdminState, ADMIN_POLL_MS);
 }
 
 async function syncAdminState() {
@@ -116,8 +126,33 @@ async function syncAdminState() {
 
   const state = await res.json();
   adminPhase.textContent = state.phase || "idle";
+  joinedCount.textContent = String(state.participantCount || 0);
+  lastStateUpdateMs = Date.now();
+  renderLastUpdated();
   deadlineMs = state.deadlineMs || null;
   updateAdminTimer();
+}
+
+function startLastUpdatedTicker() {
+  if (lastUpdatedHandle) {
+    clearInterval(lastUpdatedHandle);
+  }
+  renderLastUpdated();
+  lastUpdatedHandle = setInterval(renderLastUpdated, 1000);
+}
+
+function renderLastUpdated() {
+  if (!lastUpdated) {
+    return;
+  }
+
+  if (!lastStateUpdateMs) {
+    lastUpdated.textContent = "Last updated: never";
+    return;
+  }
+
+  const elapsedSec = Math.max(0, Math.floor((Date.now() - lastStateUpdateMs) / 1000));
+  lastUpdated.textContent = `Last updated ${elapsedSec} second${elapsedSec === 1 ? "" : "s"} ago`;
 }
 
 function updateAdminTimer() {

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Live Experiment - Deltagare</title>
+  <title>Live Experiment - Participant</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -11,14 +11,14 @@
     <header class="hero hero-top">
       <div>
         <p class="kicker">Live Experiment</p>
-        <h1>Digital Stress och Workload</h1>
-        <p class="sub">Anslut till sessionen och delta anonymt.</p>
+        <h1>Digital Stress and Workload Chaos</h1>
+        <p class="sub">Join the session and participate anonymously.</p>
       </div>
       <div class="join-inline">
         <label for="sessionId">Session-ID</label>
         <div class="join-inline-row">
           <input id="sessionId" autocomplete="off" placeholder="TEAM-2026">
-          <button id="joinBtn" type="button">Anslut</button>
+          <button id="joinBtn" type="button">Join</button>
         </div>
         <p id="joinStatus" class="muted"></p>
       </div>
@@ -26,78 +26,78 @@
 
     <section id="scenarioCard" class="scenario-layout" hidden>
       <section class="card event-panel" id="eventPanel">
-        <h3>Handelser</h3>
-        <p class="muted">Live-logg for kaoslaget.</p>
+        <h3>Events</h3>
+        <p class="muted">Live log for the chaos phase.</p>
         <ul id="eventFeed" class="event-feed"></ul>
       </section>
 
       <section class="card scenario-main">
         <div class="row between">
-          <h2 id="scenarioTitle">Vantar pa aktivering</h2>
+          <h2 id="scenarioTitle">Waiting for activation</h2>
           <div class="timer" id="timer">--</div>
         </div>
-        <p id="scenarioText">Du far instruktioner nar scenariot startar.</p>
+        <p id="scenarioText">You will get instructions when the scenario starts.</p>
 
         <div class="budget-strip" id="budgetStrip" hidden>
-          <div class="budget-item"><span>Anvand tid</span><strong id="budgetUsed">0 min</strong></div>
-          <div class="budget-item"><span>Kvar av 8h</span><strong id="budgetRemaining">480 min</strong></div>
+          <div class="budget-item"><span>Used time</span><strong id="budgetUsed">0 min</strong></div>
+          <div class="budget-item"><span>Remaining of 8h</span><strong id="budgetRemaining">480 min</strong></div>
           <div class="budget-item"><span>Wellbeing</span><strong id="wellbeingValue">0</strong></div>
         </div>
 
         <div id="taskList" class="task-list" hidden>
-          <p class="task-hint" id="taskHint">Dra uppgifter till topp 10. Nya 6 uppgifter visas var 10:e sekund - omprioritera nar viktigare saker dyker upp.</p>
+          <p class="task-hint" id="taskHint">Drag tasks into top 10. A new wave of 6 tasks appears every 10 seconds - reprioritize when more critical work arrives.</p>
           <div class="task-workspace">
             <div id="priorityBoard" class="priority-board"></div>
 
             <div id="taskPoolPanel" class="task-pool">
-              <h3>Uppgifter att prioritera</h3>
+              <h3>Tasks to prioritize</h3>
               <div id="tasks" class="tasks"></div>
 
               <div class="side-panel" id="channelPanel">
-                <h4>Kanal-kaos</h4>
-                <p class="muted">Samma arende kan dyka upp i flera kanaler. Du kan inte ta allt.</p>
+                <h4>Channel chaos</h4>
+                <p class="muted">The same issue can show up in multiple channels. You cannot handle everything.</p>
                 <div id="channelInbox" class="channel-inbox"></div>
               </div>
 
               <div class="side-panel" id="focusPanel">
-                <h4>Fokusarbete</h4>
-                <p class="muted" id="focusTarget">Ingen aktiv fokusuppgift.</p>
+                <h4>Focus work</h4>
+                <p class="muted" id="focusTarget">No active focus task.</p>
                 <div class="focus-bar"><div id="focusBarFill" class="focus-bar-fill"></div></div>
-                <p class="muted" id="focusStats">Arbetad tid: 0s | Producerat varde: 0s</p>
+                <p class="muted" id="focusStats">Worked time: 0s | Produced value: 0s</p>
               </div>
 
               <div class="side-panel" id="wellbeingPanel">
-                <h4>Wellbeing-raster</h4>
-                <p class="muted">Ta en rast nar du bedomer att du behover den.</p>
+                <h4>Wellbeing breaks</h4>
+                <p class="muted">Take a break when you judge that you need one.</p>
                 <div id="wellbeingActions" class="wellbeing-actions"></div>
-                <p class="muted" id="wellbeingStats">Tagna raster: 0 | Tid: 0 min</p>
+                <p class="muted" id="wellbeingStats">Breaks taken: 0 | Time: 0 min</p>
               </div>
             </div>
           </div>
 
           <div id="conflicts" class="conflicts" hidden>
-            <p class="conflict-warning">Resurskonflikt: samma uppgift ockuperad av snabbare deltagare.</p>
+            <p class="conflict-warning">Resource conflict: the same task has been claimed by faster participants.</p>
           </div>
 
-          <button id="submitPriorities" class="submit-btn" hidden>Skicka prioritering</button>
+          <button id="submitPriorities" class="submit-btn" hidden>Submit priorities</button>
         </div>
 
         <div id="submitted" class="submitted" hidden>
-          <strong>Din prioritering ar skickad. Vanta pa resultaten.</strong>
+          <strong>Your priorities are submitted. Wait for results.</strong>
         </div>
 
         <section id="inlineResults" class="inline-results" hidden>
-          <h3>Resultat</h3>
+          <h3>Results</h3>
           <p id="inlineResultsSummary" class="muted"></p>
           <div class="grid two metrics-compare">
             <div class="metric-card">
-              <h4>Dina resultat</h4>
+              <h4>Your results</h4>
               <p>Delivery score: <strong id="myDelivery">-</strong></p>
               <p>Wellbeing: <strong id="myWellbeing">-</strong></p>
               <p>Overload: <strong id="myOverload">-</strong></p>
             </div>
             <div class="metric-card">
-              <h4>Gruppsnitt</h4>
+              <h4>Group average</h4>
               <p>Delivery score: <strong id="groupDelivery">-</strong></p>
               <p>Wellbeing: <strong id="groupWellbeing">-</strong></p>
               <p>Overload: <strong id="groupOverload">-</strong></p>
@@ -110,7 +110,7 @@
 
   <section id="chaosOverlay" class="chaos-overlay" hidden>
     <div class="chaos-dialog">
-      <h2 id="chaosTitle">Avbrott</h2>
+      <h2 id="chaosTitle">Interruption</h2>
       <p id="chaosText">Situation...</p>
       <div class="chaos-actions">
         <button id="chaosOptionA" type="button"></button>
@@ -121,9 +121,9 @@
 
   <section id="endOverlay" class="chaos-overlay end-overlay" hidden>
     <div class="chaos-dialog end-dialog">
-      <h2>Dagen ar slut</h2>
-      <p>Arbetsdagen ar over. Din prioritering ar nu lasst och sparad.</p>
-      <p class="muted">Vanta pa att admin visar resultatet for att se din jamforelse med gruppen.</p>
+      <h2>The day is over</h2>
+      <p>The workday is over. Your prioritization is now locked and saved.</p>
+      <p class="muted">Wait for the admin to reveal results to see your comparison with the group.</p>
       <div class="chaos-actions">
         <button id="endOverlayClose" type="button">OK</button>
       </div>

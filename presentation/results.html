@@ -1,32 +1,70 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Live Experiment - Resultat</title>
+  <title>Live Experiment - Results</title>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <main class="page results">
     <header class="hero">
-      <p class="kicker">Resultat</p>
-      <h1>Gruppens prioriteringsmonster</h1>
-      <p class="sub">Anonymt och i realtid.</p>
+      <p class="kicker">Results</p>
+      <h1>Group prioritization patterns</h1>
+      <p class="sub">Anonymous and in real time.</p>
     </header>
 
     <section class="card controls">
-      <label for="sessionId">Session-ID</label>
+      <label for="sessionId">Session ID</label>
       <input id="sessionId" autocomplete="off">
-      <button id="loadResults" type="button">Hamta resultat</button>
+      <button id="loadResults" type="button">Load results</button>
       <p id="loadStatus" class="muted"></p>
     </section>
 
     <section class="card" id="resultCard" hidden>
       <h2 id="phaseTitle">Scenario</h2>
       <p id="totals"></p>
-      <button id="exportCsv" type="button">Exportera CSV</button>
+      <button id="exportCsv" type="button">Export CSV</button>
+      <div id="metricGrid" class="metric-grid"></div>
+      <div class="results-grid">
+        <section class="insight-card">
+          <h3>Rank 1 choices</h3>
+          <div id="topRanked" class="bars compact-bars"></div>
+        </section>
+        <section class="insight-card">
+          <h3>Most common in Top 3</h3>
+          <div id="topThree" class="bars compact-bars"></div>
+        </section>
+        <section class="insight-card">
+          <h3>Group consensus</h3>
+          <div id="consensusList" class="bars compact-bars"></div>
+        </section>
+        <section class="insight-card">
+          <h3>Group profiles</h3>
+          <div id="profileList" class="bars compact-bars"></div>
+        </section>
+      </div>
+      <div class="results-grid">
+        <section class="insight-card">
+          <h3>Workload status</h3>
+          <div id="workloadDist" class="bars compact-bars"></div>
+        </section>
+        <section class="insight-card">
+          <h3>Channel behavior</h3>
+          <div id="channelDist" class="bars compact-bars"></div>
+        </section>
+        <section class="insight-card">
+          <h3>Focus stability</h3>
+          <div id="focusDist" class="bars compact-bars"></div>
+        </section>
+        <section class="insight-card">
+          <h3>Clarity vs overwork</h3>
+          <div id="clarityDist" class="bars compact-bars"></div>
+        </section>
+      </div>
+      <h3>All prioritized tasks</h3>
       <div id="bars" class="bars"></div>
-      <p class="muted">Exporten innehaller endast anonymiserad gruppdata per val.</p>
+      <p class="muted">The export includes anonymized group data per choice only.</p>
     </section>
   </main>
 

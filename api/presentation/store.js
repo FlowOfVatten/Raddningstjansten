@@ -3,6 +3,7 @@ const sql = require("mssql");
 const SESSION_PREFIX = "rto:presentation:session:";
 const ANSWER_PREFIX = "rto:presentation:answer:";
 const CLAIM_PREFIX = "rto:presentation:claim:";
+const PRESENCE_PREFIX = "rto:presentation:presence:";
 const AUTO_CHAOS_DURATION_SEC = 90;
 
 const sessions = new Map();
@@ -16,12 +17,13 @@ class MemoryPresentationStore {
       sessionId,
       adminKey,
       phase: "idle",
-      message: "Vantar pa att admin startar scenariot.",
+      message: "Waiting for admin to start the scenario.",
       deadlineMs: null,
       createdAt: Date.now(),
       submissionsByPhase: {},
       answers: [],
-      claims: {}
+      claims: {},
+      participants: new Set()
     };
     sessions.set(sessionId, record);
     return { sessionId, adminKey };
@@ -113,15 +115,20 @@ class MemoryPresentationStore {
 
     applyAutoPhaseTransitionMemory(session);
 
+    if (participantId) {
+      session.participants.add(String(participantId));
+    }
+
     const phase = session.phase;
     const phaseSet = session.submissionsByPhase[phase] || new Set();
-    const submitted = phaseSet.has(`${phase}:${participantId}`);
+    const submitted = Boolean(participantId) && phaseSet.has(`${phase}:${participantId}`);
 
     return {
       phase: session.phase,
       message: session.message,
       deadlineMs: session.deadlineMs,
-      submitted
+      submitted,
+      participantCount: session.participants.size
     };
   }
 
@@ -185,13 +192,41 @@ class MemoryPresentationStore {
 
 function buildAggregateResults({ phase, answers }) {
   const counts = {};
+  const taskLabels = {};
+  const rank1Counts = {};
+  const top3Counts = {};
+  const avgRankTotals = {};
+  const avgRankCounts = {};
   let deliveryScoreSum = 0;
   let wellbeingScoreSum = 0;
   let overloadMinutesSum = 0;
   let channelAccuracySum = 0;
   let focusEfficiencySum = 0;
   let clarityMatchRateSum = 0;
+  let interruptionSum = 0;
+  let breakCountSum = 0;
+  let breakMinutesSum = 0;
   let participants = 0;
+  const distributions = {
+    overloaded: 0,
+    tight: 0,
+    inControl: 0,
+    channelStrong: 0,
+    channelMixed: 0,
+    channelWeak: 0,
+    focusStable: 0,
+    focusFragmented: 0,
+    focusCollapsed: 0,
+    clarityStrong: 0,
+    clarityMixed: 0,
+    clarityWeak: 0
+  };
+  const profiles = {
+    perfectionists: 0,
+    recoveryUsers: 0,
+    reactiveWorkers: 0,
+    overloadRisk: 0
+  };
 
   (answers || []).forEach((item) => {
     if (!Array.isArray(item.ranking)) {
@@ -202,8 +237,17 @@ function buildAggregateResults({ phase, answers }) {
     item.ranking.forEach((rank, idx) => {
       if (rank.taskId) {
         counts[rank.taskId] = (counts[rank.taskId] || 0) + 1;
+        taskLabels[rank.taskId] = rank.taskLabel || taskLabels[rank.taskId] || rank.taskId;
         const weight = Math.max(1, 10 - idx);
         deliveryScoreSum += weight * (rank.wellbeing ? 0.5 : 1);
+        avgRankTotals[rank.taskId] = (avgRankTotals[rank.taskId] || 0) + Number(rank.rank || idx + 1);
+        avgRankCounts[rank.taskId] = (avgRankCounts[rank.taskId] || 0) + 1;
+        if (idx === 0) {
+          rank1Counts[rank.taskId] = (rank1Counts[rank.taskId] || 0) + 1;
+        }
+        if (idx < 3) {
+          top3Counts[rank.taskId] = (top3Counts[rank.taskId] || 0) + 1;
+        }
       }
     });
 
@@ -211,6 +255,9 @@ function buildAggregateResults({ phase, answers }) {
     wellbeingScoreSum += s.wellbeingScore;
     overloadMinutesSum += s.overloadMinutes;
     channelAccuracySum += s.channelAccuracy;
+    interruptionSum += s.interruptionCount;
+    breakCountSum += s.wellbeingTaskCount;
+    breakMinutesSum += s.wellbeingBreakMinutes;
 
     const focusEfficiency = s.focusWorkedSec > 0
       ? (s.focusProducedSec / s.focusWorkedSec) * 100
@@ -221,22 +268,100 @@ function buildAggregateResults({ phase, answers }) {
       ? (s.clarityMatchCount / s.unclearTaskCount) * 100
       : 0;
     clarityMatchRateSum += clarityRate;
+
+    if (s.overloadMinutes > 0) {
+      distributions.overloaded += 1;
+      profiles.overloadRisk += 1;
+    } else if (s.remainingMinutes < 90) {
+      distributions.tight += 1;
+    } else {
+      distributions.inControl += 1;
+    }
+
+    if (s.channelAccuracy >= 70) {
+      distributions.channelStrong += 1;
+    } else if (s.channelAccuracy >= 40) {
+      distributions.channelMixed += 1;
+    } else {
+      distributions.channelWeak += 1;
+    }
+
+    if (focusEfficiency >= 70) {
+      distributions.focusStable += 1;
+    } else if (focusEfficiency >= 40) {
+      distributions.focusFragmented += 1;
+    } else {
+      distributions.focusCollapsed += 1;
+    }
+
+    if (clarityRate >= 70) {
+      distributions.clarityStrong += 1;
+    } else if (clarityRate >= 40) {
+      distributions.clarityMixed += 1;
+    } else {
+      distributions.clarityWeak += 1;
+    }
+
+    const perfectCount = (item.ranking || []).filter((rank) => rank.quality === "perfect").length;
+    if (perfectCount >= 3) {
+      profiles.perfectionists += 1;
+    }
+    if (s.wellbeingTaskCount >= 2) {
+      profiles.recoveryUsers += 1;
+    }
+    if (s.interruptionCount >= 4 || s.channelFalseFires >= 2 || s.channelMissed >= 2) {
+      profiles.reactiveWorkers += 1;
+    }
   });
+
+  const topRanked = topEntries(rank1Counts, taskLabels, 5);
+  const topThree = topEntries(top3Counts, taskLabels, 5);
+  const consensus = Object.keys(avgRankTotals)
+    .map((taskId) => ({
+      taskId,
+      label: taskLabels[taskId] || taskId,
+      avgRank: round1(avgRankTotals[taskId] / Math.max(1, avgRankCounts[taskId])),
+      mentions: avgRankCounts[taskId]
+    }))
+    .sort((a, b) => a.avgRank - b.avgRank || b.mentions - a.mentions)
+    .slice(0, 5);
 
   return {
     phase,
     totalAnswers: Object.values(counts).reduce((sum, value) => sum + value, 0),
     participants,
     counts,
+    taskLabels,
     metrics: {
       avgDeliveryScore: participants ? round1(deliveryScoreSum / participants) : 0,
       avgWellbeingScore: participants ? round1(wellbeingScoreSum / participants) : 0,
       avgOverloadMinutes: participants ? round1(overloadMinutesSum / participants) : 0,
       avgChannelAccuracy: participants ? round1(channelAccuracySum / participants) : 0,
       avgFocusEfficiency: participants ? round1(focusEfficiencySum / participants) : 0,
-      avgClarityMatchRate: participants ? round1(clarityMatchRateSum / participants) : 0
-    }
+      avgClarityMatchRate: participants ? round1(clarityMatchRateSum / participants) : 0,
+      avgInterruptions: participants ? round1(interruptionSum / participants) : 0,
+      avgBreakCount: participants ? round1(breakCountSum / participants) : 0,
+      avgBreakMinutes: participants ? round1(breakMinutesSum / participants) : 0
+    },
+    highlights: {
+      topRanked,
+      topThree,
+      consensus
+    },
+    distributions,
+    profiles
   };
+}
+
+function topEntries(countMap, labels, limit) {
+  return Object.entries(countMap)
+    .map(([taskId, count]) => ({
+      taskId,
+      label: labels[taskId] || taskId,
+      count
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, limit);
 }
 
 function latestAnswersByParticipant(rows) {
@@ -297,7 +422,7 @@ class SqlPresentationStore {
       sessionId,
       adminKey,
       phase: "idle",
-      message: "Vantar pa att admin startar scenariot.",
+      message: "Waiting for admin to start the scenario.",
       deadlineMs: null,
       createdAt: Date.now()
     };
@@ -394,6 +519,20 @@ class SqlPresentationStore {
     session = await this.ensureAutoPhase(session);
 
     const pool = await getPool();
+
+    if (participantId) {
+      await upsertAppState(pool, presenceStateId({ sessionId: session.sessionId, participantId }), {
+        sessionId: session.sessionId,
+        participantId: String(participantId),
+        seenAt: Date.now()
+      });
+    }
+
+    const presenceResult = await pool.request()
+      .input("presencePrefix", sql.NVarChar(200), `${PRESENCE_PREFIX}${session.sessionId}:`)
+      .query("SELECT COUNT(1) AS total FROM app_state WHERE id LIKE @presencePrefix + '%' ");
+    const participantCount = Number((presenceResult.recordset[0] || {}).total || 0);
+
     const id = answerStateId({
       sessionId: session.sessionId,
       phase: session.phase,
@@ -405,7 +544,8 @@ class SqlPresentationStore {
       phase: session.phase,
       message: session.message,
       deadlineMs: session.deadlineMs,
-      submitted
+      submitted,
+      participantCount
     };
   }
 
@@ -570,6 +710,7 @@ function sanitizeSummary(input) {
     totalMinutes: toNum(src.totalMinutes),
     remainingMinutes: toNum(src.remainingMinutes),
     wellbeingTaskCount: toNum(src.wellbeingTaskCount),
+    wellbeingBreakMinutes: toNum(src.wellbeingBreakMinutes),
     wellbeingScore: toNum(src.wellbeingScore),
     overloadMinutes: toNum(src.overloadMinutes),
     channelHandled: toNum(src.channelHandled),
@@ -671,17 +812,23 @@ function claimStateId({ sessionId, phase, participantId }) {
   return `${CLAIM_PREFIX}${normalizedSessionId}:${normalizedPhase}:${normalizedParticipantId}`;
 }
 
+function presenceStateId({ sessionId, participantId }) {
+  const normalizedSessionId = normalizeSessionId(sessionId);
+  const normalizedParticipantId = String(participantId || "");
+  return `${PRESENCE_PREFIX}${normalizedSessionId}:${normalizedParticipantId}`;
+}
+
 function phaseMessage(phase) {
   if (phase === "digitalStress") {
-    return "Digital stress: bygg en topp-10 plan som far plats i en 8h arbetsdag.";
+    return "Digital stress: build a top-10 plan that fits in an 8-hour workday.";
   }
   if (phase === "workloadChaos") {
-    return "Chaos: avbrott och sociala val kostar tid. Hall balansen mellan leverans och hallbarhet.";
+    return "Chaos: interruptions and social choices cost time. Balance delivery with sustainability.";
   }
   if (phase === "results") {
-    return "Tack. Resultat presenteras nu.";
+    return "Thanks. Results are now being presented.";
   }
-  return "Vantar pa aktivering.";
+  return "Waiting for activation.";
 }
 
 function buildAutoTransitionedSession(session) {
