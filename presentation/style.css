@@ -216,6 +216,27 @@ button.secondary { background: #52626a; }
   cursor: grabbing;
 }
 
+.slot-label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.quality-chip {
+  border: 1px solid #b9ceb6;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  background: #edf8ec;
+  color: #1d4f3e;
+  cursor: pointer;
+}
+
+.quality-chip.perfect {
+  border-color: #d3b39a;
+  background: #fff0e5;
+  color: #6a3b20;
+}
+
 .task-pool {
   margin-bottom: 14px;
   position: sticky;
@@ -223,10 +244,88 @@ button.secondary { background: #52626a; }
 }
 .task-pool h3 { margin: 0 0 10px; font-size: 0.95rem; }
 
+.side-panel {
+  border: 1px solid #d9cdbd;
+  border-radius: 10px;
+  background: #f7f1e8;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.side-panel h4 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.channel-inbox {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.alert-card {
+  border: 1px solid #cfbea8;
+  border-radius: 8px;
+  background: #fffaf2;
+  padding: 8px;
+}
+
+.alert-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.channel-badge {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.channel-badge.mail { background: #e7eef9; color: #24435f; }
+.channel-badge.teams { background: #e8e6fb; color: #3b2a73; }
+.channel-badge.popup { background: #fdecd8; color: #7b3a14; }
+.channel-badge.urgent { background: #ffe2e2; color: #7a1f1f; }
+
+.alert-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.alert-actions button {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  padding: 6px 8px;
+}
+
+.focus-bar {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: #e4d8ca;
+  overflow: hidden;
+}
+
+.focus-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2e8e7b, #0f7b6c);
+}
+
 .tasks {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-rows: repeat(3, minmax(44px, auto));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(160px, 180px);
   gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
 }
 
 .task-item {
@@ -239,6 +338,7 @@ button.secondary { background: #52626a; }
   text-align: center;
   transition: all 0.2s;
   border: 2px solid transparent;
+  min-height: 44px;
 }
 
 .task-item:hover { background: #dccbb8; transform: scale(1.02); }
@@ -386,6 +486,11 @@ button.secondary { background: #52626a; }
 
   .task-pool {
     position: static;
+  }
+
+  .tasks {
+    grid-template-rows: repeat(3, minmax(44px, auto));
+    grid-auto-columns: minmax(150px, 170px);
   }
 
   .event-feed {

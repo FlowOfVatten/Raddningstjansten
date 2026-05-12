@@ -179,6 +179,9 @@ function buildAggregateResults({ phase, answers }) {
   let deliveryScoreSum = 0;
   let wellbeingScoreSum = 0;
   let overloadMinutesSum = 0;
+  let channelAccuracySum = 0;
+  let focusEfficiencySum = 0;
+  let clarityMatchRateSum = 0;
   let participants = 0;
 
   (answers || []).forEach((item) => {
@@ -198,6 +201,17 @@ function buildAggregateResults({ phase, answers }) {
     const s = sanitizeSummary(item.summary);
     wellbeingScoreSum += s.wellbeingScore;
     overloadMinutesSum += s.overloadMinutes;
+    channelAccuracySum += s.channelAccuracy;
+
+    const focusEfficiency = s.focusWorkedSec > 0
+      ? (s.focusProducedSec / s.focusWorkedSec) * 100
+      : 0;
+    focusEfficiencySum += focusEfficiency;
+
+    const clarityRate = s.unclearTaskCount > 0
+      ? (s.clarityMatchCount / s.unclearTaskCount) * 100
+      : 0;
+    clarityMatchRateSum += clarityRate;
   });
 
   return {
@@ -208,7 +222,10 @@ function buildAggregateResults({ phase, answers }) {
     metrics: {
       avgDeliveryScore: participants ? round1(deliveryScoreSum / participants) : 0,
       avgWellbeingScore: participants ? round1(wellbeingScoreSum / participants) : 0,
-      avgOverloadMinutes: participants ? round1(overloadMinutesSum / participants) : 0
+      avgOverloadMinutes: participants ? round1(overloadMinutesSum / participants) : 0,
+      avgChannelAccuracy: participants ? round1(channelAccuracySum / participants) : 0,
+      avgFocusEfficiency: participants ? round1(focusEfficiencySum / participants) : 0,
+      avgClarityMatchRate: participants ? round1(clarityMatchRateSum / participants) : 0
     }
   };
 }
@@ -522,7 +539,18 @@ function sanitizeSummary(input) {
     remainingMinutes: toNum(src.remainingMinutes),
     wellbeingTaskCount: toNum(src.wellbeingTaskCount),
     wellbeingScore: toNum(src.wellbeingScore),
-    overloadMinutes: toNum(src.overloadMinutes)
+    overloadMinutes: toNum(src.overloadMinutes),
+    channelHandled: toNum(src.channelHandled),
+    channelCorrect: toNum(src.channelCorrect),
+    channelDeferred: toNum(src.channelDeferred),
+    channelMissed: toNum(src.channelMissed),
+    channelFalseFires: toNum(src.channelFalseFires),
+    channelAccuracy: toNum(src.channelAccuracy),
+    focusWorkedSec: toNum(src.focusWorkedSec),
+    focusProducedSec: toNum(src.focusProducedSec),
+    interruptionCount: toNum(src.interruptionCount),
+    unclearTaskCount: toNum(src.unclearTaskCount),
+    clarityMatchCount: toNum(src.clarityMatchCount)
   };
 }
 

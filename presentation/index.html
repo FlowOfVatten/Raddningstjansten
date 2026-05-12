@@ -47,6 +47,19 @@
             <div id="priorityBoard" class="priority-board"></div>
 
             <div id="taskPoolPanel" class="task-pool">
+              <div class="side-panel" id="channelPanel">
+                <h4>Kanal-kaos</h4>
+                <p class="muted">Samma arende kan dyka upp i flera kanaler. Du kan inte ta allt.</p>
+                <div id="channelInbox" class="channel-inbox"></div>
+              </div>
+
+              <div class="side-panel" id="focusPanel">
+                <h4>Fokusarbete</h4>
+                <p class="muted" id="focusTarget">Ingen aktiv fokusuppgift.</p>
+                <div class="focus-bar"><div id="focusBarFill" class="focus-bar-fill"></div></div>
+                <p class="muted" id="focusStats">Arbetad tid: 0s | Producerat varde: 0s</p>
+              </div>
+
               <h3>Uppgifter att prioritera</h3>
               <div id="tasks" class="tasks"></div>
             </div>

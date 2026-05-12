@@ -39,7 +39,7 @@ async function loadResults() {
   const metrics = data.metrics || {};
 
   phaseTitle.textContent = `Senaste scenario: ${data.phase || "okant"}`;
-  totals.textContent = `Deltagare: ${data.participants || 0} | Leveransscore: ${metrics.avgDeliveryScore || 0} | Wellbeing: ${metrics.avgWellbeingScore || 0} | Overload: ${metrics.avgOverloadMinutes || 0} min`;
+  totals.textContent = `Deltagare: ${data.participants || 0} | Leveransscore: ${metrics.avgDeliveryScore || 0} | Wellbeing: ${metrics.avgWellbeingScore || 0} | Overload: ${metrics.avgOverloadMinutes || 0} min | Kanalprecision: ${metrics.avgChannelAccuracy || 0}% | Fokusutbyte: ${metrics.avgFocusEfficiency || 0}% | Tydlighetsmatch: ${metrics.avgClarityMatchRate || 0}%`;
 
   bars.innerHTML = "";
   entries.forEach(([key, value]) => {
@@ -66,15 +66,15 @@ function exportCsv() {
 
   const sessionId = sessionInput.value.trim().toUpperCase();
   const timestamp = new Date().toISOString();
-  const rows = [["sessionId", "phase", "choice", "count", "avgDeliveryScore", "avgWellbeingScore", "avgOverloadMinutes", "exportedAt"]];
+  const rows = [["sessionId", "phase", "choice", "count", "avgDeliveryScore", "avgWellbeingScore", "avgOverloadMinutes", "avgChannelAccuracy", "avgFocusEfficiency", "avgClarityMatchRate", "exportedAt"]];
   const entries = Object.entries(latestResults.counts || {});
   const metrics = latestResults.metrics || {};
 
   if (!entries.length) {
-    rows.push([sessionId, latestResults.phase || "", "", 0, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, timestamp]);
+    rows.push([sessionId, latestResults.phase || "", "", 0, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, metrics.avgChannelAccuracy || 0, metrics.avgFocusEfficiency || 0, metrics.avgClarityMatchRate || 0, timestamp]);
   } else {
     entries.forEach(([choice, count]) => {
-      rows.push([sessionId, latestResults.phase || "", choice, count, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, timestamp]);
+      rows.push([sessionId, latestResults.phase || "", choice, count, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, metrics.avgChannelAccuracy || 0, metrics.avgFocusEfficiency || 0, metrics.avgClarityMatchRate || 0, timestamp]);
     });
   }
 

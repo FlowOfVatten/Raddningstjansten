@@ -14,6 +14,10 @@ const taskList = document.getElementById("taskList");
 const priorityBoard = document.getElementById("priorityBoard");
 const taskPool = document.getElementById("tasks");
 const taskPoolPanel = document.getElementById("taskPoolPanel");
+const channelInbox = document.getElementById("channelInbox");
+const focusTarget = document.getElementById("focusTarget");
+const focusBarFill = document.getElementById("focusBarFill");
+const focusStats = document.getElementById("focusStats");
 const conflictsEl = document.getElementById("conflicts");
 const submitBtn = document.getElementById("submitPriorities");
 const submittedEl = document.getElementById("submitted");
@@ -41,6 +45,7 @@ let activeSessionId = "";
 let pollHandle = null;
 let timerHandle = null;
 let unlockCheckHandle = null;
+let focusHandle = null;
 let deadlineMs = null;
 let currentPhase = "idle";
 let initializedPhase = "";
@@ -48,22 +53,37 @@ let phaseStartedAt = 0;
 let currentPriorities = Array(TOP_SLOTS).fill(null);
 let availableTasks = [];
 let takenByOthers = new Set();
+let lastTakenSignature = "";
 let taskUnlockTimes = new Map();
-let tempLocks = new Map();
 let claimMetaByTask = new Map();
+let qualityChoiceByTaskId = new Map();
 let firedInterrupts = new Set();
 let pendingChaosCard = null;
 let chaosDecisions = [];
 let chaosPenaltyMinutes = 0;
 let chaosWellbeingDelta = 0;
 let hasLoadedInlineResults = false;
+let activeAlerts = [];
+let alertSchedule = [];
+let alertCounter = 0;
+let focusWorkedSec = 0;
+let focusProducedSec = 0;
+let focusPenaltySec = 0;
+let interruptionCount = 0;
+const channelStats = {
+  handled: 0,
+  correct: 0,
+  deferred: 0,
+  missed: 0,
+  falseFires: 0
+};
 
 const TASKS = createTaskCatalog();
 
 const phaseCopy = {
   idle: "Vantar pa aktivering",
   digitalStress: "Digital Stress - Prioritera topp 10 inom en 8h arbetsdag",
-  workloadChaos: "Chaos - resurskamp i realtid",
+  workloadChaos: "Chaos - kanalspam, avbrott och reaktivt arbete",
   results: "Resultatlage"
 };
 
@@ -90,8 +110,23 @@ const CHAOS_INTERRUPTS = [
   }
 ];
 
+const CHANNEL_ALERT_TEMPLATES = [
+  { issueKey: "billing-lock", title: "Kund kan inte logga in", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "billing-lock", title: "Kund kan inte logga in", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "sprint-note", title: "Ny kommentar i sprintdokument", preferredChannel: "teams", important: false, falseFire: false },
+  { issueKey: "system-noise", title: "Auto-varning: hog CPU i testmiljo", preferredChannel: "mail", important: false, falseFire: true },
+  { issueKey: "vip-mail", title: "VIP-kund vill ha snabb status", preferredChannel: "mail", important: true, falseFire: false },
+  { issueKey: "meeting-echo", title: "Mote flyttat? Flera versioner", preferredChannel: "teams", important: false, falseFire: true },
+  { issueKey: "security-flag", title: "Mojlig security-avvikelse", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "security-flag", title: "Mojlig security-avvikelse", preferredChannel: "urgent", important: true, falseFire: false },
+  { issueKey: "doc-ping", title: "Behov av snabb textjustering", preferredChannel: "teams", important: false, falseFire: false },
+  { issueKey: "customer-nps", title: "Missnojd kund i NPS", preferredChannel: "mail", important: true, falseFire: false }
+];
+
 buildPriorityBoard(TOP_SLOTS);
 hideChaosOverlay();
+renderChannelInbox();
+renderFocusPanel();
 
 joinBtn.addEventListener("click", () => {
   const sessionId = sessionInput.value.trim().toUpperCase();
@@ -138,6 +173,16 @@ priorityBoard.addEventListener("dragend", (e) => {
   }
 });
 
+priorityBoard.addEventListener("click", (e) => {
+  const chip = e.target.closest(".quality-chip");
+  if (!chip) {
+    return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  toggleTaskQuality(chip.dataset.taskId);
+});
+
 taskPool.addEventListener("dragstart", (e) => {
   const task = e.target.closest(".task-item");
   if (!task || task.classList.contains("locked") || task.classList.contains("taken")) {
@@ -165,6 +210,18 @@ taskPoolPanel.addEventListener("drop", (e) => {
   const taskId = e.dataTransfer.getData("text/plain");
   if (taskId) {
     removeTaskFromPriorities(taskId);
+  }
+});
+
+channelInbox.addEventListener("click", (e) => {
+  const handleBtn = e.target.closest("[data-action='handle']");
+  if (handleBtn) {
+    handleAlert(handleBtn.dataset.alertId);
+    return;
+  }
+  const deferBtn = e.target.closest("[data-action='defer']");
+  if (deferBtn) {
+    deferAlert(deferBtn.dataset.alertId);
   }
 });
 
@@ -201,14 +258,20 @@ function createTaskCatalog() {
 
   return labels.map((label, idx) => {
     const id = `task_${String(idx + 1).padStart(2, "0")}`;
-    const minutes = wellbeingNames.has(label) ? 8 + (idx % 3) * 4 : 30 + (idx % 6) * 12;
-    const lockedMs = wellbeingNames.has(label) ? 0 : (idx % 4 === 0 ? 12000 : idx % 7 === 0 ? 7000 : 0);
+    const wellbeing = wellbeingNames.has(label);
+    const minutes = wellbeing ? 8 + (idx % 3) * 4 : 30 + (idx % 6) * 12;
+    const lockedMs = wellbeing ? 0 : (idx % 4 === 0 ? 12000 : idx % 7 === 0 ? 7000 : 0);
+    const clarity = idx % 3 === 0 ? "unclear" : "clear";
+    const doneTarget = clarity === "unclear" ? (idx % 2 === 0 ? "goodEnough" : "perfect") : "goodEnough";
     return {
       id,
       label,
       minutes,
       lockedMs,
-      wellbeing: wellbeingNames.has(label)
+      wellbeing,
+      clarity,
+      doneTarget,
+      perfectExtra: wellbeing ? 0 : 15
     };
   });
 }
@@ -253,6 +316,7 @@ async function syncState() {
 
   if (!interactive) {
     stopUnlockCheck();
+    stopFocusTicker();
     hideChaosOverlay();
   }
 
@@ -283,15 +347,28 @@ function initializePhase() {
   currentPriorities = Array(TOP_SLOTS).fill(null);
   availableTasks = TASKS.slice();
   takenByOthers = new Set();
+  lastTakenSignature = "";
   taskUnlockTimes.clear();
-  tempLocks.clear();
   claimMetaByTask.clear();
+  qualityChoiceByTaskId.clear();
   firedInterrupts = new Set();
   pendingChaosCard = null;
   chaosDecisions = [];
   chaosPenaltyMinutes = 0;
   chaosWellbeingDelta = 0;
   hasLoadedInlineResults = false;
+  activeAlerts = [];
+  alertCounter = 0;
+  alertSchedule = buildAlertSchedule();
+  focusWorkedSec = 0;
+  focusProducedSec = 0;
+  focusPenaltySec = 0;
+  interruptionCount = 0;
+  channelStats.handled = 0;
+  channelStats.correct = 0;
+  channelStats.deferred = 0;
+  channelStats.missed = 0;
+  channelStats.falseFires = 0;
   eventFeed.innerHTML = "";
 
   availableTasks.forEach((task) => {
@@ -300,14 +377,42 @@ function initializePhase() {
 
   logEvent(`Fas startad: ${phaseCopy[currentPhase]}.`, "phase");
   if (currentPhase === "workloadChaos") {
-    logEvent("Kaosregler: hogst rank vinner. Vid samma rank vinner snabbaste claim.", "phase");
+    logEvent("Kaosregler: rang + snabbhet avgor vem som behaller en uppgift.", "phase");
+    startFocusTicker();
+  } else {
+    stopFocusTicker();
   }
 
+  renderChannelInbox();
+  renderFocusPanel();
   renderSlots();
   renderTasks();
   renderBudget();
   hideChaosOverlay();
   startUnlockCheck();
+}
+
+function buildAlertSchedule() {
+  const schedule = [];
+  let sec = 6;
+  CHANNEL_ALERT_TEMPLATES.forEach((template, idx) => {
+    const channels = ["mail", "teams", "popup", "urgent"];
+    const channel = channels[(idx + 1) % channels.length];
+    schedule.push({
+      id: `a-${idx + 1}`,
+      atSec: sec,
+      issueKey: template.issueKey,
+      title: template.title,
+      important: template.important,
+      falseFire: template.falseFire,
+      preferredChannel: template.preferredChannel,
+      channel,
+      injected: false,
+      firstSeenAtSec: null
+    });
+    sec += idx % 2 === 0 ? 5 : 7;
+  });
+  return schedule;
 }
 
 function logEvent(message, kind = "info") {
@@ -326,64 +431,128 @@ function logEvent(message, kind = "info") {
   }
 }
 
-async function showInlineResults() {
-  if (hasLoadedInlineResults || !activeSessionId) {
+function renderChannelInbox() {
+  if (!channelInbox) {
     return;
   }
 
-  const myUrl = `${API_BASE}/myresult?sessionId=${encodeURIComponent(activeSessionId)}&participantId=${encodeURIComponent(participantId)}`;
-  const groupUrl = `${API_BASE}/results?sessionId=${encodeURIComponent(activeSessionId)}`;
-
-  const [myRes, groupRes] = await Promise.all([fetch(myUrl), fetch(groupUrl)]);
-  if (!groupRes.ok) {
+  if (!activeAlerts.length) {
+    channelInbox.innerHTML = "<p class='muted'>Inga nya kanalhändelser.</p>";
     return;
   }
 
-  const groupData = await groupRes.json();
-  const groupMetrics = groupData.metrics || {};
-
-  groupDelivery.textContent = String(groupMetrics.avgDeliveryScore ?? 0);
-  groupWellbeing.textContent = String(groupMetrics.avgWellbeingScore ?? 0);
-  groupOverload.textContent = `${groupMetrics.avgOverloadMinutes ?? 0} min`;
-
-  if (myRes.ok) {
-    const myData = await myRes.json();
-    const mySummary = myData.summary || {};
-    const myScore = computeDeliveryScore(myData.ranking || []);
-    myDelivery.textContent = String(myScore);
-    myWellbeing.textContent = String(mySummary.wellbeingScore ?? 0);
-    myOverload.textContent = `${mySummary.overloadMinutes ?? 0} min`;
-    inlineResultsSummary.textContent = `Din senaste inlamning jamfors med ${groupData.participants || 0} deltagare.`;
-  } else {
-    myDelivery.textContent = "-";
-    myWellbeing.textContent = "-";
-    myOverload.textContent = "-";
-    inlineResultsSummary.textContent = "Du har ingen inlamning att visa for den har sessionen an.";
-  }
-
-  inlineResults.hidden = false;
-  hasLoadedInlineResults = true;
-}
-
-function computeDeliveryScore(ranking) {
-  return (ranking || []).reduce((sum, rank, idx) => {
-    if (!rank || !rank.taskId) {
-      return sum;
-    }
-    const weight = Math.max(1, 10 - idx);
-    return sum + weight * (rank.wellbeing ? 0.5 : 1);
-  }, 0);
+  channelInbox.innerHTML = "";
+  activeAlerts.forEach((alert) => {
+    const card = document.createElement("article");
+    card.className = "alert-card";
+    card.innerHTML = `
+      <div class="alert-row">
+        <span class="channel-badge ${alert.channel}">${alert.channel}</span>
+        <span>${alert.important ? "Viktig" : "Lag prioritet"}</span>
+      </div>
+      <strong>${alert.title}</strong>
+      <div class="alert-actions">
+        <button data-action="handle" data-alert-id="${alert.id}" type="button">Hantera</button>
+        <button data-action="defer" data-alert-id="${alert.id}" type="button" class="secondary">Skjut upp</button>
+      </div>
+    `;
+    channelInbox.appendChild(card);
+  });
 }
 
 function runChaosInterrupts() {
   const elapsedSec = Math.floor((Date.now() - phaseStartedAt) / 1000);
+
   CHAOS_INTERRUPTS.forEach((interrupt) => {
     if (elapsedSec >= interrupt.atSec && !firedInterrupts.has(interrupt.id)) {
       firedInterrupts.add(interrupt.id);
       showChaosOverlay(interrupt);
+      applyFocusInterruption(`Avbrott: ${interrupt.title}`, 10);
       logEvent(`Avbrott: ${interrupt.title}.`, "warn");
     }
   });
+
+  alertSchedule.forEach((item) => {
+    if (item.injected || elapsedSec < item.atSec) {
+      return;
+    }
+    item.injected = true;
+    const alert = {
+      ...item,
+      id: `alert-${++alertCounter}`,
+      firstSeenAtSec: elapsedSec
+    };
+    activeAlerts.unshift(alert);
+    if (activeAlerts.length > 7) {
+      const dropped = activeAlerts.pop();
+      if (dropped) {
+        channelStats.missed += 1;
+      }
+    }
+    renderChannelInbox();
+    logEvent(`Kanalhändelse via ${item.channel}: ${item.title}.`, "warn");
+  });
+
+  const stillActive = [];
+  activeAlerts.forEach((alert) => {
+    const aliveFor = elapsedSec - Number(alert.firstSeenAtSec || elapsedSec);
+    if (aliveFor > 18) {
+      channelStats.missed += 1;
+      if (alert.important) {
+        chaosPenaltyMinutes += 6;
+      }
+      logEvent(`Missad kanalhändelse: ${alert.title}.`, "conflict");
+      return;
+    }
+    stillActive.push(alert);
+  });
+  activeAlerts = stillActive;
+  renderChannelInbox();
+}
+
+function handleAlert(alertId) {
+  const idx = activeAlerts.findIndex((a) => a.id === alertId);
+  if (idx === -1) {
+    return;
+  }
+
+  const alert = activeAlerts[idx];
+  activeAlerts.splice(idx, 1);
+  channelStats.handled += 1;
+  applyFocusInterruption(`Bytte till kanal ${alert.channel}`, 8);
+
+  if (alert.falseFire) {
+    channelStats.falseFires += 1;
+    chaosPenaltyMinutes += 8;
+    chaosWellbeingDelta -= 1;
+    logEvent(`Falskt brandlarm hanterat: ${alert.title}.`, "conflict");
+  } else if (alert.channel === alert.preferredChannel) {
+    channelStats.correct += 1;
+    logEvent(`Ratt kanalval: ${alert.title}.`, "choice");
+  } else {
+    chaosPenaltyMinutes += alert.important ? 7 : 4;
+    logEvent(`Fel kanal for ${alert.title}.`, "conflict");
+  }
+
+  renderChannelInbox();
+  renderBudget();
+}
+
+function deferAlert(alertId) {
+  const idx = activeAlerts.findIndex((a) => a.id === alertId);
+  if (idx === -1) {
+    return;
+  }
+
+  const alert = activeAlerts[idx];
+  activeAlerts.splice(idx, 1);
+  channelStats.deferred += 1;
+  if (alert.important) {
+    chaosPenaltyMinutes += 3;
+  }
+  logEvent(`Skot upp kanalhändelse: ${alert.title}.`, "info");
+  renderChannelInbox();
+  renderBudget();
 }
 
 function showChaosOverlay(card) {
@@ -435,17 +604,66 @@ function stopUnlockCheck() {
   }
 }
 
+function startFocusTicker() {
+  stopFocusTicker();
+  focusHandle = setInterval(() => {
+    if (currentPhase !== "workloadChaos") {
+      return;
+    }
+
+    const focusTask = currentPriorities[0];
+    if (!focusTask) {
+      renderFocusPanel();
+      return;
+    }
+
+    focusWorkedSec += 1;
+    if (focusPenaltySec > 0) {
+      focusPenaltySec -= 1;
+    } else {
+      focusProducedSec += 1;
+    }
+    renderFocusPanel();
+  }, 1000);
+}
+
+function stopFocusTicker() {
+  if (focusHandle) {
+    clearInterval(focusHandle);
+    focusHandle = null;
+  }
+}
+
+function applyFocusInterruption(reason, penaltySeconds) {
+  if (currentPhase !== "workloadChaos") {
+    return;
+  }
+  interruptionCount += 1;
+  focusPenaltySec = Math.max(focusPenaltySec, penaltySeconds);
+  focusProducedSec = Math.max(0, focusProducedSec - 2);
+  logEvent(`Fokustapp: ${reason}.`, "conflict");
+  renderFocusPanel();
+}
+
+function renderFocusPanel() {
+  const focusTask = currentPriorities[0];
+  focusTarget.textContent = focusTask
+    ? `Aktiv fokusuppgift: ${focusTask.label}`
+    : "Ingen aktiv fokusuppgift.";
+
+  const efficiency = focusWorkedSec > 0 ? Math.round((focusProducedSec / focusWorkedSec) * 100) : 0;
+  focusBarFill.style.width = `${Math.max(0, Math.min(100, efficiency))}%`;
+  focusStats.textContent = `Arbetad tid: ${focusWorkedSec}s | Producerat varde: ${focusProducedSec}s`;
+}
+
 function isTaskLocked(task, now) {
   const baseUnlock = taskUnlockTimes.get(task.id) || 0;
-  const tempUnlock = tempLocks.get(task.id) || 0;
-  return baseUnlock > now || tempUnlock > now;
+  return baseUnlock > now;
 }
 
 function lockSecondsLeft(task, now) {
   const baseUnlock = taskUnlockTimes.get(task.id) || 0;
-  const tempUnlock = tempLocks.get(task.id) || 0;
-  const target = Math.max(baseUnlock, tempUnlock);
-  return Math.max(0, Math.ceil((target - now) / 1000));
+  return Math.max(0, Math.ceil((baseUnlock - now) / 1000));
 }
 
 function renderTasks() {
@@ -465,13 +683,16 @@ function renderTasks() {
     taskDiv.className = `task-item${isTaken ? " taken" : ""}${isLocked ? " locked" : ""}${task.wellbeing ? " wellbeing" : ""}`;
     taskDiv.dataset.taskId = task.id;
     taskDiv.draggable = !isTaken && !isLocked;
-    taskDiv.textContent = isLocked ? `${task.label} (${lockSecsLeft}s)` : `${task.label} (${task.minutes}m)`;
+
+    const clarityTag = task.clarity === "unclear" ? " | Otydlig" : "";
+    const minutes = computeTaskMinutes(task);
+    taskDiv.textContent = isLocked ? `${task.label} (${lockSecsLeft}s)` : `${task.label} (${minutes}m${clarityTag})`;
     taskDiv.title = isLocked
       ? `Tillganglig om ${lockSecsLeft} sekunder`
       : isTaken
         ? "Denna uppgift ar redan tagen av snabbare deltagare pa samma/hogre rank"
-        : task.wellbeing
-          ? "Wellbeing-val: kan minska stress men tar tid"
+        : task.clarity === "unclear"
+          ? "Otydligt mal: valj Bra nog eller Perfekt i prioriteringsrutan"
           : "Dra till en rank-slot";
 
     taskPool.appendChild(taskDiv);
@@ -499,6 +720,18 @@ function moveTaskToSlot(taskId, rankIndex) {
     currentPriorities[existingIndex] = displaced;
   }
 
+  if (!qualityChoiceByTaskId.has(task.id)) {
+    qualityChoiceByTaskId.set(task.id, "goodEnough");
+  }
+
+  if (displaced && !qualityChoiceByTaskId.has(displaced.id)) {
+    qualityChoiceByTaskId.set(displaced.id, "goodEnough");
+  }
+
+  if (currentPhase === "workloadChaos") {
+    applyFocusInterruption("Omprioritering", 6);
+  }
+
   reconcileClaimMeta();
   renderSlots();
   renderTasks();
@@ -518,6 +751,10 @@ function removeTaskFromPriorities(taskId) {
   currentPriorities[existingIndex] = null;
   claimMetaByTask.delete(taskId);
 
+  if (currentPhase === "workloadChaos") {
+    applyFocusInterruption("Tog bort uppgift ur ranking", 5);
+  }
+
   renderSlots();
   renderTasks();
   renderBudget();
@@ -525,6 +762,25 @@ function removeTaskFromPriorities(taskId) {
   if (currentPhase === "workloadChaos") {
     syncClaims();
   }
+}
+
+function toggleTaskQuality(taskId) {
+  const task = availableTasks.find((item) => item.id === taskId);
+  if (!task || task.clarity !== "unclear") {
+    return;
+  }
+
+  const current = qualityChoiceByTaskId.get(taskId) || "goodEnough";
+  const next = current === "goodEnough" ? "perfect" : "goodEnough";
+  qualityChoiceByTaskId.set(taskId, next);
+
+  if (currentPhase === "workloadChaos") {
+    applyFocusInterruption("Andrade kvalitetsniva", 4);
+  }
+
+  renderSlots();
+  renderTasks();
+  renderBudget();
 }
 
 function renderSlots() {
@@ -536,12 +792,27 @@ function renderSlots() {
       return;
     }
 
-    const healthTag = task.wellbeing ? " +wellbeing" : "";
     const pill = document.createElement("div");
     pill.className = "slot-task";
     pill.draggable = true;
     pill.dataset.taskId = task.id;
-    pill.textContent = `${task.label} (${task.minutes}m${healthTag})`;
+
+    const label = document.createElement("span");
+    label.className = "slot-label";
+    const healthTag = task.wellbeing ? " +wellbeing" : "";
+    label.textContent = `${task.label} (${computeTaskMinutes(task)}m${healthTag})`;
+    pill.appendChild(label);
+
+    if (task.clarity === "unclear") {
+      const quality = qualityChoiceByTaskId.get(task.id) || "goodEnough";
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = `quality-chip${quality === "perfect" ? " perfect" : ""}`;
+      chip.dataset.taskId = task.id;
+      chip.textContent = quality === "perfect" ? "Perfekt" : "Bra nog";
+      pill.appendChild(chip);
+    }
+
     slot.appendChild(pill);
     slot.classList.add("filled");
     if (takenByOthers.has(task.id)) {
@@ -550,13 +821,31 @@ function renderSlots() {
   });
 }
 
+function computeTaskMinutes(task) {
+  const quality = qualityChoiceByTaskId.get(task.id) || "goodEnough";
+  if (quality === "perfect") {
+    return Number(task.minutes || 0) + Number(task.perfectExtra || 0);
+  }
+  return Number(task.minutes || 0);
+}
+
 function computeSummary() {
   const selected = currentPriorities.filter(Boolean);
-  const plannedMinutes = selected.reduce((sum, task) => sum + Number(task.minutes || 0), 0);
+  const plannedMinutes = selected.reduce((sum, task) => sum + computeTaskMinutes(task), 0);
   const wellbeingTaskCount = selected.filter((task) => task.wellbeing).length;
   const wellbeingScore = wellbeingTaskCount * 2 + chaosWellbeingDelta;
   const totalMinutes = plannedMinutes + chaosPenaltyMinutes;
   const remainingMinutes = WORKDAY_MINUTES - totalMinutes;
+
+  const unclearSelected = selected.filter((task) => task.clarity === "unclear");
+  const clarityMatchCount = unclearSelected.filter((task) => {
+    const choice = qualityChoiceByTaskId.get(task.id) || "goodEnough";
+    return choice === task.doneTarget;
+  }).length;
+
+  const channelAccuracy = channelStats.handled > 0
+    ? round1((channelStats.correct / channelStats.handled) * 100)
+    : 0;
 
   return {
     plannedMinutes,
@@ -566,7 +855,18 @@ function computeSummary() {
     wellbeingTaskCount,
     wellbeingScore,
     overloadMinutes: Math.max(0, -remainingMinutes),
-    chaosDecisions
+    chaosDecisions,
+    channelHandled: channelStats.handled,
+    channelCorrect: channelStats.correct,
+    channelDeferred: channelStats.deferred,
+    channelMissed: channelStats.missed,
+    channelFalseFires: channelStats.falseFires,
+    channelAccuracy,
+    focusWorkedSec,
+    focusProducedSec,
+    interruptionCount,
+    unclearTaskCount: unclearSelected.length,
+    clarityMatchCount
   };
 }
 
@@ -581,6 +881,8 @@ function renderBudget() {
   } else {
     budgetRemainingEl.classList.remove("over");
   }
+
+  renderFocusPanel();
 }
 
 function reconcileClaimMeta(now = Date.now()) {
@@ -642,6 +944,7 @@ async function checkForConflicts() {
 
   const data = await res.json();
   takenByOthers = new Set(data.takenByOthers || []);
+  const signature = Array.from(takenByOthers).sort().join("|");
 
   let knockedOut = 0;
   const removedLabels = [];
@@ -649,6 +952,7 @@ async function checkForConflicts() {
     if (task && takenByOthers.has(task.id)) {
       knockedOut += 1;
       removedLabels.push(task.label);
+      claimMetaByTask.delete(task.id);
       return null;
     }
     return task;
@@ -656,11 +960,16 @@ async function checkForConflicts() {
 
   reconcileClaimMeta();
   conflictsEl.hidden = takenByOthers.size === 0;
+
   if (knockedOut > 0) {
+    applyFocusInterruption("Forlorade prioriterad resurs", 9);
     const preview = removedLabels.slice(0, 3).join(", ");
     scenarioText.textContent = `Kaos! ${knockedOut} val forlorades till snabbare deltagare.`;
     logEvent(`Forlorade ${knockedOut} uppgifter: ${preview}${removedLabels.length > 3 ? "..." : ""}`, "conflict");
+  } else if (signature !== lastTakenSignature && signature) {
+    logEvent("Resurskonflikter uppdaterades.", "info");
   }
+  lastTakenSignature = signature;
 
   renderSlots();
   renderTasks();
@@ -705,8 +1014,10 @@ async function submitPriorities() {
     rank: idx + 1,
     taskId: task.id,
     taskLabel: task.label,
-    minutes: task.minutes,
-    wellbeing: Boolean(task.wellbeing)
+    minutes: computeTaskMinutes(task),
+    wellbeing: Boolean(task.wellbeing),
+    clarity: task.clarity,
+    quality: qualityChoiceByTaskId.get(task.id) || "goodEnough"
   }));
 
   const summary = computeSummary();
@@ -734,7 +1045,57 @@ async function submitPriorities() {
   submitBtn.hidden = true;
   hideChaosOverlay();
   stopUnlockCheck();
+  stopFocusTicker();
   logEvent("Prioritering skickad.", "phase");
+}
+
+async function showInlineResults() {
+  if (hasLoadedInlineResults || !activeSessionId) {
+    return;
+  }
+
+  const myUrl = `${API_BASE}/myresult?sessionId=${encodeURIComponent(activeSessionId)}&participantId=${encodeURIComponent(participantId)}`;
+  const groupUrl = `${API_BASE}/results?sessionId=${encodeURIComponent(activeSessionId)}`;
+
+  const [myRes, groupRes] = await Promise.all([fetch(myUrl), fetch(groupUrl)]);
+  if (!groupRes.ok) {
+    return;
+  }
+
+  const groupData = await groupRes.json();
+  const groupMetrics = groupData.metrics || {};
+
+  groupDelivery.textContent = String(groupMetrics.avgDeliveryScore ?? 0);
+  groupWellbeing.textContent = String(groupMetrics.avgWellbeingScore ?? 0);
+  groupOverload.textContent = `${groupMetrics.avgOverloadMinutes ?? 0} min`;
+
+  if (myRes.ok) {
+    const myData = await myRes.json();
+    const mySummary = myData.summary || {};
+    const myScore = computeDeliveryScore(myData.ranking || []);
+    myDelivery.textContent = String(myScore);
+    myWellbeing.textContent = String(mySummary.wellbeingScore ?? 0);
+    myOverload.textContent = `${mySummary.overloadMinutes ?? 0} min`;
+    inlineResultsSummary.textContent = `Din senaste inlamning jamfors med ${groupData.participants || 0} deltagare.`;
+  } else {
+    myDelivery.textContent = "-";
+    myWellbeing.textContent = "-";
+    myOverload.textContent = "-";
+    inlineResultsSummary.textContent = "Du har ingen inlamning att visa for den har sessionen an.";
+  }
+
+  inlineResults.hidden = false;
+  hasLoadedInlineResults = true;
+}
+
+function computeDeliveryScore(ranking) {
+  return (ranking || []).reduce((sum, rank, idx) => {
+    if (!rank || !rank.taskId) {
+      return sum;
+    }
+    const weight = Math.max(1, 10 - idx);
+    return sum + weight * (rank.wellbeing ? 0.5 : 1);
+  }, 0);
 }
 
 function getOrCreateParticipantId() {
@@ -746,6 +1107,10 @@ function getOrCreateParticipantId() {
   const created = `p-${Math.random().toString(36).slice(2, 10)}`;
   localStorage.setItem(key, created);
   return created;
+}
+
+function round1(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
 }
 
 const params = new URLSearchParams(window.location.search);
