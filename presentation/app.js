@@ -34,6 +34,8 @@ const chaosTitleEl = document.getElementById("chaosTitle");
 const chaosTextEl = document.getElementById("chaosText");
 const chaosOptionA = document.getElementById("chaosOptionA");
 const chaosOptionB = document.getElementById("chaosOptionB");
+const endOverlayEl = document.getElementById("endOverlay");
+const endOverlayClose = document.getElementById("endOverlayClose");
 const eventFeed = document.getElementById("eventFeed");
 const inlineResults = document.getElementById("inlineResults");
 const inlineResultsSummary = document.getElementById("inlineResultsSummary");
@@ -256,6 +258,7 @@ wellbeingActions.addEventListener("click", (e) => {
 
 chaosOptionA.addEventListener("click", () => decideChaosOption(0));
 chaosOptionB.addEventListener("click", () => decideChaosOption(1));
+endOverlayClose.addEventListener("click", hideEndOverlay);
 
 function buildPriorityBoard(size) {
   priorityBoard.innerHTML = "";
@@ -677,6 +680,14 @@ function showChaosOverlay(card) {
 function hideChaosOverlay() {
   pendingChaosCard = null;
   chaosOverlayEl.hidden = true;
+}
+
+function showEndOverlay() {
+  endOverlayEl.hidden = false;
+}
+
+function hideEndOverlay() {
+  endOverlayEl.hidden = true;
 }
 
 function decideChaosOption(index) {
@@ -1232,6 +1243,7 @@ async function submitPriorities({ allowPartial = false, fromTimer = false } = {}
   if (fromTimer) {
     logEvent("Tiden ar slut - prioritering sparades automatiskt.", "phase");
     scenarioText.textContent = "Tiden ar slut. Din prioritering sparades automatiskt.";
+    showEndOverlay();
   } else {
     logEvent("Prioritering skickad.", "phase");
   }
