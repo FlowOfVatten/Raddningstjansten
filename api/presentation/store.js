@@ -3,6 +3,7 @@ const sql = require("mssql");
 const SESSION_PREFIX = "rto:presentation:session:";
 const ANSWER_PREFIX = "rto:presentation:answer:";
 const CLAIM_PREFIX = "rto:presentation:claim:";
+const AUTO_CHAOS_DURATION_SEC = 90;
 
 const sessions = new Map();
 let poolPromise = null;
@@ -54,6 +55,7 @@ class MemoryPresentationStore {
     if (!session) {
       return null;
     }
+    applyAutoPhaseTransitionMemory(session);
     if (!participantId || !Array.isArray(claims)) {
       return false;
     }
@@ -75,7 +77,8 @@ class MemoryPresentationStore {
     if (!session) {
       return null;
     }
-    if (!participantId || !Array.isArray(ranking) || ranking.length === 0) {
+    applyAutoPhaseTransitionMemory(session);
+    if (!participantId || !Array.isArray(ranking)) {
       return false;
     }
 
@@ -108,6 +111,8 @@ class MemoryPresentationStore {
       return null;
     }
 
+    applyAutoPhaseTransitionMemory(session);
+
     const phase = session.phase;
     const phaseSet = session.submissionsByPhase[phase] || new Set();
     const submitted = phaseSet.has(`${phase}:${participantId}`);
@@ -125,6 +130,8 @@ class MemoryPresentationStore {
     if (!session) {
       return null;
     }
+
+    applyAutoPhaseTransitionMemory(session);
 
     const phase = session.phase;
     const claimMap = session.claims[phase] || {};
@@ -146,6 +153,8 @@ class MemoryPresentationStore {
     if (!session) {
       return null;
     }
+
+    applyAutoPhaseTransitionMemory(session);
 
     const latestAnswers = latestAnswersByParticipant(session.answers);
     return buildAggregateResults({
@@ -265,6 +274,21 @@ function pickLatestAnswerForParticipant(rows, participantId) {
 }
 
 class SqlPresentationStore {
+  async ensureAutoPhase(session) {
+    if (!session) {
+      return session;
+    }
+
+    const transitioned = buildAutoTransitionedSession(session);
+    if (!transitioned) {
+      return session;
+    }
+
+    const pool = await getPool();
+    await upsertAppState(pool, sessionStateId(session.sessionId), transitioned);
+    return transitioned;
+  }
+
   async createSession() {
     const pool = await getPool();
     const sessionId = `S${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
@@ -316,10 +340,11 @@ class SqlPresentationStore {
       return false;
     }
 
-    const session = await this.getSession(sessionId);
+    let session = await this.getSession(sessionId);
     if (!session) {
       return null;
     }
+    session = await this.ensureAutoPhase(session);
 
     const payload = {
       sessionId: session.sessionId,
@@ -335,14 +360,15 @@ class SqlPresentationStore {
   }
 
   async submit({ sessionId, participantId, ranking, summary, responseTimeMs }) {
-    if (!participantId || !Array.isArray(ranking) || ranking.length === 0) {
+    if (!participantId || !Array.isArray(ranking)) {
       return false;
     }
 
-    const session = await this.getSession(sessionId);
+    let session = await this.getSession(sessionId);
     if (!session) {
       return null;
     }
+    session = await this.ensureAutoPhase(session);
 
     const payload = {
       sessionId: session.sessionId,
@@ -360,10 +386,12 @@ class SqlPresentationStore {
   }
 
   async participantState({ sessionId, participantId }) {
-    const session = await this.getSession(sessionId);
+    let session = await this.getSession(sessionId);
     if (!session) {
       return null;
     }
+
+    session = await this.ensureAutoPhase(session);
 
     const pool = await getPool();
     const id = answerStateId({
@@ -382,10 +410,12 @@ class SqlPresentationStore {
   }
 
   async getConflicts({ sessionId, participantId }) {
-    const session = await this.getSession(sessionId);
+    let session = await this.getSession(sessionId);
     if (!session) {
       return null;
     }
+
+    session = await this.ensureAutoPhase(session);
 
     const pool = await getPool();
 
@@ -419,10 +449,12 @@ class SqlPresentationStore {
   }
 
   async getResults(sessionId) {
-    const session = await this.getSession(sessionId);
+    let session = await this.getSession(sessionId);
     if (!session) {
       return null;
     }
+
+    session = await this.ensureAutoPhase(session);
 
     const pool = await getPool();
     const result = await pool.request()
@@ -650,6 +682,30 @@ function phaseMessage(phase) {
     return "Tack. Resultat presenteras nu.";
   }
   return "Vantar pa aktivering.";
+}
+
+function buildAutoTransitionedSession(session) {
+  if (!session || session.phase !== "digitalStress") {
+    return null;
+  }
+  if (!session.deadlineMs || Date.now() < Number(session.deadlineMs)) {
+    return null;
+  }
+
+  return {
+    ...session,
+    phase: "workloadChaos",
+    deadlineMs: Date.now() + AUTO_CHAOS_DURATION_SEC * 1000,
+    message: phaseMessage("workloadChaos"),
+    updatedAt: Date.now()
+  };
+}
+
+function applyAutoPhaseTransitionMemory(session) {
+  const updated = buildAutoTransitionedSession(session);
+  if (updated) {
+    Object.assign(session, updated);
+  }
 }
 
 module.exports = {

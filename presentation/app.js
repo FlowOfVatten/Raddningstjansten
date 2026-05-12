@@ -2,6 +2,8 @@ const API_BASE = "/api/presentation";
 const POLL_MS = 700;
 const WORKDAY_MINUTES = 480;
 const TOP_SLOTS = 10;
+const TASK_WAVE_SIZE = 6;
+const TASK_WAVE_SECONDS = 10;
 
 const sessionInput = document.getElementById("sessionId");
 const joinBtn = document.getElementById("joinBtn");
@@ -18,6 +20,8 @@ const channelInbox = document.getElementById("channelInbox");
 const focusTarget = document.getElementById("focusTarget");
 const focusBarFill = document.getElementById("focusBarFill");
 const focusStats = document.getElementById("focusStats");
+const wellbeingActions = document.getElementById("wellbeingActions");
+const wellbeingStats = document.getElementById("wellbeingStats");
 const conflictsEl = document.getElementById("conflicts");
 const submitBtn = document.getElementById("submitPriorities");
 const submittedEl = document.getElementById("submitted");
@@ -49,9 +53,14 @@ let focusHandle = null;
 let deadlineMs = null;
 let currentPhase = "idle";
 let initializedPhase = "";
+let hasAutoSubmitted = false;
 let phaseStartedAt = 0;
 let currentPriorities = Array(TOP_SLOTS).fill(null);
 let availableTasks = [];
+let taskWaveOrder = [];
+let taskWaveIndex = 0;
+let lastWaveTick = -1;
+let currentWaveTaskIds = [];
 let takenByOthers = new Set();
 let lastTakenSignature = "";
 let taskUnlockTimes = new Map();
@@ -70,6 +79,9 @@ let focusWorkedSec = 0;
 let focusProducedSec = 0;
 let focusPenaltySec = 0;
 let interruptionCount = 0;
+let wellbeingBreakCount = 0;
+let wellbeingBreakMinutes = 0;
+const wellbeingCooldownById = new Map();
 const channelStats = {
   handled: 0,
   correct: 0,
@@ -123,10 +135,17 @@ const CHANNEL_ALERT_TEMPLATES = [
   { issueKey: "customer-nps", title: "Missnojd kund i NPS", preferredChannel: "mail", important: true, falseFire: false }
 ];
 
+const WELLBEING_OPTIONS = [
+  { id: "micro-break", label: "2-min andningspaus", minutes: 2, wellbeingDelta: 1, cooldownSec: 12 },
+  { id: "water-break", label: "Vatten + kort stretch", minutes: 4, wellbeingDelta: 1, cooldownSec: 16 },
+  { id: "desk-break", label: "Kaffe och benstrackare", minutes: 8, wellbeingDelta: 2, cooldownSec: 24 }
+];
+
 buildPriorityBoard(TOP_SLOTS);
 hideChaosOverlay();
 renderChannelInbox();
 renderFocusPanel();
+renderWellbeingActions();
 
 joinBtn.addEventListener("click", () => {
   const sessionId = sessionInput.value.trim().toUpperCase();
@@ -140,7 +159,9 @@ joinBtn.addEventListener("click", () => {
   startPolling();
 });
 
-submitBtn.addEventListener("click", submitPriorities);
+if (submitBtn) {
+  submitBtn.hidden = true;
+}
 
 priorityBoard.addEventListener("dragover", (e) => {
   e.preventDefault();
@@ -225,6 +246,14 @@ channelInbox.addEventListener("click", (e) => {
   }
 });
 
+wellbeingActions.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-break-id]");
+  if (!btn) {
+    return;
+  }
+  takeWellbeingBreak(btn.dataset.breakId);
+});
+
 chaosOptionA.addEventListener("click", () => decideChaosOption(0));
 chaosOptionB.addEventListener("click", () => decideChaosOption(1));
 
@@ -248,19 +277,14 @@ function createTaskCatalog() {
     "Integrationstest", "Prioriteringsmote", "Ledningsunderlag", "Sprintretro", "Planeringsstopp",
     "Akut kundarende", "Patchvalidering", "Statusrapport", "Budgetunderlag", "Nattjobb-fel",
     "SLA-uppfoljning", "Rotorsaksanalys", "DevOps-larm", "Behorighetsfraga", "Kapacitetsplan",
-    "Prestandatest", "Workshopforberedelse", "Kaffe och benstrackare", "2-min andningspaus",
-    "Kort lunch utan skarm", "Reflektionspromenad", "Vattenpaus", "Mentorstod", "Kunskapsdelning", "Veckoavslut"
+    "Prestandatest", "Workshopforberedelse", "Mentorstod", "Kunskapsdelning", "Veckoavslut"
   ];
-
-  const wellbeingNames = new Set([
-    "Kaffe och benstrackare", "2-min andningspaus", "Kort lunch utan skarm", "Reflektionspromenad", "Vattenpaus"
-  ]);
 
   return labels.map((label, idx) => {
     const id = `task_${String(idx + 1).padStart(2, "0")}`;
-    const wellbeing = wellbeingNames.has(label);
-    const minutes = wellbeing ? 8 + (idx % 3) * 4 : 30 + (idx % 6) * 12;
-    const lockedMs = wellbeing ? 0 : (idx % 4 === 0 ? 12000 : idx % 7 === 0 ? 7000 : 0);
+    const wellbeing = false;
+    const minutes = 30 + (idx % 6) * 12;
+    const lockedMs = idx % 4 === 0 ? 12000 : idx % 7 === 0 ? 7000 : 0;
     const clarity = idx % 3 === 0 ? "unclear" : "clear";
     const doneTarget = clarity === "unclear" ? (idx % 2 === 0 ? "goodEnough" : "perfect") : "goodEnough";
     return {
@@ -306,12 +330,19 @@ async function syncState() {
 
   taskList.hidden = !interactive;
   budgetStrip.hidden = !interactive;
-  submitBtn.hidden = !interactive || submitted;
-  conflictsEl.hidden = currentPhase !== "workloadChaos";
+  submitBtn.hidden = true;
+  if (conflictsEl) {
+    conflictsEl.hidden = true;
+  }
   submittedEl.hidden = !submitted;
 
   if (interactive && initializedPhase !== currentPhase) {
-    initializePhase();
+    const carryFromDigitalToChaos = initializedPhase === "digitalStress" && currentPhase === "workloadChaos";
+    initializePhase({ carryForward: carryFromDigitalToChaos });
+  }
+
+  if (interactive && !submitted && deadlineMs && Date.now() >= deadlineMs && !hasAutoSubmitted) {
+    await finalizeByTimer();
   }
 
   if (!interactive) {
@@ -339,18 +370,47 @@ async function syncState() {
     await syncClaims();
     await checkForConflicts();
   }
+
+  if (interactive) {
+    rotateTaskWaveIfNeeded();
+  }
 }
 
-function initializePhase() {
+function initializePhase({ carryForward = false } = {}) {
   initializedPhase = currentPhase;
   phaseStartedAt = Date.now();
-  currentPriorities = Array(TOP_SLOTS).fill(null);
-  availableTasks = TASKS.slice();
-  takenByOthers = new Set();
-  lastTakenSignature = "";
-  taskUnlockTimes.clear();
-  claimMetaByTask.clear();
-  qualityChoiceByTaskId.clear();
+  hasAutoSubmitted = false;
+
+  if (!carryForward) {
+    currentPriorities = Array(TOP_SLOTS).fill(null);
+    availableTasks = TASKS.slice();
+    taskWaveOrder = shuffle(availableTasks.map((task) => task.id));
+    taskWaveIndex = 0;
+    lastWaveTick = -1;
+    currentWaveTaskIds = [];
+    takenByOthers = new Set();
+    lastTakenSignature = "";
+    taskUnlockTimes.clear();
+    claimMetaByTask.clear();
+    qualityChoiceByTaskId.clear();
+    focusWorkedSec = 0;
+    focusProducedSec = 0;
+    focusPenaltySec = 0;
+    interruptionCount = 0;
+    channelStats.handled = 0;
+    channelStats.correct = 0;
+    channelStats.deferred = 0;
+    channelStats.missed = 0;
+    channelStats.falseFires = 0;
+    wellbeingBreakCount = 0;
+    wellbeingBreakMinutes = 0;
+    wellbeingCooldownById.clear();
+    eventFeed.innerHTML = "";
+  } else {
+    takenByOthers = new Set();
+    lastTakenSignature = "";
+  }
+
   firedInterrupts = new Set();
   pendingChaosCard = null;
   chaosDecisions = [];
@@ -360,23 +420,19 @@ function initializePhase() {
   activeAlerts = [];
   alertCounter = 0;
   alertSchedule = buildAlertSchedule();
-  focusWorkedSec = 0;
-  focusProducedSec = 0;
-  focusPenaltySec = 0;
-  interruptionCount = 0;
-  channelStats.handled = 0;
-  channelStats.correct = 0;
-  channelStats.deferred = 0;
-  channelStats.missed = 0;
-  channelStats.falseFires = 0;
-  eventFeed.innerHTML = "";
 
-  availableTasks.forEach((task) => {
-    taskUnlockTimes.set(task.id, phaseStartedAt + (task.lockedMs || 0));
-  });
+  if (!carryForward) {
+    availableTasks.forEach((task) => {
+      taskUnlockTimes.set(task.id, phaseStartedAt + (task.lockedMs || 0));
+    });
+  }
 
   logEvent(`Fas startad: ${phaseCopy[currentPhase]}.`, "phase");
   if (currentPhase === "workloadChaos") {
+    logEvent("KAOS PA JOBBET - prioriteringen kan rasa nar resurser tas av andra.", "chaos");
+    if (carryForward) {
+      logEvent("Autoovergang till Chaos: tidigare prioriteringar foljer med.", "warn");
+    }
     logEvent("Kaosregler: rang + snabbhet avgor vem som behaller en uppgift.", "phase");
     startFocusTicker();
   } else {
@@ -385,11 +441,64 @@ function initializePhase() {
 
   renderChannelInbox();
   renderFocusPanel();
+  renderWellbeingActions();
+  rotateTaskWaveIfNeeded(true);
   renderSlots();
   renderTasks();
   renderBudget();
   hideChaosOverlay();
   startUnlockCheck();
+}
+
+function renderWellbeingActions() {
+  const now = Date.now();
+  wellbeingActions.innerHTML = "";
+
+  WELLBEING_OPTIONS.forEach((option) => {
+    const until = Number(wellbeingCooldownById.get(option.id) || 0);
+    const leftSec = Math.max(0, Math.ceil((until - now) / 1000));
+    const disabled = leftSec > 0;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "wellbeing-btn";
+    btn.dataset.breakId = option.id;
+    btn.disabled = disabled;
+    btn.textContent = disabled
+      ? `${option.label} (${option.minutes} min) - klar om ${leftSec}s`
+      : `${option.label} (${option.minutes} min)`;
+    wellbeingActions.appendChild(btn);
+  });
+
+  wellbeingStats.textContent = `Tagna raster: ${wellbeingBreakCount} | Tid: ${wellbeingBreakMinutes} min`;
+}
+
+function takeWellbeingBreak(breakId) {
+  const option = WELLBEING_OPTIONS.find((item) => item.id === breakId);
+  if (!option) {
+    return;
+  }
+
+  const now = Date.now();
+  const until = Number(wellbeingCooldownById.get(option.id) || 0);
+  if (until > now) {
+    return;
+  }
+
+  wellbeingBreakCount += 1;
+  wellbeingBreakMinutes += option.minutes;
+  chaosPenaltyMinutes += option.minutes;
+  chaosWellbeingDelta += option.wellbeingDelta;
+  wellbeingCooldownById.set(option.id, now + option.cooldownSec * 1000);
+
+  if (currentPhase === "workloadChaos") {
+    applyFocusInterruption(`Tog rast: ${option.label}`, 3);
+    focusPenaltySec = Math.max(0, focusPenaltySec - 2);
+  }
+
+  logEvent(`Wellbeing-rast: ${option.label}.`, "choice");
+  renderWellbeingActions();
+  renderBudget();
 }
 
 function buildAlertSchedule() {
@@ -462,6 +571,7 @@ function renderChannelInbox() {
 
 function runChaosInterrupts() {
   const elapsedSec = Math.floor((Date.now() - phaseStartedAt) / 1000);
+  renderWellbeingActions();
 
   CHAOS_INTERRUPTS.forEach((interrupt) => {
     if (elapsedSec >= interrupt.atSec && !firedInterrupts.has(interrupt.id)) {
@@ -667,10 +777,16 @@ function lockSecondsLeft(task, now) {
 }
 
 function renderTasks() {
+  rotateTaskWaveIfNeeded();
   taskPool.innerHTML = "";
   const now = Date.now();
+  const waveSet = new Set(currentWaveTaskIds);
 
   availableTasks.forEach((task) => {
+    if (waveSet.size && !waveSet.has(task.id)) {
+      return;
+    }
+
     if (currentPriorities.some((p) => p && p.id === task.id)) {
       return;
     }
@@ -832,7 +948,7 @@ function computeTaskMinutes(task) {
 function computeSummary() {
   const selected = currentPriorities.filter(Boolean);
   const plannedMinutes = selected.reduce((sum, task) => sum + computeTaskMinutes(task), 0);
-  const wellbeingTaskCount = selected.filter((task) => task.wellbeing).length;
+  const wellbeingTaskCount = wellbeingBreakCount;
   const wellbeingScore = wellbeingTaskCount * 2 + chaosWellbeingDelta;
   const totalMinutes = plannedMinutes + chaosPenaltyMinutes;
   const remainingMinutes = WORKDAY_MINUTES - totalMinutes;
@@ -959,7 +1075,9 @@ async function checkForConflicts() {
   });
 
   reconcileClaimMeta();
-  conflictsEl.hidden = takenByOthers.size === 0;
+  if (conflictsEl) {
+    conflictsEl.hidden = true;
+  }
 
   if (knockedOut > 0) {
     applyFocusInterruption("Forlorade prioriterad resurs", 9);
@@ -974,6 +1092,57 @@ async function checkForConflicts() {
   renderSlots();
   renderTasks();
   renderBudget();
+}
+
+function rotateTaskWaveIfNeeded(force = false) {
+  if (!availableTasks.length || !phaseStartedAt) {
+    return;
+  }
+
+  const tick = Math.floor((Date.now() - phaseStartedAt) / (TASK_WAVE_SECONDS * 1000));
+  if (!force && tick === lastWaveTick) {
+    return;
+  }
+
+  lastWaveTick = tick;
+
+  if (!taskWaveOrder.length) {
+    taskWaveOrder = shuffle(availableTasks.map((task) => task.id));
+    taskWaveIndex = 0;
+  }
+
+  const picked = [];
+  let attempts = 0;
+  const maxAttempts = Math.max(taskWaveOrder.length * 2, TASK_WAVE_SIZE);
+
+  while (picked.length < TASK_WAVE_SIZE && attempts < maxAttempts) {
+    const idx = (taskWaveIndex + attempts) % taskWaveOrder.length;
+    const taskId = taskWaveOrder[idx];
+    const isRanked = currentPriorities.some((task) => task && task.id === taskId);
+    const isTaken = takenByOthers.has(taskId);
+    if (!isRanked && !isTaken && !picked.includes(taskId)) {
+      picked.push(taskId);
+    }
+    attempts += 1;
+  }
+
+  currentWaveTaskIds = picked;
+  taskWaveIndex = (taskWaveIndex + TASK_WAVE_SIZE) % Math.max(taskWaveOrder.length, 1);
+
+  if (!force) {
+    logEvent(`Nytt inflode av uppgifter: ${currentWaveTaskIds.length} tillgangliga i ${TASK_WAVE_SECONDS}s.`, "info");
+  }
+}
+
+function shuffle(items) {
+  const arr = items.slice();
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return arr;
 }
 
 function updateTimer() {
@@ -992,6 +1161,9 @@ function updateTimer() {
     if (left <= 0 && timerHandle) {
       clearInterval(timerHandle);
       timerHandle = null;
+      if (!hasAutoSubmitted && (currentPhase === "digitalStress" || currentPhase === "workloadChaos")) {
+        finalizeByTimer();
+      }
     }
   };
 
@@ -999,26 +1171,36 @@ function updateTimer() {
   timerHandle = setInterval(tick, 250);
 }
 
-async function submitPriorities() {
+async function finalizeByTimer() {
+  if (hasAutoSubmitted) {
+    return;
+  }
+  hasAutoSubmitted = true;
+  await submitPriorities({ allowPartial: true, fromTimer: true });
+}
+
+async function submitPriorities({ allowPartial = false, fromTimer = false } = {}) {
   if (!activeSessionId) {
     return;
   }
 
   const filled = currentPriorities.filter(Boolean);
-  if (filled.length < TOP_SLOTS) {
+  if (!allowPartial && filled.length < TOP_SLOTS) {
     alert(`Du maste prioritera topp ${TOP_SLOTS} uppgifter innan du skickar.`);
     return;
   }
 
-  const ranking = currentPriorities.map((task, idx) => ({
-    rank: idx + 1,
-    taskId: task.id,
-    taskLabel: task.label,
-    minutes: computeTaskMinutes(task),
-    wellbeing: Boolean(task.wellbeing),
-    clarity: task.clarity,
-    quality: qualityChoiceByTaskId.get(task.id) || "goodEnough"
-  }));
+  const ranking = currentPriorities
+    .map((task, idx) => (task ? {
+      rank: idx + 1,
+      taskId: task.id,
+      taskLabel: task.label,
+      minutes: computeTaskMinutes(task),
+      wellbeing: Boolean(task.wellbeing),
+      clarity: task.clarity,
+      quality: qualityChoiceByTaskId.get(task.id) || "goodEnough"
+    } : null))
+    .filter(Boolean);
 
   const summary = computeSummary();
 
@@ -1036,6 +1218,7 @@ async function submitPriorities() {
 
   if (!res.ok) {
     joinStatus.textContent = "Kunde inte skicka prioritering.";
+    hasAutoSubmitted = false;
     return;
   }
 
@@ -1046,7 +1229,12 @@ async function submitPriorities() {
   hideChaosOverlay();
   stopUnlockCheck();
   stopFocusTicker();
-  logEvent("Prioritering skickad.", "phase");
+  if (fromTimer) {
+    logEvent("Tiden ar slut - prioritering sparades automatiskt.", "phase");
+    scenarioText.textContent = "Tiden ar slut. Din prioritering sparades automatiskt.";
+  } else {
+    logEvent("Prioritering skickad.", "phase");
+  }
 }
 
 async function showInlineResults() {

@@ -42,7 +42,7 @@
         </div>
 
         <div id="taskList" class="task-list" hidden>
-          <p class="task-hint" id="taskHint">Dra uppgifter till topp 10. Vissa val stjal tid men bygger hallbarhet.</p>
+          <p class="task-hint" id="taskHint">Dra uppgifter till topp 10. Nya 6 uppgifter visas var 10:e sekund - omprioritera nar viktigare saker dyker upp.</p>
           <div class="task-workspace">
             <div id="priorityBoard" class="priority-board"></div>
 
@@ -58,6 +58,13 @@
                 <p class="muted" id="focusTarget">Ingen aktiv fokusuppgift.</p>
                 <div class="focus-bar"><div id="focusBarFill" class="focus-bar-fill"></div></div>
                 <p class="muted" id="focusStats">Arbetad tid: 0s | Producerat varde: 0s</p>
+              </div>
+
+              <div class="side-panel" id="wellbeingPanel">
+                <h4>Wellbeing-raster</h4>
+                <p class="muted">Ta en rast nar du bedomer att du behover den.</p>
+                <div id="wellbeingActions" class="wellbeing-actions"></div>
+                <p class="muted" id="wellbeingStats">Tagna raster: 0 | Tid: 0 min</p>
               </div>
 
               <h3>Uppgifter att prioritera</h3>
