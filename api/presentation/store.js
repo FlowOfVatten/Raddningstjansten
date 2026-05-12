@@ -129,9 +129,7 @@ class MemoryPresentationStore {
     const phase = session.phase;
     const claimMap = session.claims[phase] || {};
     const myEntry = claimMap[participantId] || { claims: [] };
-    const baseline = buildBaselineRanksFromAnswers(session.answers);
-
-    const ownerByTask = resolveTaskOwners(claimMap, baseline);
+    const ownerByTask = resolveTaskOwners(claimMap);
 
     const takenByOthers = myEntry.claims
       .filter((claim) => claim.taskId && ownerByTask[claim.taskId] && ownerByTask[claim.taskId] !== participantId)
@@ -378,10 +376,6 @@ class SqlPresentationStore {
       .input("claimPrefix", sql.NVarChar(200), `${CLAIM_PREFIX}${session.sessionId}:${session.phase}:`)
       .query("SELECT payload FROM app_state WHERE id LIKE @claimPrefix + '%' ");
 
-    const answersResult = await pool.request()
-      .input("answerPrefix", sql.NVarChar(200), `${ANSWER_PREFIX}${session.sessionId}:digitalStress:`)
-      .query("SELECT payload FROM app_state WHERE id LIKE @answerPrefix + '%' ");
-
     const claimMap = {};
     for (const row of claimsResult.recordset) {
       const payload = safeJsonParse(row.payload);
@@ -394,9 +388,8 @@ class SqlPresentationStore {
       };
     }
 
-    const baseline = buildBaselineRanksFromRows(answersResult.recordset);
     const myEntry = claimMap[participantId] || { claims: [] };
-    const ownerByTask = resolveTaskOwners(claimMap, baseline);
+    const ownerByTask = resolveTaskOwners(claimMap);
 
     const takenByOthers = myEntry.claims
       .filter((claim) => claim.taskId && ownerByTask[claim.taskId] && ownerByTask[claim.taskId] !== participantId)
@@ -459,7 +452,7 @@ class SqlPresentationStore {
   }
 }
 
-function resolveTaskOwners(claimMap, baselineRanks) {
+function resolveTaskOwners(claimMap) {
   const ownerByTask = {};
 
   Object.entries(claimMap).forEach(([pid, entry]) => {
@@ -472,9 +465,8 @@ function resolveTaskOwners(claimMap, baselineRanks) {
 
       const contender = {
         pid,
-        baselineRank: getBaselineRank(baselineRanks, pid, taskId),
         claimRank: Number(claim.rank || 999),
-        claimTs: Number(entry.timestamp || Date.now())
+        claimTs: Number(claim.claimedAt || entry.timestamp || Date.now())
       };
 
       const currentOwnerPid = ownerByTask[taskId];
@@ -485,9 +477,8 @@ function resolveTaskOwners(claimMap, baselineRanks) {
 
       const current = {
         pid: currentOwnerPid,
-        baselineRank: getBaselineRank(baselineRanks, currentOwnerPid, taskId),
         claimRank: findClaimRank(claimMap[currentOwnerPid], taskId),
-        claimTs: Number((claimMap[currentOwnerPid] || {}).timestamp || Date.now())
+        claimTs: findClaimTs(claimMap[currentOwnerPid], taskId)
       };
 
       if (isContenderStronger(contender, current)) {
@@ -500,13 +491,18 @@ function resolveTaskOwners(claimMap, baselineRanks) {
 }
 
 function isContenderStronger(a, b) {
-  if (a.baselineRank !== b.baselineRank) {
-    return a.baselineRank < b.baselineRank;
-  }
   if (a.claimRank !== b.claimRank) {
     return a.claimRank < b.claimRank;
   }
   return a.claimTs < b.claimTs;
+}
+
+function findClaimTs(entry, taskId) {
+  if (!entry || !Array.isArray(entry.claims)) {
+    return Number((entry || {}).timestamp || Date.now());
+  }
+  const claim = entry.claims.find((item) => item.taskId === taskId);
+  return Number((claim && claim.claimedAt) || entry.timestamp || Date.now());
 }
 
 function findClaimRank(entry, taskId) {
@@ -515,50 +511,6 @@ function findClaimRank(entry, taskId) {
   }
   const claim = entry.claims.find((item) => item.taskId === taskId);
   return claim ? Number(claim.rank || 999) : 999;
-}
-
-function buildBaselineRanksFromAnswers(answers) {
-  const map = {};
-  answers
-    .filter((item) => item.phase === "digitalStress" && Array.isArray(item.ranking))
-    .forEach((item) => {
-      const pid = String(item.participantId || "");
-      if (!pid) {
-        return;
-      }
-      if (!map[pid]) {
-        map[pid] = {};
-      }
-      item.ranking.forEach((rank) => {
-        if (rank.taskId) {
-          map[pid][rank.taskId] = Number(rank.rank || 999);
-        }
-      });
-    });
-  return map;
-}
-
-function buildBaselineRanksFromRows(rows) {
-  const map = {};
-  rows.forEach((row) => {
-    const payload = safeJsonParse(row.payload);
-    if (!payload || !Array.isArray(payload.ranking) || !payload.participantId) {
-      return;
-    }
-    const pid = String(payload.participantId);
-    map[pid] = map[pid] || {};
-    payload.ranking.forEach((rank) => {
-      if (rank.taskId) {
-        map[pid][rank.taskId] = Number(rank.rank || 999);
-      }
-    });
-  });
-  return map;
-}
-
-function getBaselineRank(map, participantId, taskId) {
-  const byUser = map[participantId] || {};
-  return Number(byUser[taskId] || 999);
 }
 
 function sanitizeSummary(input) {

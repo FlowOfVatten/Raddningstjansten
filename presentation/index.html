@@ -21,68 +21,78 @@
       <p id="joinStatus" class="muted"></p>
     </section>
 
-    <section class="card scenario" id="scenarioCard" hidden>
-      <div class="row between">
-        <h2 id="scenarioTitle">Vantar pa aktivering</h2>
-        <div class="timer" id="timer">--</div>
-      </div>
-      <p id="scenarioText">Du far instruktioner nar scenariot startar.</p>
+    <section id="scenarioCard" class="scenario-layout" hidden>
+      <aside class="card event-panel" id="eventPanel">
+        <h3>Handelser</h3>
+        <p class="muted">Live-logg for kaoslaget.</p>
+        <ul id="eventFeed" class="event-feed"></ul>
+      </aside>
 
-      <div class="budget-strip" id="budgetStrip" hidden>
-        <div class="budget-item"><span>Anvand tid</span><strong id="budgetUsed">0 min</strong></div>
-        <div class="budget-item"><span>Kvar av 8h</span><strong id="budgetRemaining">480 min</strong></div>
-        <div class="budget-item"><span>Wellbeing</span><strong id="wellbeingValue">0</strong></div>
-      </div>
+      <section class="card scenario-main">
+        <div class="row between">
+          <h2 id="scenarioTitle">Vantar pa aktivering</h2>
+          <div class="timer" id="timer">--</div>
+        </div>
+        <p id="scenarioText">Du far instruktioner nar scenariot startar.</p>
 
-      <div id="taskList" class="task-list" hidden>
-        <p class="task-hint" id="taskHint">Dra uppgifter till topp 10. Vissa val stjal tid men bygger hallbarhet.</p>
-        <div id="priorityBoard" class="priority-board"></div>
-
-        <div id="taskPool" class="task-pool">
-          <h3>Uppgifter att prioritera</h3>
-          <div id="tasks" class="tasks"></div>
+        <div class="budget-strip" id="budgetStrip" hidden>
+          <div class="budget-item"><span>Anvand tid</span><strong id="budgetUsed">0 min</strong></div>
+          <div class="budget-item"><span>Kvar av 8h</span><strong id="budgetRemaining">480 min</strong></div>
+          <div class="budget-item"><span>Wellbeing</span><strong id="wellbeingValue">0</strong></div>
         </div>
 
-        <div id="conflicts" class="conflicts" hidden>
-          <p class="conflict-warning">Resurskonflikt: hogst prioritet i Digital Stress har forratt.</p>
-        </div>
+        <div id="taskList" class="task-list" hidden>
+          <p class="task-hint" id="taskHint">Dra uppgifter till topp 10. Vissa val stjal tid men bygger hallbarhet.</p>
+          <div id="priorityBoard" class="priority-board"></div>
 
-        <div id="chaosCard" class="chaos-card" hidden>
-          <h3 id="chaosTitle">Kaoskort</h3>
-          <p id="chaosText">Situation...</p>
-          <div class="chaos-actions">
-            <button id="chaosOptionA" type="button"></button>
-            <button id="chaosOptionB" type="button" class="secondary"></button>
+          <div id="taskPool" class="task-pool">
+            <h3>Uppgifter att prioritera</h3>
+            <div id="tasks" class="tasks"></div>
           </div>
+
+          <div id="conflicts" class="conflicts" hidden>
+            <p class="conflict-warning">Resurskonflikt: samma uppgift ockuperad av snabbare deltagare.</p>
+          </div>
+
+          <button id="submitPriorities" class="submit-btn" hidden>Skicka prioritering</button>
         </div>
 
-        <button id="submitPriorities" class="submit-btn" hidden>Skicka prioritering</button>
-      </div>
-
-      <div id="submitted" class="submitted" hidden>
-        <strong>Din prioritering ar skickad. Vanta pa resultaten.</strong>
-      </div>
-
-      <section id="inlineResults" class="inline-results" hidden>
-        <h3>Resultat</h3>
-        <p id="inlineResultsSummary" class="muted"></p>
-        <div class="grid two metrics-compare">
-          <div class="metric-card">
-            <h4>Dina resultat</h4>
-            <p>Delivery score: <strong id="myDelivery">-</strong></p>
-            <p>Wellbeing: <strong id="myWellbeing">-</strong></p>
-            <p>Overload: <strong id="myOverload">-</strong></p>
-          </div>
-          <div class="metric-card">
-            <h4>Gruppsnitt</h4>
-            <p>Delivery score: <strong id="groupDelivery">-</strong></p>
-            <p>Wellbeing: <strong id="groupWellbeing">-</strong></p>
-            <p>Overload: <strong id="groupOverload">-</strong></p>
-          </div>
+        <div id="submitted" class="submitted" hidden>
+          <strong>Din prioritering ar skickad. Vanta pa resultaten.</strong>
         </div>
+
+        <section id="inlineResults" class="inline-results" hidden>
+          <h3>Resultat</h3>
+          <p id="inlineResultsSummary" class="muted"></p>
+          <div class="grid two metrics-compare">
+            <div class="metric-card">
+              <h4>Dina resultat</h4>
+              <p>Delivery score: <strong id="myDelivery">-</strong></p>
+              <p>Wellbeing: <strong id="myWellbeing">-</strong></p>
+              <p>Overload: <strong id="myOverload">-</strong></p>
+            </div>
+            <div class="metric-card">
+              <h4>Gruppsnitt</h4>
+              <p>Delivery score: <strong id="groupDelivery">-</strong></p>
+              <p>Wellbeing: <strong id="groupWellbeing">-</strong></p>
+              <p>Overload: <strong id="groupOverload">-</strong></p>
+            </div>
+          </div>
+        </section>
       </section>
     </section>
   </main>
+
+  <section id="chaosOverlay" class="chaos-overlay" hidden>
+    <div class="chaos-dialog">
+      <h2 id="chaosTitle">Avbrott</h2>
+      <p id="chaosText">Situation...</p>
+      <div class="chaos-actions">
+        <button id="chaosOptionA" type="button"></button>
+        <button id="chaosOptionB" type="button" class="secondary"></button>
+      </div>
+    </div>
+  </section>
 
   <script src="./app.js"></script>
 </body>

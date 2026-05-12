@@ -20,11 +20,12 @@ const budgetStrip = document.getElementById("budgetStrip");
 const budgetUsedEl = document.getElementById("budgetUsed");
 const budgetRemainingEl = document.getElementById("budgetRemaining");
 const wellbeingValueEl = document.getElementById("wellbeingValue");
-const chaosCardEl = document.getElementById("chaosCard");
+const chaosOverlayEl = document.getElementById("chaosOverlay");
 const chaosTitleEl = document.getElementById("chaosTitle");
 const chaosTextEl = document.getElementById("chaosText");
 const chaosOptionA = document.getElementById("chaosOptionA");
 const chaosOptionB = document.getElementById("chaosOptionB");
+const eventFeed = document.getElementById("eventFeed");
 const inlineResults = document.getElementById("inlineResults");
 const inlineResultsSummary = document.getElementById("inlineResultsSummary");
 const myDelivery = document.getElementById("myDelivery");
@@ -48,6 +49,7 @@ let availableTasks = [];
 let takenByOthers = new Set();
 let taskUnlockTimes = new Map();
 let tempLocks = new Map();
+let claimMetaByTask = new Map();
 let firedInterrupts = new Set();
 let pendingChaosCard = null;
 let chaosDecisions = [];
@@ -55,26 +57,12 @@ let chaosPenaltyMinutes = 0;
 let chaosWellbeingDelta = 0;
 let hasLoadedInlineResults = false;
 
-const TASKS = [
-  { id: "urgent_incident", label: "Kritisk incident", lockedMs: 0, minutes: 80, wellbeing: false },
-  { id: "customer_call", label: "Samtal med chefen", lockedMs: 0, minutes: 45, wellbeing: false },
-  { id: "email_backlog", label: "Email backlog", lockedMs: 8000, minutes: 50, wellbeing: false },
-  { id: "meeting_prep", label: "Moteforberedelse", lockedMs: 0, minutes: 55, wellbeing: false },
-  { id: "sprint_planning", label: "Sprint planning", lockedMs: 15000, minutes: 60, wellbeing: false },
-  { id: "code_review", label: "Code review", lockedMs: 0, minutes: 40, wellbeing: false },
-  { id: "documentation", label: "Dokumentation", lockedMs: 25000, minutes: 45, wellbeing: false },
-  { id: "team_sync", label: "Team sync", lockedMs: 0, minutes: 35, wellbeing: false },
-  { id: "dev_task", label: "Utvecklingsuppgift", lockedMs: 12000, minutes: 85, wellbeing: false },
-  { id: "support_ticket", label: "Support ticket", lockedMs: 5000, minutes: 50, wellbeing: false },
-  { id: "coffee_break", label: "Kaffe och benstrackare", lockedMs: 0, minutes: 10, wellbeing: true },
-  { id: "breathing_reset", label: "2-min andningspaus", lockedMs: 0, minutes: 5, wellbeing: true },
-  { id: "screen_free_lunch", label: "Kort lunch utan skarm", lockedMs: 0, minutes: 20, wellbeing: true }
-];
+const TASKS = createTaskCatalog();
 
 const phaseCopy = {
   idle: "Vantar pa aktivering",
   digitalStress: "Digital Stress - Prioritera topp 10 inom en 8h arbetsdag",
-  workloadChaos: "Chaos - resurser, avbrott och beslut under tidspress",
+  workloadChaos: "Chaos - resurskamp i realtid",
   results: "Resultatlage"
 };
 
@@ -82,21 +70,21 @@ const CHAOS_INTERRUPTS = [
   {
     id: "family-call",
     atSec: 16,
-    title: "Familjemedlem ringer",
-    text: "Du ar mitt i en kritisk uppgift. Hur svarar du?",
+    title: "Telefonen ringer",
+    text: "En familjemedlem ringer mitt i din hogsta prioritet. Hur agerar du?",
     options: [
-      { key: "answer", label: "Svara", penaltyMinutes: 10, wellbeingDelta: 1 },
-      { key: "ignore", label: "Svara inte", penaltyMinutes: 0, wellbeingDelta: -1 }
+      { key: "answer", label: "Svara direkt", penaltyMinutes: 10, wellbeingDelta: 1 },
+      { key: "ignore", label: "Ignorera samtalet", penaltyMinutes: 0, wellbeingDelta: -1 }
     ]
   },
   {
-    id: "colleague-chat",
+    id: "colleague-dropin",
     atSec: 35,
-    title: "Kollega kliver in i rummet",
-    text: "Kollegan vill smaprata om ett sidoprojekt.",
+    title: "Kollega glider in",
+    text: "En kollega dyker upp och vill prata igenom ett sidoproblem.",
     options: [
-      { key: "social", label: "Var social", penaltyMinutes: 15, wellbeingDelta: 1 },
-      { key: "busy", label: "Sak att du ar upptagen", penaltyMinutes: 0, wellbeingDelta: -1 }
+      { key: "help", label: "Hjalp kollegan", penaltyMinutes: 15, wellbeingDelta: 1 },
+      { key: "decline", label: "Avvisa och fortsatt", penaltyMinutes: 0, wellbeingDelta: -1 }
     ]
   }
 ];
@@ -161,6 +149,38 @@ function buildPriorityBoard(size) {
   }
 }
 
+function createTaskCatalog() {
+  const labels = [
+    "Kritisk incident", "Chefssamtal", "Email backlog", "Moteforberedelse", "Sprintplanering",
+    "Kodgranskning", "Dokumentation", "Team sync", "Utvecklingsuppgift", "Supportticket",
+    "Kunduppfoljning", "Bug triage", "Miljorapport", "Dashboard-fel", "Security review",
+    "Onboarding-fraga", "Dataexport", "Kvalitetskontroll", "Feature test", "Regressionstest",
+    "Release-plan", "Riskanalys", "Anbudsfraga", "Incidentrapport", "API-felanalys",
+    "Integrationstest", "Prioriteringsmote", "Ledningsunderlag", "Sprintretro", "Planeringsstopp",
+    "Akut kundarende", "Patchvalidering", "Statusrapport", "Budgetunderlag", "Nattjobb-fel",
+    "SLA-uppfoljning", "Rotorsaksanalys", "DevOps-larm", "Behorighetsfraga", "Kapacitetsplan",
+    "Prestandatest", "Workshopforberedelse", "Kaffe och benstrackare", "2-min andningspaus",
+    "Kort lunch utan skarm", "Reflektionspromenad", "Vattenpaus", "Mentorstod", "Kunskapsdelning", "Veckoavslut"
+  ];
+
+  const wellbeingNames = new Set([
+    "Kaffe och benstrackare", "2-min andningspaus", "Kort lunch utan skarm", "Reflektionspromenad", "Vattenpaus"
+  ]);
+
+  return labels.map((label, idx) => {
+    const id = `task_${String(idx + 1).padStart(2, "0")}`;
+    const minutes = wellbeingNames.has(label) ? 8 + (idx % 3) * 4 : 30 + (idx % 6) * 12;
+    const lockedMs = wellbeingNames.has(label) ? 0 : (idx % 4 === 0 ? 12000 : idx % 7 === 0 ? 7000 : 0);
+    return {
+      id,
+      label,
+      minutes,
+      lockedMs,
+      wellbeing: wellbeingNames.has(label)
+    };
+  });
+}
+
 function startPolling() {
   if (pollHandle) {
     clearInterval(pollHandle);
@@ -201,7 +221,7 @@ async function syncState() {
 
   if (!interactive) {
     stopUnlockCheck();
-    hideChaosCard();
+    hideChaosOverlay();
   }
 
   if (currentPhase === "results") {
@@ -233,22 +253,45 @@ function initializePhase() {
   takenByOthers = new Set();
   taskUnlockTimes.clear();
   tempLocks.clear();
+  claimMetaByTask.clear();
   firedInterrupts = new Set();
   pendingChaosCard = null;
   chaosDecisions = [];
   chaosPenaltyMinutes = 0;
   chaosWellbeingDelta = 0;
   hasLoadedInlineResults = false;
+  eventFeed.innerHTML = "";
 
   availableTasks.forEach((task) => {
     taskUnlockTimes.set(task.id, phaseStartedAt + (task.lockedMs || 0));
   });
 
+  logEvent(`Fas startad: ${phaseCopy[currentPhase]}.`, "phase");
+  if (currentPhase === "workloadChaos") {
+    logEvent("Kaosregler: hogst rank vinner. Vid samma rank vinner snabbaste claim.", "phase");
+  }
+
   renderSlots();
   renderTasks();
   renderBudget();
-  hideChaosCard();
+  hideChaosOverlay();
   startUnlockCheck();
+}
+
+function logEvent(message, kind = "info") {
+  if (!eventFeed) {
+    return;
+  }
+
+  const seconds = phaseStartedAt ? Math.max(0, Math.floor((Date.now() - phaseStartedAt) / 1000)) : 0;
+  const item = document.createElement("li");
+  item.className = `event-${kind}`;
+  item.textContent = `+${seconds}s ${message}`;
+  eventFeed.prepend(item);
+
+  while (eventFeed.children.length > 24) {
+    eventFeed.removeChild(eventFeed.lastChild);
+  }
 }
 
 async function showInlineResults() {
@@ -305,23 +348,24 @@ function runChaosInterrupts() {
   CHAOS_INTERRUPTS.forEach((interrupt) => {
     if (elapsedSec >= interrupt.atSec && !firedInterrupts.has(interrupt.id)) {
       firedInterrupts.add(interrupt.id);
-      showChaosCard(interrupt);
+      showChaosOverlay(interrupt);
+      logEvent(`Avbrott: ${interrupt.title}.`, "warn");
     }
   });
 }
 
-function showChaosCard(card) {
+function showChaosOverlay(card) {
   pendingChaosCard = card;
   chaosTitleEl.textContent = card.title;
   chaosTextEl.textContent = card.text;
   chaosOptionA.textContent = card.options[0].label;
   chaosOptionB.textContent = card.options[1].label;
-  chaosCardEl.hidden = false;
+  chaosOverlayEl.hidden = false;
 }
 
-function hideChaosCard() {
+function hideChaosOverlay() {
   pendingChaosCard = null;
-  chaosCardEl.hidden = true;
+  chaosOverlayEl.hidden = true;
 }
 
 function decideChaosOption(index) {
@@ -340,7 +384,8 @@ function decideChaosOption(index) {
   });
 
   scenarioText.textContent = `Val registrerat: ${option.label} (${option.penaltyMinutes || 0} min).`;
-  hideChaosCard();
+  logEvent(`Val: ${option.label}. +${option.penaltyMinutes || 0} min.`, "choice");
+  hideChaosOverlay();
   renderBudget();
 }
 
@@ -392,7 +437,7 @@ function renderTasks() {
     taskDiv.title = isLocked
       ? `Tillganglig om ${lockSecsLeft} sekunder`
       : isTaken
-        ? "Resurs upptagen av annan deltagare med hogre prioritet"
+        ? "Denna uppgift ar redan tagen av snabbare deltagare pa samma/hogre rank"
         : task.wellbeing
           ? "Wellbeing-val: kan minska stress men tar tid"
           : "Dra till en rank-slot";
@@ -422,6 +467,7 @@ function moveTaskToSlot(taskId, rankIndex) {
     currentPriorities[existingIndex] = displaced;
   }
 
+  reconcileClaimMeta();
   renderSlots();
   renderTasks();
   renderBudget();
@@ -482,11 +528,44 @@ function renderBudget() {
   }
 }
 
+function reconcileClaimMeta(now = Date.now()) {
+  const activeTaskIds = new Set();
+  currentPriorities.forEach((task, idx) => {
+    if (!task) {
+      return;
+    }
+
+    const rank = idx + 1;
+    activeTaskIds.add(task.id);
+    const current = claimMetaByTask.get(task.id);
+    if (!current || current.rank !== rank) {
+      claimMetaByTask.set(task.id, { rank, claimedAt: now });
+    }
+  });
+
+  Array.from(claimMetaByTask.keys()).forEach((taskId) => {
+    if (!activeTaskIds.has(taskId)) {
+      claimMetaByTask.delete(taskId);
+    }
+  });
+}
+
 async function syncClaims() {
+  reconcileClaimMeta();
   const claims = currentPriorities
-    .map((task, idx) => (task ? { rank: idx + 1, taskId: task.id } : null))
+    .map((task, idx) => {
+      if (!task) {
+        return null;
+      }
+      const meta = claimMetaByTask.get(task.id);
+      return {
+        rank: idx + 1,
+        taskId: task.id,
+        claimedAt: Number((meta && meta.claimedAt) || Date.now())
+      };
+    })
     .filter(Boolean)
-    .slice(0, 5);
+    .slice(0, TOP_SLOTS);
 
   await fetch(`${API_BASE}/claim`, {
     method: "POST",
@@ -510,17 +589,22 @@ async function checkForConflicts() {
   takenByOthers = new Set(data.takenByOthers || []);
 
   let knockedOut = 0;
+  const removedLabels = [];
   currentPriorities = currentPriorities.map((task) => {
     if (task && takenByOthers.has(task.id)) {
       knockedOut += 1;
+      removedLabels.push(task.label);
       return null;
     }
     return task;
   });
 
+  reconcileClaimMeta();
   conflictsEl.hidden = takenByOthers.size === 0;
   if (knockedOut > 0) {
-    scenarioText.textContent = `Chaos! ${knockedOut} val gick forlorade till deltagare med hogre rattighet.`;
+    const preview = removedLabels.slice(0, 3).join(", ");
+    scenarioText.textContent = `Kaos! ${knockedOut} val forlorades till snabbare deltagare.`;
+    logEvent(`Forlorade ${knockedOut} uppgifter: ${preview}${removedLabels.length > 3 ? "..." : ""}`, "conflict");
   }
 
   renderSlots();
@@ -541,7 +625,7 @@ function updateTimer() {
   const tick = () => {
     const left = Math.max(0, Math.floor((deadlineMs - Date.now()) / 1000));
     timerEl.textContent = `${left}s`;
-    if (left <= 0) {
+    if (left <= 0 && timerHandle) {
       clearInterval(timerHandle);
       timerHandle = null;
     }
@@ -593,8 +677,9 @@ async function submitPriorities() {
   taskList.hidden = true;
   budgetStrip.hidden = true;
   submitBtn.hidden = true;
-  hideChaosCard();
+  hideChaosOverlay();
   stopUnlockCheck();
+  logEvent("Prioritering skickad.", "phase");
 }
 
 function getOrCreateParticipantId() {
