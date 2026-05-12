@@ -223,9 +223,21 @@ button:hover {
   cursor: grabbing;
 }
 
-.task-item.taken {
-  opacity: 0.4;
-  border-color: var(--danger);
+.task-item.locked {
+  opacity: 0.5;
+  border: 2px solid #ffb3b3;
+  background: #fff5f5;
+  cursor: not-allowed;
+  animation: pulse-locked 1s infinite;
+}
+
+@keyframes pulse-locked {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgb(255, 107, 107, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 8px 4px rgb(255, 107, 107, 0.1);
+  }
 }
 
 .conflicts {

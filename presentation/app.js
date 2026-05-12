@@ -24,18 +24,20 @@ let currentPhase = "";
 let currentPriorities = [];
 let availableTasks = [];
 let takenByOthers = new Set();
+let taskUnlockTimes = new Map();
+let unlockCheckHandle = null;
 
 const TASKS = [
-  { id: "urgent_incident", label: "🔥 Kritisk incident" },
-  { id: "customer_call", label: "☎️ Kundsamtal" },
-  { id: "email_backlog", label: "📧 Email backlog" },
-  { id: "meeting_prep", label: "📋 Möteförberedelse" },
-  { id: "sprint_planning", label: "🎯 Sprint planning" },
-  { id: "code_review", label: "🔍 Code review" },
-  { id: "documentation", label: "📚 Dokumentation" },
-  { id: "team_sync", label: "👥 Team sync" },
-  { id: "dev_task", label: "💻 Utvecklingsuppgift" },
-  { id: "support_ticket", label: "🎫 Support ticket" }
+  { id: "urgent_incident", label: "🔥 Kritisk incident", lockedMs: 0 },
+  { id: "customer_call", label: "☎️ Kundsamtal", lockedMs: 0 },
+  { id: "email_backlog", label: "📧 Email backlog", lockedMs: 8000 },
+  { id: "meeting_prep", label: "📋 Möteförberedelse", lockedMs: 0 },
+  { id: "sprint_planning", label: "🎯 Sprint planning", lockedMs: 15000 },
+  { id: "code_review", label: "🔍 Code review", lockedMs: 0 },
+  { id: "documentation", label: "📚 Dokumentation", lockedMs: 25000 },
+  { id: "team_sync", label: "👥 Team sync", lockedMs: 0 },
+  { id: "dev_task", label: "💻 Utvecklingsuppgift", lockedMs: 12000 },
+  { id: "support_ticket", label: "🎫 Support ticket", lockedMs: 5000 }
 ];
 
 const phaseCopy = {
@@ -125,7 +127,13 @@ async function syncState() {
 
   if (interactive && !submitted) {
     availableTasks = TASKS;
+    taskUnlockTimes.clear();
+    const now = Date.now();
+    availableTasks.forEach((task) => {
+      taskUnlockTimes.set(task.id, now + (task.lockedMs || 0));
+    });
     renderTasks();
+    startUnlockCheck();
   }
 
   deadlineMs = state.deadlineMs || null;
@@ -138,6 +146,7 @@ async function syncState() {
 
 function renderTasks() {
   taskPool.innerHTML = "";
+  const now = Date.now();
   availableTasks.forEach((task) => {
     const isTaken = takenByOthers.has(task.id);
     const inPriorities = currentPriorities.some((p) => p.id === task.id);
@@ -145,12 +154,23 @@ function renderTasks() {
       return;
     }
 
+    const unlockTime = taskUnlockTimes.get(task.id) || 0;
+    const isLocked = unlockTime > now;
+    const lockSecsLeft = Math.ceil((unlockTime - now) / 1000);
+
     const taskDiv = document.createElement("div");
-    taskDiv.className = `task-item${isTaken ? " taken" : ""}`;
+    taskDiv.className = `task-item${isTaken ? " taken" : ""}${isLocked ? " locked" : ""}`;
     taskDiv.dataset.taskId = task.id;
-    taskDiv.draggable = !isTaken;
-    taskDiv.textContent = task.label;
-    taskDiv.title = isTaken ? "Tagen av annan deltagare" : "Dra här för att prioritera";
+    taskDiv.draggable = !isTaken && !isLocked;
+    
+    if (isLocked) {
+      taskDiv.textContent = `${task.label} (${lockSecsLeft}s)`;
+      taskDiv.title = `Tillgänglig om ${lockSecsLeft} sekunder`;
+    } else {
+      taskDiv.textContent = task.label;
+      taskDiv.title = isTaken ? "Tagen av annan deltagare" : "Dra här för att prioritera";
+    }
+    
     taskPool.appendChild(taskDiv);
   });
 }
@@ -258,6 +278,16 @@ async function submitPriorities() {
   submittedEl.hidden = false;
   taskList.hidden = true;
   submitBtn.hidden = true;
+}
+
+function startUnlockCheck() {
+  if (unlockCheckHandle) {
+    clearInterval(unlockCheckHandle);
+  }
+  
+  unlockCheckHandle = setInterval(() => {
+    renderTasks();
+  }, 250);
 }
 
 function getOrCreateParticipantId() {
