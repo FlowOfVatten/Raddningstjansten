@@ -184,6 +184,40 @@ button.secondary { background: #52626a; }
   color: #7c3119;
 }
 
+.briefing-admin {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #d9cdbd;
+  border-radius: 10px;
+  background: #f7f1e8;
+}
+
+.briefing-deck {
+  margin-top: 14px;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid #d7c8ad;
+  background: linear-gradient(160deg, #fff7ea 0%, #f3e6d1 100%);
+}
+
+.briefing-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6f5a3f;
+}
+
+.briefing-deck h3 {
+  margin: 10px 0 8px;
+  font-size: clamp(1.25rem, 2.4vw, 1.85rem);
+}
+
+.briefing-deck p {
+  margin: 0;
+  max-width: 70ch;
+}
+
 .task-list { margin-top: 14px; }
 .task-hint { font-size: 0.9rem; color: var(--muted); margin-bottom: 14px; }
 

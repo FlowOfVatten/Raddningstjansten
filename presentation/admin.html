@@ -42,6 +42,19 @@
         <button class="trigger" data-phase="digitalStress" data-duration="60">Start game (60s Digital Stress -> auto Chaos)</button>
       </div>
       <p class="muted">After 60 seconds in Digital Stress, the game automatically switches to Chaos.</p>
+      <div class="briefing-admin">
+        <div class="row between">
+          <p class="muted">Briefing slide: <strong id="briefingSlideLabel">Not running</strong></p>
+        </div>
+        <div class="grid two">
+          <button id="startBriefing" type="button">Start briefing</button>
+          <button id="endBriefing" type="button" class="secondary">End briefing</button>
+        </div>
+        <div class="grid two">
+          <button id="prevBriefing" type="button" class="secondary">Previous slide</button>
+          <button id="nextBriefing" type="button">Next slide</button>
+        </div>
+      </div>
       <button id="revealResults" type="button">Reveal results mode</button>
       <p id="adminStatus" class="muted"></p>
     </section>

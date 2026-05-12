@@ -31,6 +31,28 @@ module.exports = async function (context, req) {
       });
     }
 
+    if (method === "POST" && action === "briefing") {
+      const payload = req.body || {};
+      const session = await store.updateBriefing({
+        sessionId: payload.sessionId,
+        adminKey: payload.adminKey,
+        command: payload.command,
+        totalSlides: payload.totalSlides
+      });
+
+      if (!session) {
+        return json(401, { error: "Invalid session or admin key" });
+      }
+
+      return json(200, {
+        ok: true,
+        phase: session.phase,
+        briefingSlide: session.briefingSlide,
+        briefingTotal: session.briefingTotal,
+        message: session.message
+      });
+    }
+
     if (method === "POST" && action === "claim") {
       const payload = req.body || {};
       const ok = await store.claim({

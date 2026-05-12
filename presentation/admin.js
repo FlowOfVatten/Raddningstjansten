@@ -14,6 +14,13 @@ const adminTimer = document.getElementById("adminTimer");
 const joinedCount = document.getElementById("joinedCount");
 const refreshStateBtn = document.getElementById("refreshState");
 const lastUpdated = document.getElementById("lastUpdated");
+const briefingSlideLabel = document.getElementById("briefingSlideLabel");
+const startBriefingBtn = document.getElementById("startBriefing");
+const prevBriefingBtn = document.getElementById("prevBriefing");
+const nextBriefingBtn = document.getElementById("nextBriefing");
+const endBriefingBtn = document.getElementById("endBriefing");
+
+const DEFAULT_BRIEFING_SLIDES = 6;
 
 let adminPollHandle = null;
 let timerHandle = null;
@@ -27,6 +34,10 @@ revealResultsBtn.addEventListener("click", revealResults);
 refreshStateBtn.addEventListener("click", () => {
   syncAdminState();
 });
+startBriefingBtn.addEventListener("click", () => updateBriefing("start"));
+prevBriefingBtn.addEventListener("click", () => updateBriefing("prev"));
+nextBriefingBtn.addEventListener("click", () => updateBriefing("next"));
+endBriefingBtn.addEventListener("click", () => updateBriefing("end"));
 startLastUpdatedTicker();
 
 async function createSession() {
@@ -105,6 +116,37 @@ async function revealResults() {
   await syncAdminState();
 }
 
+async function updateBriefing(command) {
+  if (!sessionInput.value || !adminKeyInput.value) {
+    adminStatus.textContent = "Create a session first.";
+    return;
+  }
+
+  const res = await fetch(`${API_BASE}/briefing`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: sessionInput.value,
+      adminKey: adminKeyInput.value,
+      command,
+      totalSlides: DEFAULT_BRIEFING_SLIDES
+    })
+  });
+
+  if (!res.ok) {
+    adminStatus.textContent = "Could not update briefing.";
+    return;
+  }
+
+  const data = await res.json();
+  if (data.phase === "briefing") {
+    adminStatus.textContent = `Briefing running: slide ${Number(data.briefingSlide || 0) + 1}/${Number(data.briefingTotal || DEFAULT_BRIEFING_SLIDES)}.`;
+  } else {
+    adminStatus.textContent = data.message || "Briefing updated.";
+  }
+  await syncAdminState();
+}
+
 function startAdminPolling() {
   if (adminPollHandle) {
     clearInterval(adminPollHandle);
@@ -127,10 +169,26 @@ async function syncAdminState() {
   const state = await res.json();
   adminPhase.textContent = state.phase || "idle";
   joinedCount.textContent = String(state.participantCount || 0);
+  renderBriefingLabel(state);
   lastStateUpdateMs = Date.now();
   renderLastUpdated();
   deadlineMs = state.deadlineMs || null;
   updateAdminTimer();
+}
+
+function renderBriefingLabel(state) {
+  if (!briefingSlideLabel) {
+    return;
+  }
+
+  if ((state.phase || "") !== "briefing") {
+    briefingSlideLabel.textContent = "Not running";
+    return;
+  }
+
+  const slide = Number(state.briefingSlide || 0) + 1;
+  const total = Number(state.briefingTotal || DEFAULT_BRIEFING_SLIDES);
+  briefingSlideLabel.textContent = `${slide}/${total}`;
 }
 
 function startLastUpdatedTicker() {

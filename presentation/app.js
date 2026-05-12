@@ -11,6 +11,10 @@ const joinStatus = document.getElementById("joinStatus");
 const scenarioCard = document.getElementById("scenarioCard");
 const scenarioTitle = document.getElementById("scenarioTitle");
 const scenarioText = document.getElementById("scenarioText");
+const briefingDeck = document.getElementById("briefingDeck");
+const briefingMeta = document.getElementById("briefingMeta");
+const briefingHeadline = document.getElementById("briefingHeadline");
+const briefingBody = document.getElementById("briefingBody");
 const timerEl = document.getElementById("timer");
 const taskList = document.getElementById("taskList");
 const priorityBoard = document.getElementById("priorityBoard");
@@ -97,10 +101,38 @@ const TASKS = createTaskCatalog();
 
 const phaseCopy = {
   idle: "Waiting for activation",
+  briefing: "Pre-game briefing",
   digitalStress: "Digital Stress - Prioritize top 10 for an 8-hour workday",
   workloadChaos: "Chaos - channel spam, interruptions, and reactive work",
   results: "Results mode"
 };
+
+const BRIEFING_SLIDES = [
+  {
+    title: "Welcome to the simulation",
+    body: "You are operating a shared service day where incidents, requests, and planned work compete for attention."
+  },
+  {
+    title: "Goal",
+    body: "Build a top-10 priority list that creates value without burning through the full workday budget."
+  },
+  {
+    title: "Digital Stress phase",
+    body: "For 60 seconds, rank work items quickly. Critical work will keep arriving in waves and force trade-offs."
+  },
+  {
+    title: "Workload Chaos phase",
+    body: "Interruptions, channel noise, and resource conflicts will challenge your ranking. Adapt continuously."
+  },
+  {
+    title: "What to optimize",
+    body: "Balance delivery, wellbeing breaks, and focus quality. Fast but fragile choices can hurt total outcome."
+  },
+  {
+    title: "How results are used",
+    body: "After the session, your latest submission is compared to group averages for reflection and discussion."
+  }
+];
 
 const CHAOS_INTERRUPTS = [
   {
@@ -328,8 +360,16 @@ async function syncState() {
   const state = await res.json();
   currentPhase = state.phase || "idle";
   deadlineMs = state.deadlineMs || null;
-  scenarioTitle.textContent = phaseCopy[currentPhase] || "Scenario";
-  scenarioText.textContent = state.message || "Follow the on-screen instructions.";
+  const briefingSlide = Number(state.briefingSlide || 0);
+  const briefingTotal = Number(state.briefingTotal || BRIEFING_SLIDES.length || 1);
+
+  if (currentPhase === "briefing") {
+    renderBriefingSlide(briefingSlide, briefingTotal);
+  } else {
+    hideBriefingSlide();
+    scenarioTitle.textContent = phaseCopy[currentPhase] || "Scenario";
+    scenarioText.textContent = state.message || "Follow the on-screen instructions.";
+  }
 
   const interactive = currentPhase === "digitalStress" || currentPhase === "workloadChaos";
   const submitted = Boolean(state.submitted);
@@ -455,6 +495,38 @@ function initializePhase({ carryForward = false } = {}) {
   startUnlockCheck();
 }
 
+function renderBriefingSlide(slideIndex, totalSlides) {
+  if (!briefingDeck) {
+    return;
+  }
+
+  const total = Math.max(1, Number(totalSlides || BRIEFING_SLIDES.length || 1));
+  const safeIndex = Math.max(0, Math.min(total - 1, Number(slideIndex || 0)));
+  const slide = BRIEFING_SLIDES[safeIndex] || BRIEFING_SLIDES[BRIEFING_SLIDES.length - 1] || {
+    title: "Briefing",
+    body: "Please wait for the facilitator."
+  };
+
+  briefingDeck.hidden = false;
+  taskList.hidden = true;
+  budgetStrip.hidden = true;
+  submitBtn.hidden = true;
+  submittedEl.hidden = true;
+  inlineResults.hidden = true;
+
+  scenarioTitle.textContent = phaseCopy.briefing;
+  scenarioText.textContent = "Follow the briefing on this screen. The game starts after the facilitator begins the scenario.";
+  briefingMeta.textContent = `Slide ${safeIndex + 1}/${total}`;
+  briefingHeadline.textContent = slide.title;
+  briefingBody.textContent = slide.body;
+}
+
+function hideBriefingSlide() {
+  if (briefingDeck) {
+    briefingDeck.hidden = true;
+  }
+}
+
 function renderWellbeingActions() {
   const now = Date.now();
   wellbeingActions.innerHTML = "";
@@ -470,7 +542,7 @@ function renderWellbeingActions() {
     btn.dataset.breakId = option.id;
     btn.disabled = disabled;
     btn.textContent = disabled
-      ? `${option.label} (${option.minutes} min) - klar om ${leftSec}s`
+      ? `${option.label} (${option.minutes} min) - ready in ${leftSec}s`
       : `${option.label} (${option.minutes} min)`;
     wellbeingActions.appendChild(btn);
   });

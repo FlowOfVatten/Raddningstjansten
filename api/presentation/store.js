@@ -5,6 +5,7 @@ const ANSWER_PREFIX = "rto:presentation:answer:";
 const CLAIM_PREFIX = "rto:presentation:claim:";
 const PRESENCE_PREFIX = "rto:presentation:presence:";
 const AUTO_CHAOS_DURATION_SEC = 90;
+const DEFAULT_BRIEFING_SLIDES = 6;
 
 const sessions = new Map();
 let poolPromise = null;
@@ -20,6 +21,8 @@ class MemoryPresentationStore {
       message: "Waiting for admin to start the scenario.",
       deadlineMs: null,
       createdAt: Date.now(),
+      briefingSlide: 0,
+      briefingTotal: DEFAULT_BRIEFING_SLIDES,
       submissionsByPhase: {},
       answers: [],
       claims: {},
@@ -49,6 +52,50 @@ class MemoryPresentationStore {
     if (!session.claims[phase]) {
       session.claims[phase] = {};
     }
+    return session;
+  }
+
+  updateBriefing({ sessionId, adminKey, command, totalSlides }) {
+    const session = this.getSession(sessionId);
+    if (!session || session.adminKey !== adminKey) {
+      return null;
+    }
+
+    const maxSlides = Math.max(1, Number(totalSlides || session.briefingTotal || DEFAULT_BRIEFING_SLIDES));
+    session.briefingTotal = maxSlides;
+    const normalized = String(command || "").toLowerCase();
+
+    if (normalized === "start") {
+      session.phase = "briefing";
+      session.deadlineMs = null;
+      session.briefingSlide = 0;
+      session.message = phaseMessage("briefing", { slide: 1, total: maxSlides });
+      return session;
+    }
+
+    if (normalized === "next") {
+      session.phase = "briefing";
+      session.deadlineMs = null;
+      session.briefingSlide = Math.min(maxSlides - 1, Number(session.briefingSlide || 0) + 1);
+      session.message = phaseMessage("briefing", { slide: session.briefingSlide + 1, total: maxSlides });
+      return session;
+    }
+
+    if (normalized === "prev") {
+      session.phase = "briefing";
+      session.deadlineMs = null;
+      session.briefingSlide = Math.max(0, Number(session.briefingSlide || 0) - 1);
+      session.message = phaseMessage("briefing", { slide: session.briefingSlide + 1, total: maxSlides });
+      return session;
+    }
+
+    if (normalized === "end") {
+      session.phase = "idle";
+      session.deadlineMs = null;
+      session.message = "Briefing complete. Start the game when everyone is ready.";
+      return session;
+    }
+
     return session;
   }
 
@@ -128,7 +175,9 @@ class MemoryPresentationStore {
       message: session.message,
       deadlineMs: session.deadlineMs,
       submitted,
-      participantCount: session.participants.size
+      participantCount: session.participants.size,
+      briefingSlide: Number(session.briefingSlide || 0),
+      briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES)
     };
   }
 
@@ -425,6 +474,8 @@ class SqlPresentationStore {
       message: "Waiting for admin to start the scenario.",
       deadlineMs: null,
       createdAt: Date.now()
+      ,briefingSlide: 0
+      ,briefingTotal: DEFAULT_BRIEFING_SLIDES
     };
 
     await upsertAppState(pool, sessionStateId(sessionId), record);
@@ -452,6 +503,50 @@ class SqlPresentationStore {
       phase,
       deadlineMs: ms > 0 ? Date.now() + ms : null,
       message: phaseMessage(phase),
+      updatedAt: Date.now()
+    };
+
+    const pool = await getPool();
+    await upsertAppState(pool, sessionStateId(updated.sessionId), updated);
+    return updated;
+  }
+
+  async updateBriefing({ sessionId, adminKey, command, totalSlides }) {
+    const session = await this.getSession(sessionId);
+    if (!session || session.adminKey !== adminKey) {
+      return null;
+    }
+
+    const maxSlides = Math.max(1, Number(totalSlides || session.briefingTotal || DEFAULT_BRIEFING_SLIDES));
+    const normalized = String(command || "").toLowerCase();
+    let nextPhase = session.phase;
+    let nextSlide = Number(session.briefingSlide || 0);
+    let nextMessage = session.message;
+
+    if (normalized === "start") {
+      nextPhase = "briefing";
+      nextSlide = 0;
+      nextMessage = phaseMessage("briefing", { slide: 1, total: maxSlides });
+    } else if (normalized === "next") {
+      nextPhase = "briefing";
+      nextSlide = Math.min(maxSlides - 1, nextSlide + 1);
+      nextMessage = phaseMessage("briefing", { slide: nextSlide + 1, total: maxSlides });
+    } else if (normalized === "prev") {
+      nextPhase = "briefing";
+      nextSlide = Math.max(0, nextSlide - 1);
+      nextMessage = phaseMessage("briefing", { slide: nextSlide + 1, total: maxSlides });
+    } else if (normalized === "end") {
+      nextPhase = "idle";
+      nextMessage = "Briefing complete. Start the game when everyone is ready.";
+    }
+
+    const updated = {
+      ...session,
+      phase: nextPhase,
+      briefingSlide: nextSlide,
+      briefingTotal: maxSlides,
+      deadlineMs: null,
+      message: nextMessage,
       updatedAt: Date.now()
     };
 
@@ -545,7 +640,9 @@ class SqlPresentationStore {
       message: session.message,
       deadlineMs: session.deadlineMs,
       submitted,
-      participantCount
+      participantCount,
+      briefingSlide: Number(session.briefingSlide || 0),
+      briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES)
     };
   }
 
@@ -819,11 +916,17 @@ function presenceStateId({ sessionId, participantId }) {
 }
 
 function phaseMessage(phase) {
+  const opts = arguments[1] || {};
   if (phase === "digitalStress") {
     return "Digital stress: build a top-10 plan that fits in an 8-hour workday.";
   }
   if (phase === "workloadChaos") {
     return "Chaos: interruptions and social choices cost time. Balance delivery with sustainability.";
+  }
+  if (phase === "briefing") {
+    const slide = Number(opts.slide || 1);
+    const total = Number(opts.total || DEFAULT_BRIEFING_SLIDES);
+    return `Briefing in progress: slide ${slide}/${total}.`;
   }
   if (phase === "results") {
     return "Thanks. Results are now being presented.";
