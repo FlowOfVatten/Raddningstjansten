@@ -256,6 +256,10 @@ button.secondary { background: #52626a; }
   padding: 16px;
 }
 
+.chaos-overlay[hidden] {
+  display: none !important;
+}
+
 .chaos-dialog {
   width: min(760px, 96vw);
   border-radius: 14px;

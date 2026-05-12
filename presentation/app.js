@@ -90,6 +90,7 @@ const CHAOS_INTERRUPTS = [
 ];
 
 buildPriorityBoard(TOP_SLOTS);
+hideChaosOverlay();
 
 joinBtn.addEventListener("click", () => {
   const sessionId = sessionInput.value.trim().toUpperCase();
