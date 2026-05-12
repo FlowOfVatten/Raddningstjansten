@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1b1f3b"/>
+      <stop offset="100%" stop-color="#0f2a43"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <g transform="translate(150,100)">
+    <rect x="0" y="0" width="260" height="150" rx="16" fill="#ffffff" fill-opacity="0.08" stroke="#6fffe9" stroke-opacity="0.5"/>
+    <text x="20" y="45" fill="#ffd166" font-size="30" font-family="Segoe UI, Arial, sans-serif">?</text>
+    <text x="70" y="45" fill="#ff6b6b" font-size="30" font-family="Segoe UI, Arial, sans-serif">!</text>
+    <text x="20" y="95" fill="#dff" font-size="24" font-family="Segoe UI, Arial, sans-serif">Unclear goals</text>
+    <text x="20" y="128" fill="#dff" font-size="24" font-family="Segoe UI, Arial, sans-serif">Competing priorities</text>
+  </g>
+  <g transform="translate(470,180)">
+    <circle cx="120" cy="80" r="90" fill="#6fffe9" fill-opacity="0.12"/>
+    <path d="M40 80 H200" stroke="#6fffe9" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="40" cy="80" r="14" fill="#ffd166"/>
+    <circle cx="120" cy="80" r="14" fill="#ff6b6b"/>
+    <circle cx="200" cy="80" r="14" fill="#6fffe9"/>
+  </g>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#111827"/>
+  <g opacity="0.9">
+    <rect x="120" y="150" width="80" height="230" fill="#ef4444"/>
+    <rect x="230" y="120" width="80" height="260" fill="#f97316"/>
+    <rect x="340" y="190" width="80" height="190" fill="#f59e0b"/>
+    <rect x="450" y="90" width="80" height="290" fill="#ef4444"/>
+    <rect x="560" y="230" width="80" height="150" fill="#f97316"/>
+    <rect x="670" y="160" width="80" height="220" fill="#f59e0b"/>
+  </g>
+  <path d="M100 430 Q190 390 280 430 T460 430 T640 430 T820 430" stroke="#9ca3af" stroke-width="4" fill="none" stroke-dasharray="9 9"/>
+  <text x="480" y="490" text-anchor="middle" fill="#d1d5db" font-size="34" font-family="Segoe UI, Arial, sans-serif">FOCUS BREAKS. EVERYTHING FEELS URGENT.</text>
+</svg>

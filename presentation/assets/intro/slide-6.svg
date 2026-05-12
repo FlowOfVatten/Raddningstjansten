@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#0b1020"/>
+  <g font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <circle cx="260" cy="210" r="120" fill="#ffd166" fill-opacity="0.12" stroke="#ffd166" stroke-width="3"/>
+    <text x="260" y="205" fill="#ffe7a3" font-size="34">UNCLEAR</text>
+    <text x="260" y="245" fill="#ffe7a3" font-size="34">WORK</text>
+
+    <text x="480" y="230" fill="#6fffe9" font-size="78">+</text>
+
+    <circle cx="700" cy="210" r="120" fill="#5bc0be" fill-opacity="0.12" stroke="#5bc0be" stroke-width="3"/>
+    <text x="700" y="205" fill="#c7f9f6" font-size="34">DIGITAL</text>
+    <text x="700" y="245" fill="#c7f9f6" font-size="34">TOOLS</text>
+
+    <path d="M480 300 L480 380" stroke="#6fffe9" stroke-width="5"/>
+    <polygon points="480,410 462,376 498,376" fill="#6fffe9"/>
+
+    <text x="480" y="500" fill="#ff6b6b" font-size="64" letter-spacing="2">STRESS</text>
+  </g>
+</svg>
