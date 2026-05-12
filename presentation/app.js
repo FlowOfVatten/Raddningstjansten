@@ -322,6 +322,7 @@ async function syncState() {
 
   const state = await res.json();
   currentPhase = state.phase || "idle";
+  deadlineMs = state.deadlineMs || null;
   scenarioTitle.textContent = phaseCopy[currentPhase] || "Scenario";
   scenarioText.textContent = state.message || "Folj instruktionerna pa skarmen.";
 
@@ -341,7 +342,7 @@ async function syncState() {
     initializePhase({ carryForward: carryFromDigitalToChaos });
   }
 
-  if (interactive && !submitted && deadlineMs && Date.now() >= deadlineMs && !hasAutoSubmitted) {
+  if (currentPhase === "workloadChaos" && !submitted && deadlineMs && Date.now() >= deadlineMs && !hasAutoSubmitted) {
     await finalizeByTimer();
   }
 
@@ -361,7 +362,6 @@ async function syncState() {
     hasLoadedInlineResults = false;
   }
 
-  deadlineMs = state.deadlineMs || null;
   updateTimer();
   renderBudget();
 
@@ -1161,7 +1161,7 @@ function updateTimer() {
     if (left <= 0 && timerHandle) {
       clearInterval(timerHandle);
       timerHandle = null;
-      if (!hasAutoSubmitted && (currentPhase === "digitalStress" || currentPhase === "workloadChaos")) {
+      if (!hasAutoSubmitted && currentPhase === "workloadChaos") {
         finalizeByTimer();
       }
     }

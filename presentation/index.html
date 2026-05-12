@@ -8,25 +8,28 @@
 </head>
 <body>
   <main class="page participant">
-    <header class="hero">
-      <p class="kicker">Live Experiment</p>
-      <h1>Digital Stress och Workload</h1>
-      <p class="sub">Anslut till sessionen och delta anonymt.</p>
+    <header class="hero hero-top">
+      <div>
+        <p class="kicker">Live Experiment</p>
+        <h1>Digital Stress och Workload</h1>
+        <p class="sub">Anslut till sessionen och delta anonymt.</p>
+      </div>
+      <div class="join-inline">
+        <label for="sessionId">Session-ID</label>
+        <div class="join-inline-row">
+          <input id="sessionId" autocomplete="off" placeholder="TEAM-2026">
+          <button id="joinBtn" type="button">Anslut</button>
+        </div>
+        <p id="joinStatus" class="muted"></p>
+      </div>
     </header>
 
-    <section class="card controls">
-      <label for="sessionId">Session-ID</label>
-      <input id="sessionId" autocomplete="off" placeholder="t.ex. TEAM-2026">
-      <button id="joinBtn" type="button">Anslut</button>
-      <p id="joinStatus" class="muted"></p>
-    </section>
-
     <section id="scenarioCard" class="scenario-layout" hidden>
-      <aside class="card event-panel" id="eventPanel">
+      <section class="card event-panel" id="eventPanel">
         <h3>Handelser</h3>
         <p class="muted">Live-logg for kaoslaget.</p>
         <ul id="eventFeed" class="event-feed"></ul>
-      </aside>
+      </section>
 
       <section class="card scenario-main">
         <div class="row between">
@@ -47,6 +50,9 @@
             <div id="priorityBoard" class="priority-board"></div>
 
             <div id="taskPoolPanel" class="task-pool">
+              <h3>Uppgifter att prioritera</h3>
+              <div id="tasks" class="tasks"></div>
+
               <div class="side-panel" id="channelPanel">
                 <h4>Kanal-kaos</h4>
                 <p class="muted">Samma arende kan dyka upp i flera kanaler. Du kan inte ta allt.</p>
@@ -66,9 +72,6 @@
                 <div id="wellbeingActions" class="wellbeing-actions"></div>
                 <p class="muted" id="wellbeingStats">Tagna raster: 0 | Tid: 0 min</p>
               </div>
-
-              <h3>Uppgifter att prioritera</h3>
-              <div id="tasks" class="tasks"></div>
             </div>
           </div>
 

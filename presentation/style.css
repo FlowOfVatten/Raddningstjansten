@@ -18,7 +18,7 @@ body {
 }
 
 .page {
-  width: min(980px, 94vw);
+  width: min(1240px, 96vw);
   margin: 0 auto;
   padding: 24px 0 56px;
 }
@@ -26,14 +26,50 @@ body {
 .scenario-layout {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 12px;
   align-items: start;
 }
 
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+
+.join-inline {
+  min-width: 320px;
+  max-width: 360px;
+}
+
+.join-inline label {
+  margin-bottom: 6px;
+}
+
+.join-inline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.join-inline-row input {
+  margin-top: 0;
+}
+
+.join-inline-row button {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.join-inline p {
+  margin: 6px 0 0;
+}
+
 .event-panel {
-  position: sticky;
-  top: 14px;
+  position: static;
+  margin-top: 0;
 }
 
 .event-panel h3 {
@@ -44,14 +80,18 @@ body {
   list-style: none;
   margin: 10px 0 0;
   padding: 0;
-  max-height: 560px;
-  overflow: auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 320px);
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .event-feed li {
   border-left: 3px solid #d1c5b5;
   padding: 8px 10px;
-  margin: 0 0 8px;
+  margin: 0;
   background: #f7f1e8;
   border-radius: 0 8px 8px 0;
   font-size: 0.9rem;
@@ -141,7 +181,7 @@ button.secondary { background: #52626a; }
 
 .task-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 12px;
   align-items: start;
 }
@@ -504,6 +544,16 @@ button.secondary { background: #52626a; }
     grid-template-columns: 1fr;
   }
 
+  .hero-top {
+    flex-direction: column;
+  }
+
+  .join-inline {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
   .event-panel {
     position: static;
   }
@@ -519,7 +569,7 @@ button.secondary { background: #52626a; }
   .tasks { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
 
   .event-feed {
-    max-height: 200px;
+    grid-auto-columns: minmax(220px, 260px);
   }
 
   .grid.two { grid-template-columns: 1fr; }
