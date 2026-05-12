@@ -119,6 +119,135 @@ button:hover {
   background: #23404a;
 }
 
+.task-list {
+  margin-top: 14px;
+}
+
+.task-hint {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.priority-board {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f9f7f2;
+  border-radius: 10px;
+}
+
+.rank-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.rank-label {
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
+.task-slot {
+  min-height: 42px;
+  border: 2px dashed #cfc4b4;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.task-slot.filled {
+  border-color: var(--accent);
+  background: #f0fdf7;
+  color: var(--text);
+}
+
+.task-slot.conflict {
+  background: #faf5f0;
+  border-color: var(--danger);
+  animation: blink-conflict 0.6s infinite;
+}
+
+@keyframes blink-conflict {
+  0%, 100% {
+    background: #faf5f0;
+  }
+  50% {
+    background: #ffe5e5;
+  }
+}
+
+.task-pool {
+  margin-bottom: 14px;
+}
+
+.task-pool h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.tasks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.task-item {
+  padding: 10px;
+  background: #e9dcc9;
+  border-radius: 8px;
+  cursor: grab;
+  user-select: none;
+  font-size: 0.85rem;
+  text-align: center;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.task-item:hover {
+  background: #dccbb8;
+  transform: scale(1.02);
+}
+
+.task-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.task-item.taken {
+  opacity: 0.4;
+  border-color: var(--danger);
+}
+
+.conflicts {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #ffe5e5;
+  border: 1px solid #ffcccc;
+  border-radius: 8px;
+  color: #7c2d2d;
+}
+
+.conflict-warning {
+  margin: 0;
+  font-weight: 600;
+}
+
+.submit-btn {
+  margin-top: 10px;
+  background: var(--accent);
+  font-weight: 700;
+}
+
 .submitted {
   margin-top: 14px;
   padding: 12px;

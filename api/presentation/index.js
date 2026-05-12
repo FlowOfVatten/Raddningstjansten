@@ -36,7 +36,7 @@ module.exports = async function (context, req) {
       const result = await store.submit({
         sessionId: payload.sessionId,
         participantId: payload.participantId,
-        choice: payload.choice,
+        ranking: payload.ranking,
         responseTimeMs: payload.responseTimeMs
       });
 
@@ -45,10 +45,20 @@ module.exports = async function (context, req) {
       }
 
       if (result === false) {
-        return json(400, { error: "participantId and choice required" });
+        return json(400, { error: "participantId and ranking required" });
       }
 
       return json(200, { ok: true });
+    }
+
+    if (method === "GET" && action === "conflicts") {
+      const sessionId = req.query.sessionId;
+      const participantId = req.query.participantId || "";
+      const conflicts = await store.getConflicts({ sessionId, participantId });
+      if (!conflicts) {
+        return json(404, { error: "Session not found" });
+      }
+      return json(200, conflicts);
     }
 
     if (method === "GET" && action === "state") {

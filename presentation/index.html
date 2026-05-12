@@ -28,15 +28,42 @@
       </div>
       <p id="scenarioText">Du far instruktioner nar scenariot startar.</p>
 
-      <div id="choices" class="choices" hidden>
-        <button class="choice" data-choice="urgent_incident">Hantera incidenten</button>
-        <button class="choice" data-choice="customer_request">Svara kund direkt</button>
-        <button class="choice" data-choice="prep_meeting">Forbered mote</button>
-        <button class="choice" data-choice="ignore_all">Ignorera allt en stund</button>
+      <div id="taskList" class="task-list" hidden>
+        <p class="task-hint" id="taskHint">Prioritera genom att dra uppgifterna i ordningsfolj (1=viktigast)</p>
+        <div id="priorityBoard" class="priority-board">
+          <div class="rank-row rank-1">
+            <span class="rank-label">1</span>
+            <div class="task-slot" data-rank="1"></div>
+          </div>
+          <div class="rank-row rank-2">
+            <span class="rank-label">2</span>
+            <div class="task-slot" data-rank="2"></div>
+          </div>
+          <div class="rank-row rank-3">
+            <span class="rank-label">3</span>
+            <div class="task-slot" data-rank="3"></div>
+          </div>
+          <div class="rank-row rank-4">
+            <span class="rank-label">4</span>
+            <div class="task-slot" data-rank="4"></div>
+          </div>
+          <div class="rank-row rank-5">
+            <span class="rank-label">5</span>
+            <div class="task-slot" data-rank="5"></div>
+          </div>
+        </div>
+        <div id="taskPool" class="task-pool">
+          <h3>Uppgifter att prioritera</h3>
+          <div id="tasks" class="tasks"></div>
+        </div>
+        <div id="conflicts" class="conflicts" hidden>
+          <p class="conflict-warning">Andra deltagare tar samma resurser!</p>
+        </div>
+        <button id="submitPriorities" class="submit-btn" hidden>Skicka prioritering</button>
       </div>
 
       <div id="submitted" class="submitted" hidden>
-        <strong>Ditt svar ar skickat.</strong>
+        <strong>Din prioritering ar skickad. Vanta pa resultaten.</strong>
       </div>
     </section>
   </main>

@@ -1,5 +1,5 @@
 const API_BASE = "/api/presentation";
-const POLL_MS = 1000;
+const POLL_MS = 500;
 
 const sessionInput = document.getElementById("sessionId");
 const joinBtn = document.getElementById("joinBtn");
@@ -8,7 +8,11 @@ const scenarioCard = document.getElementById("scenarioCard");
 const scenarioTitle = document.getElementById("scenarioTitle");
 const scenarioText = document.getElementById("scenarioText");
 const timerEl = document.getElementById("timer");
-const choicesEl = document.getElementById("choices");
+const taskList = document.getElementById("taskList");
+const priorityBoard = document.getElementById("priorityBoard");
+const taskPool = document.getElementById("tasks");
+const conflictsEl = document.getElementById("conflicts");
+const submitBtn = document.getElementById("submitPriorities");
 const submittedEl = document.getElementById("submitted");
 
 const participantId = getOrCreateParticipantId();
@@ -16,18 +20,28 @@ let activeSessionId = "";
 let pollHandle = null;
 let timerHandle = null;
 let deadlineMs = null;
+let currentPhase = "";
+let currentPriorities = [];
+let availableTasks = [];
+let takenByOthers = new Set();
 
-const params = new URLSearchParams(window.location.search);
-const incomingSession = (params.get("session") || "").trim().toUpperCase();
-if (incomingSession) {
-  sessionInput.value = incomingSession;
-  joinBtn.click();
-}
+const TASKS = [
+  { id: "urgent_incident", label: "🔥 Kritisk incident" },
+  { id: "customer_call", label: "☎️ Kundsamtal" },
+  { id: "email_backlog", label: "📧 Email backlog" },
+  { id: "meeting_prep", label: "📋 Möteförberedelse" },
+  { id: "sprint_planning", label: "🎯 Sprint planning" },
+  { id: "code_review", label: "🔍 Code review" },
+  { id: "documentation", label: "📚 Dokumentation" },
+  { id: "team_sync", label: "👥 Team sync" },
+  { id: "dev_task", label: "💻 Utvecklingsuppgift" },
+  { id: "support_ticket", label: "🎫 Support ticket" }
+];
 
 const phaseCopy = {
-  idle: "Vantar pa aktivering",
-  digitalStress: "Digital Stress ar aktiv",
-  workloadChaos: "Workload Chaos ar aktiv",
+  idle: "Väntar på aktivering",
+  digitalStress: "Digital Stress - Prioritera alla 10 uppgifter",
+  workloadChaos: "Workload Chaos - Resurserna försvinner!",
   results: "Resultatlage"
 };
 
@@ -38,38 +52,41 @@ joinBtn.addEventListener("click", () => {
     return;
   }
   activeSessionId = sessionId;
-  joinStatus.textContent = "Ansluten. Vantar pa scenario...";
+  joinStatus.textContent = "Ansluten. Väntar på scenario...";
   scenarioCard.hidden = false;
   startPolling();
 });
 
-choicesEl.addEventListener("click", async (event) => {
-  const btn = event.target.closest("button[data-choice]");
-  if (!btn || !activeSessionId) {
-    return;
+submitBtn.addEventListener("click", submitPriorities);
+
+priorityBoard.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+});
+
+priorityBoard.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const taskId = e.dataTransfer.getData("text/plain");
+  const slot = e.target.closest(".task-slot");
+  if (slot) {
+    moveTaskToSlot(taskId, slot);
   }
+});
 
-  const choice = btn.dataset.choice;
-  const responseTimeMs = deadlineMs ? Math.max(0, deadlineMs - Date.now()) : null;
-
-  const res = await fetch(`${API_BASE}/submit`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: activeSessionId,
-      participantId,
-      choice,
-      responseTimeMs
-    })
-  });
-
-  if (!res.ok) {
-    joinStatus.textContent = "Kunde inte skicka svaret.";
-    return;
+taskPool.addEventListener("dragstart", (e) => {
+  const task = e.target.closest(".task-item");
+  if (task) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", task.dataset.taskId);
+    task.classList.add("dragging");
   }
+});
 
-  submittedEl.hidden = false;
-  choicesEl.hidden = true;
+taskPool.addEventListener("dragend", (e) => {
+  const task = e.target.closest(".task-item");
+  if (task) {
+    task.classList.remove("dragging");
+  }
 });
 
 function startPolling() {
@@ -93,16 +110,98 @@ async function syncState() {
   }
 
   const state = await res.json();
-  scenarioTitle.textContent = phaseCopy[state.phase] || "Scenario";
-  scenarioText.textContent = state.message || "Folj instruktionerna pa skarmen.";
+  currentPhase = state.phase || "idle";
 
-  const interactive = state.phase === "digitalStress" || state.phase === "workloadChaos";
+  scenarioTitle.textContent = phaseCopy[currentPhase] || "Scenario";
+  scenarioText.textContent = state.message || "Följ instruktionerna på skärmen.";
+
+  const interactive = currentPhase === "digitalStress" || currentPhase === "workloadChaos";
   const submitted = Boolean(state.submitted);
-  choicesEl.hidden = !interactive || submitted;
+  
+  taskList.hidden = !interactive;
+  submitBtn.hidden = !interactive || submitted;
+  conflictsEl.hidden = !interactive || currentPhase !== "workloadChaos";
   submittedEl.hidden = !submitted;
+
+  if (interactive && !submitted) {
+    availableTasks = TASKS;
+    renderTasks();
+  }
 
   deadlineMs = state.deadlineMs || null;
   updateTimer();
+
+  if (interactive && currentPhase === "workloadChaos") {
+    checkForConflicts();
+  }
+}
+
+function renderTasks() {
+  taskPool.innerHTML = "";
+  availableTasks.forEach((task) => {
+    const isTaken = takenByOthers.has(task.id);
+    const inPriorities = currentPriorities.some((p) => p.id === task.id);
+    if (inPriorities) {
+      return;
+    }
+
+    const taskDiv = document.createElement("div");
+    taskDiv.className = `task-item${isTaken ? " taken" : ""}`;
+    taskDiv.dataset.taskId = task.id;
+    taskDiv.draggable = !isTaken;
+    taskDiv.textContent = task.label;
+    taskDiv.title = isTaken ? "Tagen av annan deltagare" : "Dra här för att prioritera";
+    taskPool.appendChild(taskDiv);
+  });
+}
+
+function moveTaskToSlot(taskId, slot) {
+  const task = availableTasks.find((t) => t.id === taskId);
+  if (!task) {
+    return;
+  }
+
+  const rankIndex = Number(slot.dataset.rank) - 1;
+  currentPriorities[rankIndex] = task;
+
+  renderSlots();
+  renderTasks();
+}
+
+function renderSlots() {
+  priorityBoard.querySelectorAll(".task-slot").forEach((slot, idx) => {
+    slot.innerHTML = "";
+    slot.classList.remove("filled", "conflict");
+
+    if (currentPriorities[idx]) {
+      const task = currentPriorities[idx];
+      slot.textContent = task.label;
+      slot.classList.add("filled");
+
+      if (takenByOthers.has(task.id)) {
+        slot.classList.add("conflict");
+      }
+    }
+  });
+}
+
+async function checkForConflicts() {
+  if (!activeSessionId) {
+    return;
+  }
+
+  const url = `${API_BASE}/conflicts?sessionId=${encodeURIComponent(activeSessionId)}&participantId=${encodeURIComponent(participantId)}`;
+  const res = await fetch(url);
+  if (res.ok) {
+    const data = await res.json();
+    takenByOthers = new Set(data.takenByOthers || []);
+    renderSlots();
+    renderTasks();
+
+    if (takenByOthers.size > 0) {
+      conflictsEl.hidden = false;
+    }
+  }
 }
 
 function updateTimer() {
@@ -128,6 +227,39 @@ function updateTimer() {
   timerHandle = setInterval(tick, 250);
 }
 
+async function submitPriorities() {
+  if (!activeSessionId || currentPriorities.length < 5) {
+    alert("Prioritera minst 5 uppgifter.");
+    return;
+  }
+
+  const ranking = currentPriorities.slice(0, 5).map((task, idx) => ({
+    rank: idx + 1,
+    taskId: task.id,
+    taskLabel: task.label
+  }));
+
+  const res = await fetch(`${API_BASE}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: activeSessionId,
+      participantId,
+      ranking,
+      responseTimeMs: deadlineMs ? Math.max(0, deadlineMs - Date.now()) : null
+    })
+  });
+
+  if (!res.ok) {
+    joinStatus.textContent = "Kunde inte skicka prioritering.";
+    return;
+  }
+
+  submittedEl.hidden = false;
+  taskList.hidden = true;
+  submitBtn.hidden = true;
+}
+
 function getOrCreateParticipantId() {
   const key = "presentationParticipantId";
   const existing = localStorage.getItem(key);
@@ -137,4 +269,11 @@ function getOrCreateParticipantId() {
   const created = `p-${Math.random().toString(36).slice(2, 10)}`;
   localStorage.setItem(key, created);
   return created;
+}
+
+const params = new URLSearchParams(window.location.search);
+const incomingSession = (params.get("session") || "").trim().toUpperCase();
+if (incomingSession) {
+  sessionInput.value = incomingSession;
+  joinBtn.click();
 }
