@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Experiment - Deltagare</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="page participant">
+    <header class="hero">
+      <p class="kicker">Live Experiment</p>
+      <h1>Digital Stress och Workload</h1>
+      <p class="sub">Anslut till sessionen och delta anonymt.</p>
+    </header>
+
+    <section class="card controls">
+      <label for="sessionId">Session-ID</label>
+      <input id="sessionId" autocomplete="off" placeholder="t.ex. TEAM-2026">
+      <button id="joinBtn" type="button">Anslut</button>
+      <p id="joinStatus" class="muted"></p>
+    </section>
+
+    <section class="card scenario" id="scenarioCard" hidden>
+      <div class="row between">
+        <h2 id="scenarioTitle">Vantar pa aktivering</h2>
+        <div class="timer" id="timer">--</div>
+      </div>
+      <p id="scenarioText">Du far instruktioner nar scenariot startar.</p>
+
+      <div id="choices" class="choices" hidden>
+        <button class="choice" data-choice="urgent_incident">Hantera incidenten</button>
+        <button class="choice" data-choice="customer_request">Svara kund direkt</button>
+        <button class="choice" data-choice="prep_meeting">Forbered mote</button>
+        <button class="choice" data-choice="ignore_all">Ignorera allt en stund</button>
+      </div>
+
+      <div id="submitted" class="submitted" hidden>
+        <strong>Ditt svar ar skickat.</strong>
+      </div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

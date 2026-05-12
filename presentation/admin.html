@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Experiment - Admin</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="page admin">
+    <header class="hero">
+      <p class="kicker">Admin Control</p>
+      <h1>Styr live-scenarion</h1>
+      <p class="sub">Skapa session och trigga stresslagen live.</p>
+    </header>
+
+    <section class="card controls">
+      <button id="createSession" type="button">Skapa ny session</button>
+      <div class="grid two">
+        <label>Session-ID
+          <input id="sessionId" readonly>
+        </label>
+        <label>Admin-nyckel
+          <input id="adminKey" readonly>
+        </label>
+      </div>
+      <p class="muted">Spara admin-nyckeln. Den behovs for att styra sessionen.</p>
+    </section>
+
+    <section class="card">
+      <h2>Aktivera scenario</h2>
+      <div class="grid two">
+        <button class="trigger" data-phase="digitalStress" data-duration="60">Starta Digital Stress (60s)</button>
+        <button class="trigger" data-phase="workloadChaos" data-duration="90">Starta Workload Chaos (90s)</button>
+      </div>
+      <button id="revealResults" type="button">Visa resultatlage</button>
+      <p id="adminStatus" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>Snabblankar</h2>
+      <p>Deltagare: <code id="participantLink">-</code></p>
+      <p>Resultat: <code id="resultsLink">-</code></p>
+    </section>
+  </main>
+
+  <script src="./admin.js"></script>
+</body>
+</html>
