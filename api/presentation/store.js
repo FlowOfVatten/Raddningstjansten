@@ -4,7 +4,7 @@ const SESSION_PREFIX = "rto:presentation:session:";
 const ANSWER_PREFIX = "rto:presentation:answer:";
 const CLAIM_PREFIX = "rto:presentation:claim:";
 const PRESENCE_PREFIX = "rto:presentation:presence:";
-const AUTO_CHAOS_DURATION_SEC = 90;
+const AUTO_CHAOS_DURATION_SEC = 180;
 const DEFAULT_BRIEFING_SLIDES = 6;
 
 const sessions = new Map();
