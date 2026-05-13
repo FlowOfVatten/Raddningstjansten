@@ -230,15 +230,27 @@ button.secondary { background: #52626a; }
   padding: 10px 18px;
   font-size: 0.95rem;
   border-radius: 6px;
-  border: 1px solid #d7c8ad;
-  background: white;
+  border: 1px solid #7c3119;
+  background: #7c3119;
+  color: #fff;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .briefing-controls button:hover:not(:disabled) {
-  background: #f3e6d1;
-  border-color: #b8a89f;
+  background: #672611;
+  border-color: #672611;
+}
+
+.briefing-controls button.secondary {
+  background: #44525a;
+  border-color: #44525a;
+  color: #fff;
+}
+
+.briefing-controls button.secondary:hover:not(:disabled) {
+  background: #35424a;
+  border-color: #35424a;
 }
 
 .briefing-controls button:disabled {

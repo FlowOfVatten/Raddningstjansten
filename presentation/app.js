@@ -382,13 +382,15 @@ async function syncState() {
   }
 
   const state = await res.json();
+  const previousPhase = currentPhase;
   currentPhase = state.phase || "idle";
   deadlineMs = state.deadlineMs || null;
   const briefingSlide = Number(state.briefingSlide || 0);
   const briefingTotal = Number(state.briefingTotal || BRIEFING_SLIDES.length || 1);
 
   if (currentPhase === "briefing") {
-    renderBriefingSlide(briefingSlide, briefingTotal);
+    // Only sync to server slide when entering briefing; after that each participant navigates locally.
+    renderBriefingSlide(briefingSlide, briefingTotal, { syncFromServer: previousPhase !== "briefing" });
   } else {
     hideBriefingSlide();
     scenarioTitle.textContent = phaseCopy[currentPhase] || "Scenario";
@@ -519,14 +521,19 @@ function initializePhase({ carryForward = false } = {}) {
   startUnlockCheck();
 }
 
-function renderBriefingSlide(slideIndex, totalSlides) {
+function renderBriefingSlide(slideIndex, totalSlides, { syncFromServer = false } = {}) {
   if (!briefingDeck) {
     return;
   }
 
   const total = Math.max(1, Number(totalSlides || BRIEFING_SLIDES.length || 1));
-  localBriefingSlide = Number(slideIndex || 0);
-  hasMarkedReady = false;
+  if (syncFromServer) {
+    localBriefingSlide = Number(slideIndex || 0);
+    hasMarkedReady = false;
+  } else {
+    // Keep local position while polling to avoid forcing participants back to slide 1.
+    localBriefingSlide = Math.max(0, Math.min(total - 1, Number(localBriefingSlide || 0)));
+  }
   
   renderBriefingControlsState();
 }
