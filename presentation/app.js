@@ -358,20 +358,62 @@ function buildPriorityBoard(size) {
 }
 
 function createTaskCatalog() {
-  const labels = [
-    "Major incident triage", "Escalation bridge update", "Inbox backlog cleanup", "Operations standup prep", "Weekly capacity planning",
-    "Change review for production", "Runbook documentation update", "Cross-team sync", "Lifecycle backlog refinement", "Service desk ticket burst",
-    "Critical customer follow-up", "Problem ticket triage", "Environment health report", "Monitoring dashboard anomaly", "Security deviation review",
-    "New teammate onboarding support", "Operational data export", "Quality gate check", "Maintenance readiness test", "Regression verification",
-    "Release go-live plan", "Risk assessment refresh", "Vendor coordination request", "Incident postmortem draft", "API failure diagnostics",
-    "Integration verification", "Priority committee input", "Leadership status pack", "Retrospective action follow-up", "Planning freeze decision",
-    "Urgent customer escalation", "Patch validation", "Stakeholder status summary", "Budget impact estimate", "Night shift failure review",
-    "SLA follow-up", "Root cause analysis", "Ops alert swarm", "Access request review", "Capacity forecast update",
-    "Performance validation", "Workshop prep", "Mentoring support", "Knowledge transfer", "Weekend maintenance checklist"
+  const taskSpecs = [
+    { id: "task_001", label: "Monitoring anomaly (potential P1)", score: 91.5, falseUrgency: false },
+    { id: "task_002", label: "Certificate expiring within 7 days (prod)", score: 68.5, falseUrgency: false },
+    { id: "task_003", label: "Multiple alerts correlation (pattern emerging)", score: 90.2, falseUrgency: false },
+    { id: "task_004", label: "Customer escalation with unclear root cause", score: 88.7, falseUrgency: false },
+    { id: "task_005", label: "API degradation trend (early signal)", score: 89.3, falseUrgency: false },
+    { id: "task_006", label: "SLA breach risk within 2 hours", score: 87.6, falseUrgency: false },
+    { id: "task_007", label: "Security deviation with unclear scope", score: 86.4, falseUrgency: false },
+    { id: "task_008", label: "DR readiness validation (quick check)", score: 85.2, falseUrgency: false },
+    { id: "task_009", label: "Patch validation before scheduled release", score: 83.9, falseUrgency: false },
+    { id: "task_010", label: "Rollback readiness verification", score: 83.2, falseUrgency: false },
+    { id: "task_011", label: "Change review (moderate-high risk)", score: 82.5, falseUrgency: false },
+    { id: "task_012", label: "Service desk ticket surge (pattern emerging)", score: 82.1, falseUrgency: false },
+    { id: "task_013", label: "Performance degradation investigation", score: 84.1, falseUrgency: false },
+    { id: "task_014", label: "Dependency risk identified in critical service", score: 80.3, falseUrgency: false },
+    { id: "task_015", label: "Customer SLA follow-up (high impact)", score: 81.7, falseUrgency: false },
+    { id: "task_016", label: "Backup validation check", score: 79.8, falseUrgency: false },
+    { id: "task_017", label: "Release readiness checkpoint", score: 79.4, falseUrgency: false },
+    { id: "task_018", label: "Lifecycle risk: outdated component in prod", score: 78.9, falseUrgency: false },
+    { id: "task_019", label: "Continuity plan alignment validation", score: 78.1, falseUrgency: false },
+    { id: "task_020", label: "Ops alert noise reduction tuning", score: 77.2, falseUrgency: false },
+    { id: "task_021", label: "Maintenance weekend risk review", score: 76.5, falseUrgency: false },
+    { id: "task_022", label: "Vendor coordination (active case)", score: 75.9, falseUrgency: false },
+    { id: "task_023", label: "Problem investigation follow-up", score: 74.6, falseUrgency: false },
+    { id: "task_024", label: "Root cause analysis draft review", score: 72.8, falseUrgency: false },
+    { id: "task_025", label: "Corrective action validation", score: 73.5, falseUrgency: false },
+    { id: "task_026", label: "Environment health report review", score: 72.0, falseUrgency: false },
+    { id: "task_027", label: "Integration verification (recent change)", score: 71.6, falseUrgency: false },
+    { id: "task_028", label: "KPI dashboard anomaly verification", score: 70.9, falseUrgency: false },
+    { id: "task_029", label: "Operational data validation task", score: 69.8, falseUrgency: false },
+    { id: "task_030", label: "Capacity forecast update", score: 68.4, falseUrgency: false },
+    { id: "task_031", label: "Access request approval batch", score: 66.2, falseUrgency: false },
+    { id: "task_032", label: "Dependency mapping update", score: 65.4, falseUrgency: false },
+    { id: "task_033", label: "Known error database update", score: 64.1, falseUrgency: false },
+    { id: "task_034", label: "Knowledge transfer preparation", score: 62.7, falseUrgency: false },
+    { id: "task_035", label: "Runbook update (non-critical)", score: 61.3, falseUrgency: false },
+    { id: "task_036", label: "Mentoring session check-in", score: 60.5, falseUrgency: false },
+    { id: "task_037", label: "Backlog prioritization review", score: 59.6, falseUrgency: false },
+    { id: "task_038", label: "Operations standup preparation", score: 57.8, falseUrgency: false },
+    { id: "task_039", label: "Incident report draft review", score: 56.4, falseUrgency: false },
+    { id: "task_040", label: "Cross-team sync meeting", score: 55.1, falseUrgency: false },
+    { id: "task_041", label: "Stakeholder status summary 'ASAP'", score: 41.5, falseUrgency: true },
+    { id: "task_042", label: "Inbox cleanup marked urgent", score: 38.4, falseUrgency: true },
+    { id: "task_043", label: "Meeting rebooking request immediate", score: 36.2, falseUrgency: true },
+    { id: "task_044", label: "Quick question from colleague (interrupt)", score: 42.7, falseUrgency: true },
+    { id: "task_045", label: "Workshop prep reminder today", score: 46.9, falseUrgency: true },
+    { id: "task_046", label: "Documentation formatting fix", score: 44.6, falseUrgency: true },
+    { id: "task_047", label: "Unplanned meeting invite (high priority)", score: 47.8, falseUrgency: true },
+    { id: "task_048", label: "Low priority ticket flagged urgent", score: 39.9, falseUrgency: true },
+    { id: "task_049", label: "Follow-up ping on old completed task", score: 43.1, falseUrgency: true },
+    { id: "task_050", label: "Ad-hoc reporting request", score: 52.3, falseUrgency: true }
   ];
 
-  return labels.map((label, idx) => {
-    const id = `task_${String(idx + 1).padStart(2, "0")}`;
+  return taskSpecs.map((spec, idx) => {
+    const id = spec.id;
+    const label = spec.label;
     const wellbeing = false;
     const minutes = 18 + (idx % 5) * 8;
     const lockedMs = 0;
@@ -382,10 +424,11 @@ function createTaskCatalog() {
     const risk = 25 + ((idx * 17) % 76);
     const deadlinePressure = 20 + ((idx * 29) % 78);
     const strategicAlignment = 30 + ((idx * 13) % 68);
-    const falseUrgency = /inbox|meeting|summary|workshop|maintenance checklist/i.test(label);
+    const falseUrgency = Boolean(spec.falseUrgency);
     return {
       id,
       label,
+      score: Number(spec.score),
       minutes,
       lockedMs,
       wellbeing,
@@ -1188,7 +1231,6 @@ function toggleTaskQuality(taskId) {
   const next = current === "goodEnough" ? "perfect" : "goodEnough";
   qualityChoiceByTaskId.set(taskId, next);
 
-  const task = availableTasks.find((item) => item.id === taskId);
   const progress = taskProgressById.get(taskId);
   if (task && progress) {
     const oldTotal = Math.max(1, Number(progress.totalWorkMinutes || 1));
@@ -1314,6 +1356,11 @@ function getPrioritySpeed(rankIndex) {
 }
 
 function computeBusinessScore(task) {
+  const fixedScore = Number(task.score);
+  if (Number.isFinite(fixedScore)) {
+    return Math.max(0, Math.min(100, round1(fixedScore)));
+  }
+
   const weighted =
     Number(task.businessImpact || 0) * 0.35 +
     Number(task.urgency || 0) * 0.25 +
