@@ -42,6 +42,7 @@ const budgetStrip = document.getElementById("budgetStrip");
 const budgetUsedEl = document.getElementById("budgetUsed");
 const budgetRemainingEl = document.getElementById("budgetRemaining");
 const wellbeingValueEl = document.getElementById("wellbeingValue");
+const wellbeingPanel = document.getElementById("wellbeingPanel");
 const chaosOverlayEl = document.getElementById("chaosOverlay");
 const chaosTitleEl = document.getElementById("chaosTitle");
 const chaosTextEl = document.getElementById("chaosText");
@@ -489,6 +490,9 @@ async function syncState() {
 
   taskList.hidden = !interactive || submitted;
   budgetStrip.hidden = !interactive || submitted;
+  if (wellbeingPanel) {
+    wellbeingPanel.hidden = !interactive || submitted;
+  }
   submitBtn.hidden = true;
   if (conflictsEl) {
     conflictsEl.hidden = true;
@@ -513,6 +517,9 @@ async function syncState() {
   if (currentPhase === "results") {
     taskList.hidden = true;
     budgetStrip.hidden = true;
+    if (wellbeingPanel) {
+      wellbeingPanel.hidden = true;
+    }
     submitBtn.hidden = true;
     await showInlineResults();
   } else {

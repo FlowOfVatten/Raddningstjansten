@@ -55,6 +55,13 @@
           <div class="budget-item"><span>Wellbeing</span><strong id="wellbeingValue">0</strong></div>
         </div>
 
+        <div class="wellbeing-inline" id="wellbeingPanel" hidden>
+          <h4>Wellbeing breaks</h4>
+          <p class="muted">Take a break when you judge that you need one.</p>
+          <div id="wellbeingActions" class="wellbeing-actions"></div>
+          <p class="muted" id="wellbeingStats">Breaks taken: 0 | Time: 0 min</p>
+        </div>
+
         <div id="taskList" class="task-list" hidden>
           <p class="task-hint" id="taskHint">Drag tasks into your top 5 queue. Tasks start counting down immediately, and higher priority slots complete faster. New work arrives every 10 seconds.</p>
           <div class="task-workspace">
@@ -75,13 +82,6 @@
                 <p class="muted" id="focusTarget">No active focus task.</p>
                 <div class="focus-bar"><div id="focusBarFill" class="focus-bar-fill"></div></div>
                 <p class="muted" id="focusStats">Worked time: 0s | Produced value: 0s</p>
-              </div>
-
-              <div class="side-panel" id="wellbeingPanel">
-                <h4>Wellbeing breaks</h4>
-                <p class="muted">Take a break when you judge that you need one.</p>
-                <div id="wellbeingActions" class="wellbeing-actions"></div>
-                <p class="muted" id="wellbeingStats">Breaks taken: 0 | Time: 0 min</p>
               </div>
             </div>
           </div>

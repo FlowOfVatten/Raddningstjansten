@@ -318,6 +318,30 @@ button.secondary { background: #52626a; }
   color: var(--danger);
 }
 
+.wellbeing-inline {
+  margin-top: 10px;
+  border: 1px solid #d9cdbd;
+  border-radius: 10px;
+  background: #f7f1e8;
+  padding: 10px;
+}
+
+.wellbeing-inline h4 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.wellbeing-inline .wellbeing-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wellbeing-inline .wellbeing-btn {
+  width: auto;
+  min-width: 170px;
+}
+
 .priority-board {
   display: grid;
   grid-template-columns: 1fr;
@@ -482,6 +506,10 @@ button.secondary { background: #52626a; }
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, #2e8e7b, #0f7b6c);
+}
+
+#focusPanel {
+  display: none;
 }
 
 .wellbeing-actions {
@@ -758,5 +786,7 @@ button.secondary { background: #52626a; }
   .results-grid { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 1fr; }
   .budget-strip { grid-template-columns: 1fr; }
+  .wellbeing-inline .wellbeing-actions { flex-direction: column; }
+  .wellbeing-inline .wellbeing-btn { width: 100%; min-width: 0; }
   .chaos-actions { grid-template-columns: 1fr; }
 }
