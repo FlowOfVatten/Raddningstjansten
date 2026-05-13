@@ -9,6 +9,7 @@ const participantLink = document.getElementById("participantLink");
 const resultsLink = document.getElementById("resultsLink");
 const triggerButtons = [...document.querySelectorAll(".trigger")];
 const revealResultsBtn = document.getElementById("revealResults");
+const newRoundBtn = document.getElementById("newRound");
 const adminPhase = document.getElementById("adminPhase");
 const adminTimer = document.getElementById("adminTimer");
 const joinedCount = document.getElementById("joinedCount");
@@ -20,8 +21,15 @@ const startBriefingBtn = document.getElementById("startBriefing");
 const prevBriefingBtn = document.getElementById("prevBriefing");
 const nextBriefingBtn = document.getElementById("nextBriefing");
 const endBriefingBtn = document.getElementById("endBriefing");
+const stressDurationInput = document.getElementById("stressDurationSec");
+const chaosDurationInput = document.getElementById("chaosDurationSec");
+const taskWaveInput = document.getElementById("taskWaveSeconds");
+const timingSummary = document.getElementById("timingSummary");
 
 const DEFAULT_BRIEFING_SLIDES = 6;
+const DEFAULT_STRESS_DURATION_SEC = 120;
+const DEFAULT_CHAOS_DURATION_SEC = 180;
+const DEFAULT_TASK_WAVE_SECONDS = 20;
 
 let adminPollHandle = null;
 let timerHandle = null;
@@ -32,6 +40,7 @@ let lastUpdatedHandle = null;
 createSessionBtn.addEventListener("click", createSession);
 triggerButtons.forEach((btn) => btn.addEventListener("click", () => activate(btn)));
 revealResultsBtn.addEventListener("click", revealResults);
+newRoundBtn.addEventListener("click", startNewRound);
 refreshStateBtn.addEventListener("click", () => {
   syncAdminState();
 });
@@ -39,7 +48,13 @@ startBriefingBtn.addEventListener("click", () => updateBriefing("start"));
 prevBriefingBtn.addEventListener("click", () => updateBriefing("prev"));
 nextBriefingBtn.addEventListener("click", () => updateBriefing("next"));
 endBriefingBtn.addEventListener("click", () => updateBriefing("end"));
+[stressDurationInput, chaosDurationInput, taskWaveInput].forEach((input) => {
+  if (input) {
+    input.addEventListener("input", renderTimingSummary);
+  }
+});
 startLastUpdatedTicker();
+renderTimingSummary();
 
 async function createSession() {
   const res = await fetch(`${API_BASE}/createSession`, {
@@ -69,7 +84,10 @@ async function activate(button) {
   }
 
   const phase = button.dataset.phase;
-  const durationSec = Number(button.dataset.duration || "60");
+  const timing = getTimingConfig();
+  const durationSec = phase === "digitalStress"
+    ? timing.stressDurationSec
+    : Number(button.dataset.duration || "0");
 
   const res = await fetch(`${API_BASE}/activate`, {
     method: "POST",
@@ -78,7 +96,9 @@ async function activate(button) {
       sessionId: sessionInput.value,
       adminKey: adminKeyInput.value,
       phase,
-      durationSec
+      durationSec,
+      chaosDurationSec: timing.chaosDurationSec,
+      taskWaveSeconds: timing.taskWaveSeconds
     })
   });
 
@@ -114,6 +134,30 @@ async function revealResults() {
   }
 
   adminStatus.textContent = "Results mode is active.";
+  await syncAdminState();
+}
+
+async function startNewRound() {
+  if (!sessionInput.value || !adminKeyInput.value) {
+    adminStatus.textContent = "Create a session first.";
+    return;
+  }
+
+  const res = await fetch(`${API_BASE}/startNewRound`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: sessionInput.value,
+      adminKey: adminKeyInput.value
+    })
+  });
+
+  if (!res.ok) {
+    adminStatus.textContent = "Could not start new round.";
+    return;
+  }
+
+  adminStatus.textContent = "New round started. Ready to go again!";
   await syncAdminState();
 }
 
@@ -171,11 +215,16 @@ async function syncAdminState() {
   adminPhase.textContent = state.phase || "idle";
   joinedCount.textContent = String(state.participantCount || 0);
   readyCount.textContent = String(state.readyCount || 0);
+  syncTimingInputsFromState(state);
   renderBriefingLabel(state);
   lastStateUpdateMs = Date.now();
   renderLastUpdated();
   deadlineMs = state.deadlineMs || null;
   updateAdminTimer();
+  
+  if (newRoundBtn) {
+    newRoundBtn.hidden = (state.phase || "idle") !== "results";
+  }
 }
 
 function renderBriefingLabel(state) {
@@ -236,6 +285,52 @@ function updateAdminTimer() {
 
   tick();
   timerHandle = setInterval(tick, 250);
+}
+
+function getTimingConfig() {
+  return {
+    stressDurationSec: parsePositiveInt(stressDurationInput && stressDurationInput.value, DEFAULT_STRESS_DURATION_SEC, 10, 3600),
+    chaosDurationSec: parsePositiveInt(chaosDurationInput && chaosDurationInput.value, DEFAULT_CHAOS_DURATION_SEC, 10, 3600),
+    taskWaveSeconds: parsePositiveInt(taskWaveInput && taskWaveInput.value, DEFAULT_TASK_WAVE_SECONDS, 5, 120)
+  };
+}
+
+function syncTimingInputsFromState(state) {
+  const stress = Number(state && state.stressDurationSec);
+  const chaos = Number(state && state.chaosDurationSec);
+  const taskWave = Number(state && state.taskWaveSeconds);
+
+  setInputIfNotFocused(stressDurationInput, stress > 0 ? stress : DEFAULT_STRESS_DURATION_SEC);
+  setInputIfNotFocused(chaosDurationInput, chaos > 0 ? chaos : DEFAULT_CHAOS_DURATION_SEC);
+  setInputIfNotFocused(taskWaveInput, taskWave > 0 ? taskWave : DEFAULT_TASK_WAVE_SECONDS);
+  renderTimingSummary();
+}
+
+function setInputIfNotFocused(input, value) {
+  if (!input) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.value = String(value);
+}
+
+function parsePositiveInt(raw, fallback, min, max) {
+  const parsed = Number.parseInt(String(raw || ""), 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function renderTimingSummary() {
+  if (!timingSummary) {
+    return;
+  }
+  const timing = getTimingConfig();
+  const totalSec = timing.stressDurationSec + timing.chaosDurationSec;
+  timingSummary.textContent = `Total game time: ${Math.round(totalSec / 60)} minutes (${timing.stressDurationSec}s Stress + ${timing.chaosDurationSec}s Chaos). Task boxes rotate every ${timing.taskWaveSeconds} seconds.`;
 }
 
 const params = new URLSearchParams(window.location.search);

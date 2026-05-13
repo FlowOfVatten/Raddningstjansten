@@ -21,6 +21,11 @@
           <button id="joinBtn" type="button">Join</button>
         </div>
         <p id="joinStatus" class="muted"></p>
+        <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
+          <label for="volumeSlider" style="font-size: 0.9em;">Volume:</label>
+          <input id="volumeSlider" type="range" min="0" max="100" value="50" style="flex: 1; max-width: 150px;">
+          <span id="volumeDisplay" style="font-size: 0.85em; color: #999; min-width: 30px;">50%</span>
+        </div>
       </div>
     </header>
 
@@ -114,6 +119,12 @@
               <p>Overload: <strong id="groupOverload">-</strong></p>
             </div>
           </div>
+        </section>
+
+        <section id="roundComparison" class="round-comparison" hidden>
+          <h3>Round comparison</h3>
+          <p class="muted" id="roundComparisonSummary">Compare your performance across multiple rounds:</p>
+          <div id="roundComparisonChart" class="round-chart"></div>
         </section>
       </section>
     </section>

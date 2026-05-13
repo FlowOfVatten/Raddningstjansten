@@ -39,9 +39,22 @@
       </div>
       <p class="muted" id="lastUpdated">Last updated: never</p>
       <div class="grid two">
-        <button class="trigger" data-phase="digitalStress" data-duration="120">Start game (2 min Digital Stress -> 3 min Chaos)</button>
+        <label>Stress mode time (seconds)
+          <input id="stressDurationSec" type="number" min="10" step="10" value="120">
+        </label>
+        <label>Chaos mode time (seconds)
+          <input id="chaosDurationSec" type="number" min="10" step="10" value="180">
+        </label>
       </div>
-      <p class="muted">Total game time is 5 minutes: 2 minutes in Digital Stress, then auto-switch to 3 minutes of Chaos.</p>
+      <div class="grid two">
+        <label>Task box rotation time (seconds)
+          <input id="taskWaveSeconds" type="number" min="5" step="1" value="20">
+        </label>
+      </div>
+      <div class="grid two">
+        <button class="trigger" data-phase="digitalStress">Start game</button>
+      </div>
+      <p class="muted" id="timingSummary">Total game time: 5 minutes (2 min Stress + 3 min Chaos). Task boxes rotate every 20 seconds.</p>
       <div class="briefing-admin">
         <div class="row between">
           <p class="muted">Briefing slide: <strong id="briefingSlideLabel">Not running</strong></p>
@@ -56,6 +69,7 @@
         </div>
       </div>
       <button id="revealResults" type="button">Reveal results mode</button>
+      <button id="newRound" type="button" class="secondary" hidden>Start new round</button>
       <p id="adminStatus" class="muted"></p>
     </section>
 

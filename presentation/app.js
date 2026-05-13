@@ -3,7 +3,7 @@ const POLL_MS = 700;
 const WORKDAY_MINUTES = 480;
 const TOP_SLOTS = 5;
 const TASK_WAVE_SIZE = 6;
-const TASK_WAVE_SECONDS = 20;
+const DEFAULT_TASK_WAVE_SECONDS = 20;
 const PRIORITY_SPEED_MULTIPLIERS = [2, 1.33, 1, 0.71, 0.5];
 const REPRIORITIZATION_PENALTY_MINUTES = 4;
 const HOLD_CHANCE_BY_RANK = [0.004, 0.007, 0.01, 0.013, 0.016];
@@ -26,6 +26,7 @@ const briefingNext = document.getElementById("briefingNext");
 const briefingReady = document.getElementById("briefingReady");
 const timerEl = document.getElementById("timer");
 const taskList = document.getElementById("taskList");
+const taskHint = document.getElementById("taskHint");
 const priorityBoard = document.getElementById("priorityBoard");
 const taskPool = document.getElementById("tasks");
 const taskPoolPanel = document.getElementById("taskPoolPanel");
@@ -59,9 +60,17 @@ const myOverload = document.getElementById("myOverload");
 const groupDelivery = document.getElementById("groupDelivery");
 const groupWellbeing = document.getElementById("groupWellbeing");
 const groupOverload = document.getElementById("groupOverload");
+const roundComparison = document.getElementById("roundComparison");
+const roundComparisonSummary = document.getElementById("roundComparisonSummary");
+const roundComparisonChart = document.getElementById("roundComparisonChart");
+const volumeSlider = document.getElementById("volumeSlider");
+const volumeDisplay = document.getElementById("volumeDisplay");
 
 const participantId = getOrCreateParticipantId();
 let audioContext = null;
+let masterGainNode = null;
+let currentMasterGain = 0.5;
+let volumeBoostHandle = null;
 let activeSessionId = "";
 let pollHandle = null;
 let timerHandle = null;
@@ -74,6 +83,7 @@ let hasAutoSubmitted = false;
 let phaseStartedAt = 0;
 let currentPriorities = Array(TOP_SLOTS).fill(null);
 let availableTasks = [];
+let taskWaveSeconds = DEFAULT_TASK_WAVE_SECONDS;
 let taskWaveOrder = [];
 let taskWaveIndex = 0;
 let lastWaveTick = -1;
@@ -212,6 +222,18 @@ joinBtn.addEventListener("click", () => {
   scenarioCard.hidden = false;
   startPolling();
 });
+
+if (volumeSlider) {
+  volumeSlider.addEventListener("input", () => {
+    currentMasterGain = Number(volumeSlider.value) / 100;
+    if (volumeDisplay) {
+      volumeDisplay.textContent = volumeSlider.value + "%";
+    }
+    if (masterGainNode && audioContext) {
+      masterGainNode.gain.setValueAtTime(currentMasterGain, audioContext.currentTime);
+    }
+  });
+}
 
 if (briefingPrev) {
   briefingPrev.addEventListener("click", () => {
@@ -467,6 +489,7 @@ async function syncState() {
   }
 
   const state = await res.json();
+  applySessionTiming(state);
   const previousPhase = currentPhase;
   currentPhase = state.phase || "idle";
   deadlineMs = state.deadlineMs || null;
@@ -522,9 +545,13 @@ async function syncState() {
     }
     submitBtn.hidden = true;
     await showInlineResults();
+    renderRoundComparison(state);
   } else {
     inlineResults.hidden = true;
     hasLoadedInlineResults = false;
+    if (roundComparison) {
+      roundComparison.hidden = true;
+    }
   }
 
   updateTimer();
@@ -1571,7 +1598,7 @@ function rotateTaskWaveIfNeeded(force = false) {
     return;
   }
 
-  const tick = Math.floor((Date.now() - phaseStartedAt) / (TASK_WAVE_SECONDS * 1000));
+  const tick = Math.floor((Date.now() - phaseStartedAt) / (taskWaveSeconds * 1000));
   if (!force && tick === lastWaveTick) {
     return;
   }
@@ -1602,7 +1629,19 @@ function rotateTaskWaveIfNeeded(force = false) {
   taskWaveIndex = (taskWaveIndex + TASK_WAVE_SIZE) % Math.max(taskWaveOrder.length, 1);
 
   if (!force) {
-    logEvent(`New task inflow: ${currentWaveTaskIds.length} available for ${TASK_WAVE_SECONDS}s.`, "info");
+    logEvent(`New task inflow: ${currentWaveTaskIds.length} available for ${taskWaveSeconds}s.`, "info");
+  }
+}
+
+function applySessionTiming(state) {
+  const nextWaveSeconds = normalizePositiveInt((state || {}).taskWaveSeconds, DEFAULT_TASK_WAVE_SECONDS, 5, 120);
+  if (nextWaveSeconds !== taskWaveSeconds) {
+    taskWaveSeconds = nextWaveSeconds;
+    lastWaveTick = -1;
+  }
+
+  if (taskHint) {
+    taskHint.textContent = `Drag tasks into your top 5 queue. Tasks start counting down immediately, and higher priority slots complete faster. New work arrives every ${taskWaveSeconds} seconds.`;
   }
 }
 
@@ -1755,6 +1794,12 @@ async function showInlineResults() {
   hasLoadedInlineResults = true;
 }
 
+function normalizePositiveInt(raw, fallback, min, max) {
+  const parsed = Number.parseInt(String(raw || ""), 10);
+  const value = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
 function getOrCreateParticipantId() {
   const key = "presentationParticipantId";
   const existing = localStorage.getItem(key);
@@ -1770,6 +1815,57 @@ function round1(value) {
   return Math.round(Number(value || 0) * 10) / 10;
 }
 
+function boostVolumeTemporarily(context, durationMs, multiplier) {
+  if (!masterGainNode) {
+    return;
+  }
+
+  if (volumeBoostHandle) {
+    clearTimeout(volumeBoostHandle);
+  }
+
+  const boostedGain = Math.min(1.0, currentMasterGain * multiplier);
+  masterGainNode.gain.setValueAtTime(boostedGain, context.currentTime);
+
+  volumeBoostHandle = setTimeout(() => {
+    if (masterGainNode && audioContext) {
+      masterGainNode.gain.setValueAtTime(currentMasterGain, audioContext.currentTime);
+    }
+    volumeBoostHandle = null;
+  }, durationMs);
+}
+
+function renderRoundComparison(state) {
+  if (!roundComparison || !state.roundResults || state.roundResults.length === 0) {
+    if (roundComparison) {
+      roundComparison.hidden = true;
+    }
+    return;
+  }
+
+  roundComparison.hidden = false;
+  
+  const rounds = state.roundResults || [];
+  let html = '<div class="round-table" style="font-size: 0.85em; margin-top: 10px;"><table style="width: 100%; border-collapse: collapse; text-align: center;"><thead><tr style="border-bottom: 1px solid #ccc;"><th style="padding: 8px;">Round</th><th style="padding: 8px;">Stress (s)</th><th style="padding: 8px;">Chaos (s)</th><th style="padding: 8px;">Wave (s)</th><th style="padding: 8px;">Submissions</th></tr></thead><tbody>';
+  
+  rounds.forEach((round, idx) => {
+    const stressStr = round.stressDurationSec || '???';
+    const chaosStr = round.chaosDurationSec || '???';
+    const waveStr = round.taskWaveSeconds || '???';
+    const submissions = (Array.isArray(round.answers) ? round.answers.length : 0);
+    
+    html += `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px;"><strong>Round ${round.round || (idx + 1)}</strong></td><td style="padding: 8px;">${stressStr}</td><td style="padding: 8px;">${chaosStr}</td><td style="padding: 8px;">${waveStr}</td><td style="padding: 8px;">${submissions}</td></tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  
+  if (roundComparisonSummary) {
+    roundComparisonSummary.textContent = `You\'ve played ${rounds.length} round${rounds.length > 1 ? 's' : ''}. Here\'s how your settings changed:`;
+  }
+  
+  roundComparisonChart.innerHTML = html;
+}
+
 function ensureAudioContext() {
   if (!audioContext) {
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -1783,6 +1879,13 @@ function ensureAudioContext() {
     audioContext.resume().catch(() => {});
   }
 
+  if (!masterGainNode) {
+    masterGainNode = audioContext.createGain();
+    currentMasterGain = volumeSlider ? Number(volumeSlider.value) / 100 : 0.5;
+    masterGainNode.gain.setValueAtTime(currentMasterGain, audioContext.currentTime);
+    masterGainNode.connect(audioContext.destination);
+  }
+
   return audioContext;
 }
 
@@ -1793,6 +1896,7 @@ function playChaosCue(cardId) {
   }
 
   if (cardId === "family-call") {
+    boostVolumeTemporarily(context, 2000, 1.5);
     playPhoneRing(context);
     return;
   }
@@ -1831,7 +1935,7 @@ function playTone(context, startTime, duration, frequency, type, volume) {
   gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
   oscillator.connect(gain);
-  gain.connect(context.destination);
+  gain.connect(masterGainNode || context.destination);
 
   oscillator.start(startTime);
   oscillator.stop(startTime + duration + 0.02);
@@ -1855,7 +1959,7 @@ function playKnockHit(context, startTime, duration, baseFrequency, volume) {
 
   oscillator.connect(filter);
   filter.connect(gain);
-  gain.connect(context.destination);
+  gain.connect(masterGainNode || context.destination);
 
   oscillator.start(startTime);
   oscillator.stop(startTime + duration + 0.02);

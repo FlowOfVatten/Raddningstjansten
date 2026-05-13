@@ -4,7 +4,9 @@ const SESSION_PREFIX = "rto:presentation:session:";
 const ANSWER_PREFIX = "rto:presentation:answer:";
 const CLAIM_PREFIX = "rto:presentation:claim:";
 const PRESENCE_PREFIX = "rto:presentation:presence:";
-const AUTO_CHAOS_DURATION_SEC = 180;
+const DEFAULT_STRESS_DURATION_SEC = 120;
+const DEFAULT_CHAOS_DURATION_SEC = 180;
+const DEFAULT_TASK_WAVE_SECONDS = 20;
 const DEFAULT_BRIEFING_SLIDES = 6;
 
 const sessions = new Map();
@@ -21,13 +23,18 @@ class MemoryPresentationStore {
       message: "Waiting for admin to start the scenario.",
       deadlineMs: null,
       createdAt: Date.now(),
+      stressDurationSec: DEFAULT_STRESS_DURATION_SEC,
+      chaosDurationSec: DEFAULT_CHAOS_DURATION_SEC,
+      taskWaveSeconds: DEFAULT_TASK_WAVE_SECONDS,
       briefingSlide: 0,
       briefingTotal: DEFAULT_BRIEFING_SLIDES,
       submissionsByPhase: {},
       answers: [],
       claims: {},
       participants: new Set(),
-      readyParticipants: new Set()
+      readyParticipants: new Set(),
+      currentRound: 1,
+      roundResults: []
     };
     sessions.set(sessionId, record);
     return { sessionId, adminKey };
@@ -37,21 +44,32 @@ class MemoryPresentationStore {
     return sessions.get(normalizeSessionId(sessionId)) || null;
   }
 
-  activate({ sessionId, adminKey, phase, durationSec }) {
+  activate({ sessionId, adminKey, phase, durationSec, chaosDurationSec, taskWaveSeconds }) {
     const session = this.getSession(sessionId);
     if (!session || session.adminKey !== adminKey) {
       return null;
     }
 
-    const ms = Number(durationSec || 0) * 1000;
-    session.phase = phase;
-    session.deadlineMs = ms > 0 ? Date.now() + ms : null;
-    session.message = phaseMessage(phase);
-    if (!session.submissionsByPhase[phase]) {
-      session.submissionsByPhase[phase] = new Set();
+    const normalizedPhase = String(phase || "idle");
+    const stressDuration = sanitizeDurationSec(durationSec, Number(session.stressDurationSec || DEFAULT_STRESS_DURATION_SEC));
+    const chaosDuration = sanitizeDurationSec(chaosDurationSec, Number(session.chaosDurationSec || DEFAULT_CHAOS_DURATION_SEC));
+    const waveSeconds = sanitizeTaskWaveSeconds(taskWaveSeconds, Number(session.taskWaveSeconds || DEFAULT_TASK_WAVE_SECONDS));
+    const rawDurationSec = Number(durationSec || 0);
+    const effectiveDurationSec = normalizedPhase === "digitalStress"
+      ? stressDuration
+      : (Number.isFinite(rawDurationSec) && rawDurationSec > 0 ? Math.round(rawDurationSec) : 0);
+
+    session.phase = normalizedPhase;
+    session.deadlineMs = effectiveDurationSec > 0 ? Date.now() + effectiveDurationSec * 1000 : null;
+    session.message = phaseMessage(normalizedPhase);
+    session.stressDurationSec = stressDuration;
+    session.chaosDurationSec = chaosDuration;
+    session.taskWaveSeconds = waveSeconds;
+    if (!session.submissionsByPhase[normalizedPhase]) {
+      session.submissionsByPhase[normalizedPhase] = new Set();
     }
-    if (!session.claims[phase]) {
-      session.claims[phase] = {};
+    if (!session.claims[normalizedPhase]) {
+      session.claims[normalizedPhase] = {};
     }
     return session;
   }
@@ -196,8 +214,13 @@ class MemoryPresentationStore {
       participantCount: session.participants.size,
       readyCount: session.readyParticipants.size,
       participantReady,
+      stressDurationSec: sanitizeDurationSec(session.stressDurationSec, DEFAULT_STRESS_DURATION_SEC),
+      chaosDurationSec: sanitizeDurationSec(session.chaosDurationSec, DEFAULT_CHAOS_DURATION_SEC),
+      taskWaveSeconds: sanitizeTaskWaveSeconds(session.taskWaveSeconds, DEFAULT_TASK_WAVE_SECONDS),
       briefingSlide: Number(session.briefingSlide || 0),
-      briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES)
+      briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES),
+      roundResults: session.roundResults || [],
+      currentRound: session.currentRound || 1
     };
   }
 
@@ -256,6 +279,34 @@ class MemoryPresentationStore {
       ranking: Array.isArray(latest.ranking) ? latest.ranking : [],
       summary: sanitizeSummary(latest.summary)
     };
+  }
+
+  startNewRound({ sessionId, adminKey }) {
+    const session = this.getSession(sessionId);
+    if (!session || session.adminKey !== adminKey) {
+      return null;
+    }
+
+    const currentRoundResult = {
+      round: session.currentRound,
+      answers: session.answers.slice(),
+      completedAt: Date.now(),
+      stressDurationSec: session.stressDurationSec,
+      chaosDurationSec: session.chaosDurationSec,
+      taskWaveSeconds: session.taskWaveSeconds
+    };
+
+    session.roundResults.push(currentRoundResult);
+    session.currentRound += 1;
+    session.phase = "idle";
+    session.message = "Ready for the next round. Waiting for admin to start.";
+    session.deadlineMs = null;
+    session.submissionsByPhase = {};
+    session.answers = [];
+    session.claims = {};
+    session.readyParticipants.clear();
+
+    return session;
   }
 }
 
@@ -519,9 +570,12 @@ class SqlPresentationStore {
       phase: "idle",
       message: "Waiting for admin to start the scenario.",
       deadlineMs: null,
-      createdAt: Date.now()
-      ,briefingSlide: 0
-      ,briefingTotal: DEFAULT_BRIEFING_SLIDES
+      createdAt: Date.now(),
+      stressDurationSec: DEFAULT_STRESS_DURATION_SEC,
+      chaosDurationSec: DEFAULT_CHAOS_DURATION_SEC,
+      taskWaveSeconds: DEFAULT_TASK_WAVE_SECONDS,
+      briefingSlide: 0,
+      briefingTotal: DEFAULT_BRIEFING_SLIDES
     };
 
     await upsertAppState(pool, sessionStateId(sessionId), record);
@@ -537,18 +591,29 @@ class SqlPresentationStore {
     return readAppState(pool, sessionStateId(normalized));
   }
 
-  async activate({ sessionId, adminKey, phase, durationSec }) {
+  async activate({ sessionId, adminKey, phase, durationSec, chaosDurationSec, taskWaveSeconds }) {
     const session = await this.getSession(sessionId);
     if (!session || session.adminKey !== adminKey) {
       return null;
     }
 
-    const ms = Number(durationSec || 0) * 1000;
+    const normalizedPhase = String(phase || "idle");
+    const stressDuration = sanitizeDurationSec(durationSec, Number(session.stressDurationSec || DEFAULT_STRESS_DURATION_SEC));
+    const chaosDuration = sanitizeDurationSec(chaosDurationSec, Number(session.chaosDurationSec || DEFAULT_CHAOS_DURATION_SEC));
+    const waveSeconds = sanitizeTaskWaveSeconds(taskWaveSeconds, Number(session.taskWaveSeconds || DEFAULT_TASK_WAVE_SECONDS));
+    const rawDurationSec = Number(durationSec || 0);
+    const effectiveDurationSec = normalizedPhase === "digitalStress"
+      ? stressDuration
+      : (Number.isFinite(rawDurationSec) && rawDurationSec > 0 ? Math.round(rawDurationSec) : 0);
+
     const updated = {
       ...session,
-      phase,
-      deadlineMs: ms > 0 ? Date.now() + ms : null,
-      message: phaseMessage(phase),
+      phase: normalizedPhase,
+      deadlineMs: effectiveDurationSec > 0 ? Date.now() + effectiveDurationSec * 1000 : null,
+      message: phaseMessage(normalizedPhase),
+      stressDurationSec: stressDuration,
+      chaosDurationSec: chaosDuration,
+      taskWaveSeconds: waveSeconds,
       updatedAt: Date.now()
     };
 
@@ -723,8 +788,14 @@ class SqlPresentationStore {
       submitted,
       participantCount,
       readyCount,
+      stressDurationSec: sanitizeDurationSec(session.stressDurationSec, DEFAULT_STRESS_DURATION_SEC),
+      chaosDurationSec: sanitizeDurationSec(session.chaosDurationSec, DEFAULT_CHAOS_DURATION_SEC),
+      taskWaveSeconds: sanitizeTaskWaveSeconds(session.taskWaveSeconds, DEFAULT_TASK_WAVE_SECONDS),
       briefingSlide: Number(session.briefingSlide || 0),
-      briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES)
+      briefingSlide: Number(session.briefingSlide || 0),
+      briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES),
+      roundResults: session.roundResults || [],
+      currentRound: session.currentRound || 1
     };
   }
 
@@ -817,6 +888,47 @@ class SqlPresentationStore {
       ranking: Array.isArray(latest.ranking) ? latest.ranking : [],
       summary: sanitizeSummary(latest.summary)
     };
+  }
+
+  async startNewRound({ sessionId, adminKey }) {
+    let session = await this.getSession(sessionId);
+    if (!session || session.adminKey !== adminKey) {
+      return null;
+    }
+
+    const pool = await getPool();
+    const answersResult = await pool.request()
+      .input("prefix", sql.NVarChar(200), `${ANSWER_PREFIX}${session.sessionId}:`)
+      .query("SELECT payload FROM app_state WHERE id LIKE @prefix + '%' ");
+
+    const roundResults = session.roundResults || [];
+    const currentRoundResult = {
+      round: session.currentRound,
+      answers: answersResult.recordset.map((row) => safeJsonParse(row.payload)).filter(Boolean),
+      completedAt: Date.now(),
+      stressDurationSec: session.stressDurationSec,
+      chaosDurationSec: session.chaosDurationSec,
+      taskWaveSeconds: session.taskWaveSeconds
+    };
+
+    roundResults.push(currentRoundResult);
+
+    const updated = {
+      ...session,
+      roundResults,
+      currentRound: session.currentRound + 1,
+      phase: "idle",
+      message: "Ready for the next round. Waiting for admin to start.",
+      deadlineMs: null,
+      submissionsByPhase: {},
+      answers: [],
+      claims: {},
+      updatedAt: Date.now()
+    };
+
+    const stateId = sessionStateId(updated.sessionId);
+    await upsertAppState(pool, stateId, updated);
+    return updated;
   }
 }
 
@@ -1031,10 +1143,12 @@ function buildAutoTransitionedSession(session) {
     return null;
   }
 
+  const chaosDuration = sanitizeDurationSec(session.chaosDurationSec, DEFAULT_CHAOS_DURATION_SEC);
+
   return {
     ...session,
     phase: "workloadChaos",
-    deadlineMs: Date.now() + AUTO_CHAOS_DURATION_SEC * 1000,
+    deadlineMs: Date.now() + chaosDuration * 1000,
     message: phaseMessage("workloadChaos"),
     updatedAt: Date.now()
   };
@@ -1045,6 +1159,18 @@ function applyAutoPhaseTransitionMemory(session) {
   if (updated) {
     Object.assign(session, updated);
   }
+}
+
+function sanitizeDurationSec(value, fallback) {
+  const num = Number(value);
+  const base = Number.isFinite(num) && num > 0 ? num : Number(fallback || DEFAULT_STRESS_DURATION_SEC);
+  return Math.max(10, Math.min(3600, Math.round(base)));
+}
+
+function sanitizeTaskWaveSeconds(value, fallback) {
+  const num = Number(value);
+  const base = Number.isFinite(num) && num > 0 ? num : Number(fallback || DEFAULT_TASK_WAVE_SECONDS);
+  return Math.max(5, Math.min(120, Math.round(base)));
 }
 
 module.exports = {

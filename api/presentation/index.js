@@ -17,7 +17,9 @@ module.exports = async function (context, req) {
         sessionId: payload.sessionId,
         adminKey: payload.adminKey,
         phase: payload.phase,
-        durationSec: payload.durationSec
+        durationSec: payload.durationSec,
+        chaosDurationSec: payload.chaosDurationSec,
+        taskWaveSeconds: payload.taskWaveSeconds
       });
 
       if (!session) {
@@ -28,6 +30,24 @@ module.exports = async function (context, req) {
         ok: true,
         phase: session.phase,
         deadlineMs: session.deadlineMs
+      });
+    }
+
+    if (method === "POST" && action === "startnewround") {
+      const payload = req.body || {};
+      const session = await store.startNewRound({
+        sessionId: payload.sessionId,
+        adminKey: payload.adminKey
+      });
+
+      if (!session) {
+        return json(401, { error: "Invalid session or admin key" });
+      }
+
+      return json(200, {
+        ok: true,
+        phase: session.phase,
+        currentRound: session.currentRound
       });
     }
 
