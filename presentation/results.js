@@ -43,8 +43,9 @@ async function loadResults() {
 
   const data = await res.json();
   latestResults = data;
-  const entries = Object.entries(data.counts || {});
-  const max = Math.max(1, ...entries.map(([, value]) => value));
+  const taskLabels = data.taskLabels || {};
+  const entries = Object.entries(data.counts || {}).sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0));
+  const max = Math.max(1, ...entries.map(([, value]) => Number(value || 0)));
   const metrics = data.metrics || {};
   const highlights = data.highlights || {};
   const distributions = data.distributions || {};
@@ -86,13 +87,14 @@ async function loadResults() {
 
   bars.innerHTML = "";
   entries.forEach(([key, value]) => {
-    const pct = Math.round((value / max) * 100);
+    const count = Number(value || 0);
+    const pct = Math.round((count / max) * 100);
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <strong>${labelForChoice(key)}</strong>
+      <strong>${escapeHtml(resolveChoiceLabel(key, taskLabels))}</strong>
       <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
-      <span>${value}</span>
+      <span>${count}</span>
     `;
     bars.appendChild(row);
   });
@@ -103,24 +105,72 @@ async function loadResults() {
 
 function renderMetricGrid(metrics) {
   const cards = [
-    { label: "Delivery score", value: metrics.avgDeliveryScore || 0 },
-    { label: "Business alignment", value: `${metrics.avgBusinessAlignmentScore || 0}%` },
-    { label: "Completed tasks", value: metrics.avgCompletedTaskCount || 0 },
-    { label: "Hold events", value: metrics.avgHoldCount || 0 },
-    { label: "Hold minutes", value: `${metrics.avgHoldMinutes || 0} min` },
-    { label: "Wellbeing", value: metrics.avgWellbeingScore || 0 },
-    { label: "Overload", value: `${metrics.avgOverloadMinutes || 0} min` },
-    { label: "Channel accuracy", value: `${metrics.avgChannelAccuracy || 0}%` },
-    { label: "Focus efficiency", value: `${metrics.avgFocusEfficiency || 0}%` },
-    { label: "Clarity match", value: `${metrics.avgClarityMatchRate || 0}%` },
-    { label: "Interruptions", value: metrics.avgInterruptions || 0 },
-    { label: "Breaks", value: `${metrics.avgBreakCount || 0} / ${metrics.avgBreakMinutes || 0} min` }
+    {
+      label: "Delivery score",
+      value: metrics.avgDeliveryScore || 0,
+      help: "How much useful work the group managed to finish during the day."
+    },
+    {
+      label: "Business alignment",
+      value: `${metrics.avgBusinessAlignmentScore || 0}%`,
+      help: "How strongly the selected work matched business value rather than noise."
+    },
+    {
+      label: "Completed tasks",
+      value: metrics.avgCompletedTaskCount || 0,
+      help: "Average number of prioritized tasks that were fully completed."
+    },
+    {
+      label: "Hold events",
+      value: metrics.avgHoldCount || 0,
+      help: "How often important work was paused because of dependencies or blockers."
+    },
+    {
+      label: "Hold minutes",
+      value: `${metrics.avgHoldMinutes || 0} min`,
+      help: "How much total time was lost while key tasks were on hold."
+    },
+    {
+      label: "Wellbeing",
+      value: metrics.avgWellbeingScore || 0,
+      help: "How well people protected recovery and sustainable pace under pressure."
+    },
+    {
+      label: "Overload",
+      value: `${metrics.avgOverloadMinutes || 0} min`,
+      help: "How long teams ran with more active work than capacity allows."
+    },
+    {
+      label: "Channel accuracy",
+      value: `${metrics.avgChannelAccuracy || 0}%`,
+      help: "How often communication was sent through the right channel for speed and clarity."
+    },
+    {
+      label: "Focus efficiency",
+      value: `${metrics.avgFocusEfficiency || 0}%`,
+      help: "How much focused effort turned into completed progress instead of context-switch cost."
+    },
+    {
+      label: "Clarity match",
+      value: `${metrics.avgClarityMatchRate || 0}%`,
+      help: "How often task effort matched real need, without over- or under-working unclear items."
+    },
+    {
+      label: "Interruptions",
+      value: metrics.avgInterruptions || 0,
+      help: "Average number of interruptions each participant had to absorb."
+    },
+    {
+      label: "Breaks",
+      value: `${metrics.avgBreakCount || 0} / ${metrics.avgBreakMinutes || 0} min`,
+      help: "How often and how long people used wellbeing breaks during the scenario."
+    }
   ];
 
   metricGrid.innerHTML = cards.map((card) => `
-    <div class="metric-tile">
-      <span>${card.label}</span>
-      <strong>${card.value}</strong>
+    <div class="metric-tile" title="${escapeHtml(card.help)}">
+      <span>${escapeHtml(card.label)}</span>
+      <strong>${escapeHtml(String(card.value))}</strong>
     </div>
   `).join("");
 }
@@ -140,7 +190,7 @@ function renderBars(container, items, valueKey, labelFn, suffix = "") {
     const row = document.createElement("div");
     row.className = "bar-row";
     row.innerHTML = `
-      <strong>${labelFn(item)}</strong>
+      <strong>${escapeHtml(labelFn(item))}</strong>
       <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
       <span>${value}${suffix}</span>
     `;
@@ -182,6 +232,13 @@ function exportCsv() {
   URL.revokeObjectURL(link.href);
 }
 
+function resolveChoiceLabel(choice, taskLabels = {}) {
+  if (taskLabels[choice]) {
+    return taskLabels[choice];
+  }
+  return labelForChoice(choice);
+}
+
 function labelForChoice(choice) {
   const labels = {
     urgent_incident: "Critical incident",
@@ -198,5 +255,23 @@ function labelForChoice(choice) {
     breathing_reset: "Breathing reset",
     screen_free_lunch: "Screen-free lunch"
   };
-  return labels[choice] || choice;
+
+  if (labels[choice]) {
+    return labels[choice];
+  }
+
+  if (/^task_\d+$/i.test(choice)) {
+    return `Task ${choice.split("_")[1]}`;
+  }
+
+  return choice;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
