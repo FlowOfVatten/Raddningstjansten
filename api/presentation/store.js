@@ -281,14 +281,23 @@ class MemoryPresentationStore {
     };
   }
 
-  startNewRound({ sessionId, adminKey }) {
+  startNewRound({ sessionId, adminKey, stressDurationSec, chaosDurationSec, taskWaveSeconds }) {
     const session = this.getSession(sessionId);
     if (!session || session.adminKey !== adminKey) {
       return null;
     }
 
+    if (session.phase !== "results") {
+      return false;
+    }
+
+    const stressDuration = sanitizeDurationSec(stressDurationSec, Number(session.stressDurationSec || DEFAULT_STRESS_DURATION_SEC));
+    const chaosDuration = sanitizeDurationSec(chaosDurationSec, Number(session.chaosDurationSec || DEFAULT_CHAOS_DURATION_SEC));
+    const waveSeconds = sanitizeTaskWaveSeconds(taskWaveSeconds, Number(session.taskWaveSeconds || DEFAULT_TASK_WAVE_SECONDS));
+
+    const currentRound = Math.max(1, Number(session.currentRound || 1));
     const currentRoundResult = {
-      round: session.currentRound,
+      round: currentRound,
       answers: session.answers.slice(),
       completedAt: Date.now(),
       stressDurationSec: session.stressDurationSec,
@@ -297,10 +306,13 @@ class MemoryPresentationStore {
     };
 
     session.roundResults.push(currentRoundResult);
-    session.currentRound += 1;
-    session.phase = "idle";
-    session.message = "Ready for the next round. Waiting for admin to start.";
-    session.deadlineMs = null;
+    session.currentRound = currentRound + 1;
+    session.phase = "digitalStress";
+    session.message = phaseMessage("digitalStress");
+    session.deadlineMs = Date.now() + stressDuration * 1000;
+    session.stressDurationSec = stressDuration;
+    session.chaosDurationSec = chaosDuration;
+    session.taskWaveSeconds = waveSeconds;
     session.submissionsByPhase = {};
     session.answers = [];
     session.claims = {};
@@ -575,7 +587,9 @@ class SqlPresentationStore {
       chaosDurationSec: DEFAULT_CHAOS_DURATION_SEC,
       taskWaveSeconds: DEFAULT_TASK_WAVE_SECONDS,
       briefingSlide: 0,
-      briefingTotal: DEFAULT_BRIEFING_SLIDES
+      briefingTotal: DEFAULT_BRIEFING_SLIDES,
+      currentRound: 1,
+      roundResults: []
     };
 
     await upsertAppState(pool, sessionStateId(sessionId), record);
@@ -792,7 +806,6 @@ class SqlPresentationStore {
       chaosDurationSec: sanitizeDurationSec(session.chaosDurationSec, DEFAULT_CHAOS_DURATION_SEC),
       taskWaveSeconds: sanitizeTaskWaveSeconds(session.taskWaveSeconds, DEFAULT_TASK_WAVE_SECONDS),
       briefingSlide: Number(session.briefingSlide || 0),
-      briefingSlide: Number(session.briefingSlide || 0),
       briefingTotal: Number(session.briefingTotal || DEFAULT_BRIEFING_SLIDES),
       roundResults: session.roundResults || [],
       currentRound: session.currentRound || 1
@@ -890,20 +903,29 @@ class SqlPresentationStore {
     };
   }
 
-  async startNewRound({ sessionId, adminKey }) {
+  async startNewRound({ sessionId, adminKey, stressDurationSec, chaosDurationSec, taskWaveSeconds }) {
     let session = await this.getSession(sessionId);
     if (!session || session.adminKey !== adminKey) {
       return null;
     }
+
+    if (session.phase !== "results") {
+      return false;
+    }
+
+    const stressDuration = sanitizeDurationSec(stressDurationSec, Number(session.stressDurationSec || DEFAULT_STRESS_DURATION_SEC));
+    const chaosDuration = sanitizeDurationSec(chaosDurationSec, Number(session.chaosDurationSec || DEFAULT_CHAOS_DURATION_SEC));
+    const waveSeconds = sanitizeTaskWaveSeconds(taskWaveSeconds, Number(session.taskWaveSeconds || DEFAULT_TASK_WAVE_SECONDS));
 
     const pool = await getPool();
     const answersResult = await pool.request()
       .input("prefix", sql.NVarChar(200), `${ANSWER_PREFIX}${session.sessionId}:`)
       .query("SELECT payload FROM app_state WHERE id LIKE @prefix + '%' ");
 
+    const currentRound = Math.max(1, Number(session.currentRound || 1));
     const roundResults = session.roundResults || [];
     const currentRoundResult = {
-      round: session.currentRound,
+      round: currentRound,
       answers: answersResult.recordset.map((row) => safeJsonParse(row.payload)).filter(Boolean),
       completedAt: Date.now(),
       stressDurationSec: session.stressDurationSec,
@@ -913,13 +935,20 @@ class SqlPresentationStore {
 
     roundResults.push(currentRoundResult);
 
+    await deleteAppStateByPrefix(pool, `${ANSWER_PREFIX}${session.sessionId}:`);
+    await deleteAppStateByPrefix(pool, `${CLAIM_PREFIX}${session.sessionId}:`);
+    await deleteAppStateByPrefix(pool, `${PRESENCE_PREFIX}${session.sessionId}:ready:`);
+
     const updated = {
       ...session,
       roundResults,
-      currentRound: session.currentRound + 1,
-      phase: "idle",
-      message: "Ready for the next round. Waiting for admin to start.",
-      deadlineMs: null,
+      currentRound: currentRound + 1,
+      phase: "digitalStress",
+      message: phaseMessage("digitalStress"),
+      deadlineMs: Date.now() + stressDuration * 1000,
+      stressDurationSec: stressDuration,
+      chaosDurationSec: chaosDuration,
+      taskWaveSeconds: waveSeconds,
       submissionsByPhase: {},
       answers: [],
       claims: {},
@@ -1078,6 +1107,12 @@ async function upsertAppState(pool, id, payload) {
       WHEN MATCHED THEN UPDATE SET payload = source.payload, updated_at = source.updated_at
       WHEN NOT MATCHED THEN INSERT (id, payload, updated_at) VALUES (source.id, source.payload, source.updated_at);
     `);
+}
+
+async function deleteAppStateByPrefix(pool, prefix) {
+  await pool.request()
+    .input("prefix", sql.NVarChar(200), String(prefix || ""))
+    .query("DELETE FROM app_state WHERE id LIKE @prefix + '%' ");
 }
 
 function safeJsonParse(value) {

@@ -143,21 +143,27 @@ async function startNewRound() {
     return;
   }
 
+  const timing = getTimingConfig();
+
   const res = await fetch(`${API_BASE}/startNewRound`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       sessionId: sessionInput.value,
-      adminKey: adminKeyInput.value
+      adminKey: adminKeyInput.value,
+      stressDurationSec: timing.stressDurationSec,
+      chaosDurationSec: timing.chaosDurationSec,
+      taskWaveSeconds: timing.taskWaveSeconds
     })
   });
 
   if (!res.ok) {
-    adminStatus.textContent = "Could not start new round.";
+    const data = await res.json().catch(() => ({}));
+    adminStatus.textContent = data.error || "Could not start new round.";
     return;
   }
 
-  adminStatus.textContent = "New round started. Ready to go again!";
+  adminStatus.textContent = "New round started with updated timing settings.";
   await syncAdminState();
 }
 
@@ -221,9 +227,16 @@ async function syncAdminState() {
   renderLastUpdated();
   deadlineMs = state.deadlineMs || null;
   updateAdminTimer();
-  
+
+  const inResults = (state.phase || "idle") === "results";
+  triggerButtons.forEach((btn) => {
+    if ((btn.dataset.phase || "") === "digitalStress") {
+      btn.disabled = inResults;
+    }
+  });
+
   if (newRoundBtn) {
-    newRoundBtn.hidden = (state.phase || "idle") !== "results";
+    newRoundBtn.disabled = !inResults;
   }
 }
 

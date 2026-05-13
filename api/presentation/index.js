@@ -37,11 +37,18 @@ module.exports = async function (context, req) {
       const payload = req.body || {};
       const session = await store.startNewRound({
         sessionId: payload.sessionId,
-        adminKey: payload.adminKey
+        adminKey: payload.adminKey,
+        stressDurationSec: payload.stressDurationSec,
+        chaosDurationSec: payload.chaosDurationSec,
+        taskWaveSeconds: payload.taskWaveSeconds
       });
 
-      if (!session) {
+      if (session === null) {
         return json(401, { error: "Invalid session or admin key" });
+      }
+
+      if (session === false) {
+        return json(400, { error: "Round can only be started from results mode" });
       }
 
       return json(200, {
