@@ -328,6 +328,12 @@ button.secondary { background: #52626a; }
   border-radius: 10px;
 }
 
+.priority-board.locked,
+.tasks.locked {
+  opacity: 0.6;
+  filter: grayscale(0.25);
+}
+
 .rank-row {
   display: grid;
   grid-template-columns: 32px 1fr;
@@ -398,6 +404,10 @@ button.secondary { background: #52626a; }
   margin-bottom: 14px;
   position: sticky;
   top: 14px;
+}
+
+.task-pool.locked {
+  pointer-events: none;
 }
 .task-pool h3 { margin: 0 0 10px; font-size: 0.95rem; }
 

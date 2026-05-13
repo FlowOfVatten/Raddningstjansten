@@ -272,6 +272,11 @@ function buildAggregateResults({ phase, answers }) {
   let channelAccuracySum = 0;
   let focusEfficiencySum = 0;
   let clarityMatchRateSum = 0;
+  let businessAlignmentScoreSum = 0;
+  let completedTaskCountSum = 0;
+  let completedBusinessValueSum = 0;
+  let holdCountSum = 0;
+  let holdMinutesSum = 0;
   let interruptionSum = 0;
   let breakCountSum = 0;
   let breakMinutesSum = 0;
@@ -307,8 +312,6 @@ function buildAggregateResults({ phase, answers }) {
       if (rank.taskId) {
         counts[rank.taskId] = (counts[rank.taskId] || 0) + 1;
         taskLabels[rank.taskId] = rank.taskLabel || taskLabels[rank.taskId] || rank.taskId;
-        const weight = Math.max(1, 10 - idx);
-        deliveryScoreSum += weight * (rank.wellbeing ? 0.5 : 1);
         avgRankTotals[rank.taskId] = (avgRankTotals[rank.taskId] || 0) + Number(rank.rank || idx + 1);
         avgRankCounts[rank.taskId] = (avgRankCounts[rank.taskId] || 0) + 1;
         if (idx === 0) {
@@ -321,9 +324,27 @@ function buildAggregateResults({ phase, answers }) {
     });
 
     const s = sanitizeSummary(item.summary);
+    if (s.deliveryScore > 0) {
+      deliveryScoreSum += s.deliveryScore;
+    } else {
+      const fallbackDelivery = (item.ranking || []).reduce((sum, rank, idx) => {
+        if (!rank || !rank.taskId) {
+          return sum;
+        }
+        const weight = Math.max(1, 10 - idx);
+        return sum + weight * (rank.wellbeing ? 0.5 : 1);
+      }, 0);
+      deliveryScoreSum += fallbackDelivery;
+    }
+
     wellbeingScoreSum += s.wellbeingScore;
     overloadMinutesSum += s.overloadMinutes;
     channelAccuracySum += s.channelAccuracy;
+    businessAlignmentScoreSum += s.businessAlignmentScore;
+    completedTaskCountSum += s.completedTaskCount;
+    completedBusinessValueSum += s.completedBusinessValue;
+    holdCountSum += s.holdCount;
+    holdMinutesSum += s.holdMinutes;
     interruptionSum += s.interruptionCount;
     breakCountSum += s.wellbeingTaskCount;
     breakMinutesSum += s.wellbeingBreakMinutes;
@@ -408,6 +429,11 @@ function buildAggregateResults({ phase, answers }) {
       avgChannelAccuracy: participants ? round1(channelAccuracySum / participants) : 0,
       avgFocusEfficiency: participants ? round1(focusEfficiencySum / participants) : 0,
       avgClarityMatchRate: participants ? round1(clarityMatchRateSum / participants) : 0,
+      avgBusinessAlignmentScore: participants ? round1(businessAlignmentScoreSum / participants) : 0,
+      avgCompletedTaskCount: participants ? round1(completedTaskCountSum / participants) : 0,
+      avgCompletedBusinessValue: participants ? round1(completedBusinessValueSum / participants) : 0,
+      avgHoldCount: participants ? round1(holdCountSum / participants) : 0,
+      avgHoldMinutes: participants ? round1(holdMinutesSum / participants) : 0,
       avgInterruptions: participants ? round1(interruptionSum / participants) : 0,
       avgBreakCount: participants ? round1(breakCountSum / participants) : 0,
       avgBreakMinutes: participants ? round1(breakMinutesSum / participants) : 0
@@ -876,7 +902,14 @@ function sanitizeSummary(input) {
     focusProducedSec: toNum(src.focusProducedSec),
     interruptionCount: toNum(src.interruptionCount),
     unclearTaskCount: toNum(src.unclearTaskCount),
-    clarityMatchCount: toNum(src.clarityMatchCount)
+    clarityMatchCount: toNum(src.clarityMatchCount),
+    completedTaskCount: toNum(src.completedTaskCount),
+    completedBusinessValue: toNum(src.completedBusinessValue),
+    businessAlignmentScore: toNum(src.businessAlignmentScore),
+    deliveryScore: toNum(src.deliveryScore),
+    workdayConsumedMinutes: toNum(src.workdayConsumedMinutes),
+    holdCount: toNum(src.holdCount),
+    holdMinutes: toNum(src.holdMinutes)
   };
 }
 

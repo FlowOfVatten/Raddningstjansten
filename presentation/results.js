@@ -54,9 +54,9 @@ async function loadResults() {
   totals.textContent = `Participants: ${data.participants || 0} | Shows group patterns, risk zones, and which behaviors drove stress.`;
 
   renderMetricGrid(metrics);
-  renderBars(topRanked, highlights.topRanked || [], "count", item => item.label, " deltagare");
-  renderBars(topThree, highlights.topThree || [], "count", item => item.label, " deltagare");
-  renderBars(consensusList, highlights.consensus || [], "mentions", item => `${item.label} (snittrank ${item.avgRank})`, " namningar");
+  renderBars(topRanked, highlights.topRanked || [], "count", item => item.label, " participants");
+  renderBars(topThree, highlights.topThree || [], "count", item => item.label, " participants");
+  renderBars(consensusList, highlights.consensus || [], "mentions", item => `${item.label} (avg rank ${item.avgRank})`, " mentions");
   renderBars(profileList, [
     { label: "Perfection-driven", count: profiles.perfectionists || 0 },
     { label: "Recovery users", count: profiles.recoveryUsers || 0 },
@@ -104,6 +104,10 @@ async function loadResults() {
 function renderMetricGrid(metrics) {
   const cards = [
     { label: "Delivery score", value: metrics.avgDeliveryScore || 0 },
+    { label: "Business alignment", value: `${metrics.avgBusinessAlignmentScore || 0}%` },
+    { label: "Completed tasks", value: metrics.avgCompletedTaskCount || 0 },
+    { label: "Hold events", value: metrics.avgHoldCount || 0 },
+    { label: "Hold minutes", value: `${metrics.avgHoldMinutes || 0} min` },
     { label: "Wellbeing", value: metrics.avgWellbeingScore || 0 },
     { label: "Overload", value: `${metrics.avgOverloadMinutes || 0} min` },
     { label: "Channel accuracy", value: `${metrics.avgChannelAccuracy || 0}%` },
@@ -152,15 +156,15 @@ function exportCsv() {
 
   const sessionId = sessionInput.value.trim().toUpperCase();
   const timestamp = new Date().toISOString();
-  const rows = [["sessionId", "phase", "choice", "count", "avgDeliveryScore", "avgWellbeingScore", "avgOverloadMinutes", "avgChannelAccuracy", "avgFocusEfficiency", "avgClarityMatchRate", "avgInterruptions", "avgBreakCount", "avgBreakMinutes", "exportedAt"]];
+  const rows = [["sessionId", "phase", "choice", "count", "avgDeliveryScore", "avgBusinessAlignmentScore", "avgCompletedTaskCount", "avgCompletedBusinessValue", "avgHoldCount", "avgHoldMinutes", "avgWellbeingScore", "avgOverloadMinutes", "avgChannelAccuracy", "avgFocusEfficiency", "avgClarityMatchRate", "avgInterruptions", "avgBreakCount", "avgBreakMinutes", "exportedAt"]];
   const entries = Object.entries(latestResults.counts || {});
   const metrics = latestResults.metrics || {};
 
   if (!entries.length) {
-    rows.push([sessionId, latestResults.phase || "", "", 0, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, metrics.avgChannelAccuracy || 0, metrics.avgFocusEfficiency || 0, metrics.avgClarityMatchRate || 0, metrics.avgInterruptions || 0, metrics.avgBreakCount || 0, metrics.avgBreakMinutes || 0, timestamp]);
+    rows.push([sessionId, latestResults.phase || "", "", 0, metrics.avgDeliveryScore || 0, metrics.avgBusinessAlignmentScore || 0, metrics.avgCompletedTaskCount || 0, metrics.avgCompletedBusinessValue || 0, metrics.avgHoldCount || 0, metrics.avgHoldMinutes || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, metrics.avgChannelAccuracy || 0, metrics.avgFocusEfficiency || 0, metrics.avgClarityMatchRate || 0, metrics.avgInterruptions || 0, metrics.avgBreakCount || 0, metrics.avgBreakMinutes || 0, timestamp]);
   } else {
     entries.forEach(([choice, count]) => {
-      rows.push([sessionId, latestResults.phase || "", choice, count, metrics.avgDeliveryScore || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, metrics.avgChannelAccuracy || 0, metrics.avgFocusEfficiency || 0, metrics.avgClarityMatchRate || 0, metrics.avgInterruptions || 0, metrics.avgBreakCount || 0, metrics.avgBreakMinutes || 0, timestamp]);
+      rows.push([sessionId, latestResults.phase || "", choice, count, metrics.avgDeliveryScore || 0, metrics.avgBusinessAlignmentScore || 0, metrics.avgCompletedTaskCount || 0, metrics.avgCompletedBusinessValue || 0, metrics.avgHoldCount || 0, metrics.avgHoldMinutes || 0, metrics.avgWellbeingScore || 0, metrics.avgOverloadMinutes || 0, metrics.avgChannelAccuracy || 0, metrics.avgFocusEfficiency || 0, metrics.avgClarityMatchRate || 0, metrics.avgInterruptions || 0, metrics.avgBreakCount || 0, metrics.avgBreakMinutes || 0, timestamp]);
     });
   }
 

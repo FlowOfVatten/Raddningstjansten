@@ -1,9 +1,15 @@
 const API_BASE = "/api/presentation";
 const POLL_MS = 700;
 const WORKDAY_MINUTES = 480;
-const TOP_SLOTS = 10;
+const TOP_SLOTS = 5;
 const TASK_WAVE_SIZE = 6;
 const TASK_WAVE_SECONDS = 10;
+const PRIORITY_SPEED_MULTIPLIERS = [2, 1.33, 1, 0.71, 0.5];
+const REPRIORITIZATION_PENALTY_MINUTES = 4;
+const HOLD_CHANCE_BY_RANK = [0.004, 0.007, 0.01, 0.013, 0.016];
+const HOLD_MIN_SECONDS_BY_RANK = [4, 5, 6, 7, 8];
+const HOLD_MAX_SECONDS_BY_RANK = [8, 10, 12, 14, 16];
+const HOLD_COOLDOWN_SECONDS = 16;
 
 const sessionInput = document.getElementById("sessionId");
 const joinBtn = document.getElementById("joinBtn");
@@ -93,6 +99,12 @@ let wellbeingBreakCount = 0;
 let wellbeingBreakMinutes = 0;
 let localBriefingSlide = 0;
 let hasMarkedReady = false;
+let workdayConsumedMinutes = 0;
+let completedTasks = [];
+const taskProgressById = new Map();
+let holdEventCount = 0;
+let holdTotalSeconds = 0;
+let boardLocked = false;
 const wellbeingCooldownById = new Map();
 const channelStats = {
   handled: 0,
@@ -107,7 +119,7 @@ const TASKS = createTaskCatalog();
 const phaseCopy = {
   idle: "Waiting for activation",
   briefing: "Pre-game briefing",
-  digitalStress: "Digital Stress - Prioritize top 10 for an 8-hour workday",
+  digitalStress: "Digital Stress - Run your top 5 queue for an 8-hour workday",
   workloadChaos: "Chaos - channel spam, interruptions, and reactive work",
   results: "Results mode"
 };
@@ -119,11 +131,11 @@ const BRIEFING_SLIDES = [
   },
   {
     title: "Goal",
-    body: "Build a top-10 priority list that creates value without burning through the full workday budget."
+    body: "Build and run a top-5 priority queue that creates value without burning through the full workday budget."
   },
   {
     title: "Digital Stress phase",
-    body: "For 60 seconds, rank work items quickly. Critical work will keep arriving in waves and force trade-offs."
+    body: "For 60 seconds, queue work quickly. Tasks in higher priority slots complete faster, so your focus choices matter."
   },
   {
     title: "Workload Chaos phase",
@@ -229,6 +241,9 @@ priorityBoard.addEventListener("dragover", (e) => {
 });
 
 priorityBoard.addEventListener("drop", (e) => {
+  if (boardLocked) {
+    return;
+  }
   e.preventDefault();
   const taskId = e.dataTransfer.getData("text/plain");
   const slot = e.target.closest(".task-slot");
@@ -238,6 +253,10 @@ priorityBoard.addEventListener("drop", (e) => {
 });
 
 priorityBoard.addEventListener("dragstart", (e) => {
+  if (boardLocked) {
+    e.preventDefault();
+    return;
+  }
   const slotTask = e.target.closest(".slot-task");
   if (!slotTask) {
     return;
@@ -255,6 +274,9 @@ priorityBoard.addEventListener("dragend", (e) => {
 });
 
 priorityBoard.addEventListener("click", (e) => {
+  if (boardLocked) {
+    return;
+  }
   const chip = e.target.closest(".quality-chip");
   if (!chip) {
     return;
@@ -265,6 +287,10 @@ priorityBoard.addEventListener("click", (e) => {
 });
 
 taskPool.addEventListener("dragstart", (e) => {
+  if (boardLocked) {
+    e.preventDefault();
+    return;
+  }
   const task = e.target.closest(".task-item");
   if (!task || task.classList.contains("locked") || task.classList.contains("taken")) {
     return;
@@ -287,6 +313,9 @@ taskPoolPanel.addEventListener("dragover", (e) => {
 });
 
 taskPoolPanel.addEventListener("drop", (e) => {
+  if (boardLocked) {
+    return;
+  }
   e.preventDefault();
   const taskId = e.dataTransfer.getData("text/plain");
   if (taskId) {
@@ -344,10 +373,16 @@ function createTaskCatalog() {
   return labels.map((label, idx) => {
     const id = `task_${String(idx + 1).padStart(2, "0")}`;
     const wellbeing = false;
-    const minutes = 30 + (idx % 6) * 12;
+    const minutes = 18 + (idx % 5) * 8;
     const lockedMs = 0;
     const clarity = idx % 3 === 0 ? "unclear" : "clear";
     const doneTarget = clarity === "unclear" ? (idx % 2 === 0 ? "goodEnough" : "perfect") : "goodEnough";
+    const businessImpact = 35 + ((idx * 19) % 66);
+    const urgency = 30 + ((idx * 23) % 71);
+    const risk = 25 + ((idx * 17) % 76);
+    const deadlinePressure = 20 + ((idx * 29) % 78);
+    const strategicAlignment = 30 + ((idx * 13) % 68);
+    const falseUrgency = /inbox|meeting|summary|workshop|maintenance checklist/i.test(label);
     return {
       id,
       label,
@@ -356,7 +391,13 @@ function createTaskCatalog() {
       wellbeing,
       clarity,
       doneTarget,
-      perfectExtra: wellbeing ? 0 : 15
+      perfectExtra: wellbeing ? 0 : 10,
+      businessImpact,
+      urgency,
+      risk,
+      deadlinePressure,
+      strategicAlignment,
+      falseUrgency
     };
   });
 }
@@ -399,9 +440,12 @@ async function syncState() {
 
   const interactive = currentPhase === "digitalStress" || currentPhase === "workloadChaos";
   const submitted = Boolean(state.submitted);
+  boardLocked = !interactive || submitted;
+  priorityBoard.classList.toggle("locked", boardLocked);
+  taskPool.classList.toggle("locked", boardLocked);
 
-  taskList.hidden = !interactive;
-  budgetStrip.hidden = !interactive;
+  taskList.hidden = !interactive || submitted;
+  budgetStrip.hidden = !interactive || submitted;
   submitBtn.hidden = true;
   if (conflictsEl) {
     conflictsEl.hidden = true;
@@ -438,8 +482,6 @@ async function syncState() {
 
   if (interactive && !submitted && currentPhase === "workloadChaos") {
     runChaosInterrupts();
-    await syncClaims();
-    await checkForConflicts();
   }
 
   if (interactive) {
@@ -475,6 +517,12 @@ function initializePhase({ carryForward = false } = {}) {
     channelStats.falseFires = 0;
     wellbeingBreakCount = 0;
     wellbeingBreakMinutes = 0;
+    workdayConsumedMinutes = 0;
+    completedTasks = [];
+    taskProgressById.clear();
+    holdEventCount = 0;
+    holdTotalSeconds = 0;
+    boardLocked = false;
     wellbeingCooldownById.clear();
     eventFeed.innerHTML = "";
   } else {
@@ -500,14 +548,14 @@ function initializePhase({ carryForward = false } = {}) {
 
   logEvent(`Phase started: ${phaseCopy[currentPhase]}.`, "phase");
   if (currentPhase === "workloadChaos") {
-    logEvent("WORKLOAD CHAOS - your priorities can collapse when resources are claimed by others.", "chaos");
+    logEvent("WORKLOAD CHAOS - tasks can be put on hold due to external reprioritization.", "chaos");
     if (carryForward) {
       logEvent("Auto transition to Chaos: earlier priorities are carried over.", "warn");
     }
-    logEvent("Chaos rules: rank plus speed decides who keeps a task.", "phase");
+    logEvent("Chaos rules: higher priority works faster, but dependencies can pause progress.", "phase");
     startFocusTicker();
   } else {
-    stopFocusTicker();
+    startFocusTicker();
   }
 
   renderChannelInbox();
@@ -889,13 +937,76 @@ function stopUnlockCheck() {
 function startFocusTicker() {
   stopFocusTicker();
   focusHandle = setInterval(() => {
-    if (currentPhase !== "workloadChaos") {
+    if (currentPhase !== "digitalStress" && currentPhase !== "workloadChaos") {
       return;
+    }
+
+    workdayConsumedMinutes += 1;
+    const completedNow = [];
+
+    currentPriorities.forEach((task, idx) => {
+      if (!task) {
+        return;
+      }
+      const progress = ensureTaskProgress(task.id, task);
+
+      if (isTaskOnHold(progress)) {
+        if (!progress.holdResumeLogged && progress.holdUntilMs <= Date.now()) {
+          progress.holdResumeLogged = true;
+          logEvent(`Resumed: ${task.label}.`, "info");
+        }
+        return;
+      }
+
+      if (currentPhase === "workloadChaos" && maybePutTaskOnHold(task, idx, progress)) {
+        return;
+      }
+
+      progress.remainingWorkMinutes = Math.max(0, progress.remainingWorkMinutes - getPrioritySpeed(idx));
+      progress.workedSeconds += 1;
+
+      if (progress.remainingWorkMinutes <= 0) {
+        completedNow.push({ task, rank: idx + 1 });
+      }
+    });
+
+    if (completedNow.length) {
+      completedNow.forEach(({ task, rank }) => {
+        const businessScore = computeBusinessScore(task);
+        completedTasks.push({
+          taskId: task.id,
+          label: task.label,
+          completedRank: rank,
+          completedAtMinute: workdayConsumedMinutes,
+          businessScore,
+          falseUrgency: Boolean(task.falseUrgency),
+          clarity: task.clarity,
+          quality: qualityChoiceByTaskId.get(task.id) || "goodEnough"
+        });
+        taskProgressById.delete(task.id);
+        claimMetaByTask.delete(task.id);
+      });
+
+      currentPriorities = currentPriorities.map((task) => {
+        if (!task) {
+          return task;
+        }
+        return completedNow.some((entry) => entry.task.id === task.id) ? null : task;
+      });
+
+      const doneLabel = completedNow.map((item) => item.task.label).join(", ");
+      logEvent(`Completed ${completedNow.length} task${completedNow.length === 1 ? "" : "s"}: ${doneLabel}.`, "choice");
+      renderSlots();
+      renderTasks();
+      if (currentPhase === "workloadChaos") {
+        syncClaims();
+      }
     }
 
     const focusTask = currentPriorities[0];
     if (!focusTask) {
       renderFocusPanel();
+      renderBudget();
       return;
     }
 
@@ -906,6 +1017,7 @@ function startFocusTicker() {
       focusProducedSec += 1;
     }
     renderFocusPanel();
+    renderBudget();
   }, 1000);
 }
 
@@ -951,6 +1063,7 @@ function renderTasks() {
   taskPool.innerHTML = "";
   const now = Date.now();
   const waveSet = new Set(currentWaveTaskIds);
+  const completedTaskIds = new Set(completedTasks.map((entry) => entry.taskId));
 
   availableTasks.forEach((task) => {
     if (waveSet.size && !waveSet.has(task.id)) {
@@ -958,6 +1071,10 @@ function renderTasks() {
     }
 
     if (currentPriorities.some((p) => p && p.id === task.id)) {
+      return;
+    }
+
+    if (completedTaskIds.has(task.id)) {
       return;
     }
 
@@ -971,8 +1088,8 @@ function renderTasks() {
     taskDiv.draggable = !isTaken && !isLocked;
 
     const clarityTag = task.clarity === "unclear" ? " | Unclear" : "";
-    const minutes = computeTaskMinutes(task);
-    taskDiv.textContent = isLocked ? `${task.label} (${lockSecsLeft}s)` : `${task.label} (${minutes}m${clarityTag})`;
+    const minutes = computeTaskWorkMinutes(task);
+    taskDiv.textContent = isLocked ? `${task.label} (${lockSecsLeft}s)` : `${task.label} (base ${minutes}m${clarityTag})`;
     taskDiv.title = isLocked
       ? `Available in ${lockSecsLeft} seconds`
       : isTaken
@@ -1004,6 +1121,17 @@ function moveTaskToSlot(taskId, rankIndex) {
   currentPriorities[rankIndex] = task;
   if (existingIndex !== -1 && displaced) {
     currentPriorities[existingIndex] = displaced;
+  }
+
+  if (!taskProgressById.has(task.id)) {
+    taskProgressById.set(task.id, {
+      totalWorkMinutes: computeTaskWorkMinutes(task),
+      remainingWorkMinutes: computeTaskWorkMinutes(task)
+    });
+  }
+
+  if (existingIndex !== -1 && existingIndex !== rankIndex) {
+    chaosPenaltyMinutes += REPRIORITIZATION_PENALTY_MINUTES;
   }
 
   if (!qualityChoiceByTaskId.has(task.id)) {
@@ -1060,6 +1188,16 @@ function toggleTaskQuality(taskId) {
   const next = current === "goodEnough" ? "perfect" : "goodEnough";
   qualityChoiceByTaskId.set(taskId, next);
 
+  const task = availableTasks.find((item) => item.id === taskId);
+  const progress = taskProgressById.get(taskId);
+  if (task && progress) {
+    const oldTotal = Math.max(1, Number(progress.totalWorkMinutes || 1));
+    const doneRatio = Math.max(0, Math.min(1, 1 - Number(progress.remainingWorkMinutes || 0) / oldTotal));
+    const newTotal = Math.max(1, computeTaskWorkMinutes(task));
+    progress.totalWorkMinutes = newTotal;
+    progress.remainingWorkMinutes = Math.max(0, round1(newTotal * (1 - doneRatio)));
+  }
+
   if (currentPhase === "workloadChaos") {
     applyFocusInterruption("Changed quality level", 4);
   }
@@ -1086,7 +1224,13 @@ function renderSlots() {
     const label = document.createElement("span");
     label.className = "slot-label";
     const healthTag = task.wellbeing ? " +wellbeing" : "";
-    label.textContent = `${task.label} (${computeTaskMinutes(task)}m${healthTag})`;
+    const progress = ensureTaskProgress(task.id, task);
+    const remaining = Math.max(0, Math.ceil(progress.remainingWorkMinutes));
+    const speedTag = `x${round1(getPrioritySpeed(idx))}`;
+    const holdTag = isTaskOnHold(progress)
+      ? ` | On hold (${Math.max(1, Math.ceil((Number(progress.holdUntilMs || 0) - Date.now()) / 1000))}s)`
+      : "";
+    label.textContent = `${task.label} (${remaining}m left | ${speedTag}${healthTag}${holdTag})`;
     pill.appendChild(label);
 
     if (task.clarity === "unclear") {
@@ -1107,7 +1251,7 @@ function renderSlots() {
   });
 }
 
-function computeTaskMinutes(task) {
+function computeTaskWorkMinutes(task) {
   const quality = qualityChoiceByTaskId.get(task.id) || "goodEnough";
   if (quality === "perfect") {
     return Number(task.minutes || 0) + Number(task.perfectExtra || 0);
@@ -1115,12 +1259,97 @@ function computeTaskMinutes(task) {
   return Number(task.minutes || 0);
 }
 
+function ensureTaskProgress(taskId, task) {
+  let progress = taskProgressById.get(taskId);
+  if (!progress) {
+    const total = Math.max(1, computeTaskWorkMinutes(task));
+    progress = {
+      totalWorkMinutes: total,
+      remainingWorkMinutes: total,
+      workedSeconds: 0,
+      holdUntilMs: 0,
+      holdCooldownUntilMs: 0,
+      holdResumeLogged: false
+    };
+    taskProgressById.set(taskId, progress);
+  }
+  return progress;
+}
+
+function isTaskOnHold(progress) {
+  return Number(progress.holdUntilMs || 0) > Date.now();
+}
+
+function maybePutTaskOnHold(task, rankIndex, progress) {
+  if (Number(progress.workedSeconds || 0) < 8) {
+    return false;
+  }
+
+  const now = Date.now();
+  if (Number(progress.holdCooldownUntilMs || 0) > now) {
+    return false;
+  }
+
+  const chance = Number(HOLD_CHANCE_BY_RANK[rankIndex] || HOLD_CHANCE_BY_RANK[HOLD_CHANCE_BY_RANK.length - 1] || 0);
+  if (Math.random() >= chance) {
+    return false;
+  }
+
+  const minSec = Number(HOLD_MIN_SECONDS_BY_RANK[rankIndex] || 5);
+  const maxSec = Number(HOLD_MAX_SECONDS_BY_RANK[rankIndex] || 10);
+  const holdSec = Math.max(minSec, Math.floor(minSec + Math.random() * (maxSec - minSec + 1)));
+
+  progress.holdUntilMs = now + holdSec * 1000;
+  progress.holdCooldownUntilMs = progress.holdUntilMs + HOLD_COOLDOWN_SECONDS * 1000;
+  progress.holdResumeLogged = false;
+
+  holdEventCount += 1;
+  holdTotalSeconds += holdSec;
+  logEvent(`On hold: ${task.label} (${holdSec}s) due to external reprioritization.`, "warn");
+  return true;
+}
+
+function getPrioritySpeed(rankIndex) {
+  return Number(PRIORITY_SPEED_MULTIPLIERS[rankIndex] || 1);
+}
+
+function computeBusinessScore(task) {
+  const weighted =
+    Number(task.businessImpact || 0) * 0.35 +
+    Number(task.urgency || 0) * 0.25 +
+    Number(task.risk || 0) * 0.2 +
+    Number(task.deadlinePressure || 0) * 0.1 +
+    Number(task.strategicAlignment || 0) * 0.1;
+  const adjusted = weighted - (task.falseUrgency ? 15 : 0);
+  return Math.max(0, Math.min(100, round1(adjusted)));
+}
+
+function expectedPriorityFromBusinessScore(score) {
+  if (score >= 85) {
+    return 1;
+  }
+  if (score >= 70) {
+    return 2;
+  }
+  if (score >= 55) {
+    return 3;
+  }
+  if (score >= 40) {
+    return 4;
+  }
+  return 5;
+}
+
 function computeSummary() {
   const selected = currentPriorities.filter(Boolean);
-  const plannedMinutes = selected.reduce((sum, task) => sum + computeTaskMinutes(task), 0);
+  const activeWorkMinutes = selected.reduce((sum, task) => {
+    const progress = ensureTaskProgress(task.id, task);
+    return sum + Math.max(0, Number(progress.remainingWorkMinutes || 0));
+  }, 0);
+  const plannedMinutes = round1(activeWorkMinutes);
   const wellbeingTaskCount = wellbeingBreakCount;
   const wellbeingScore = wellbeingTaskCount * 2 + chaosWellbeingDelta;
-  const totalMinutes = plannedMinutes + chaosPenaltyMinutes;
+  const totalMinutes = round1(workdayConsumedMinutes + chaosPenaltyMinutes);
   const remainingMinutes = WORKDAY_MINUTES - totalMinutes;
 
   const unclearSelected = selected.filter((task) => task.clarity === "unclear");
@@ -1132,6 +1361,18 @@ function computeSummary() {
   const channelAccuracy = channelStats.handled > 0
     ? round1((channelStats.correct / channelStats.handled) * 100)
     : 0;
+
+  const completedBusinessValue = completedTasks.reduce((sum, item) => sum + Number(item.businessScore || 0), 0);
+  const alignmentRaw = completedTasks.map((item) => {
+    const expected = expectedPriorityFromBusinessScore(Number(item.businessScore || 0));
+    const delta = Math.abs(Number(item.completedRank || 5) - expected);
+    const falseUrgencyPenalty = item.falseUrgency && Number(item.completedRank || 5) <= 2 ? 20 : 0;
+    return Math.max(0, 100 - delta * 22 - falseUrgencyPenalty);
+  });
+  const businessAlignmentScore = alignmentRaw.length
+    ? round1(alignmentRaw.reduce((sum, value) => sum + value, 0) / alignmentRaw.length)
+    : 0;
+  const deliveryScore = round1((completedTasks.length * 12) + (completedBusinessValue * 0.35) - Math.max(0, -remainingMinutes) * 0.15);
 
   return {
     plannedMinutes,
@@ -1152,7 +1393,14 @@ function computeSummary() {
     focusProducedSec,
     interruptionCount,
     unclearTaskCount: unclearSelected.length,
-    clarityMatchCount
+    clarityMatchCount,
+    completedTaskCount: completedTasks.length,
+    completedBusinessValue: round1(completedBusinessValue),
+    businessAlignmentScore,
+    deliveryScore,
+    workdayConsumedMinutes: round1(workdayConsumedMinutes),
+    holdCount: holdEventCount,
+    holdMinutes: round1(holdTotalSeconds)
   };
 }
 
@@ -1355,8 +1603,8 @@ async function submitPriorities({ allowPartial = false, fromTimer = false } = {}
   }
 
   const filled = currentPriorities.filter(Boolean);
-  if (!allowPartial && filled.length < TOP_SLOTS) {
-    alert(`You must prioritize top ${TOP_SLOTS} tasks before submitting.`);
+  if (!allowPartial && filled.length < 1 && completedTasks.length < 1) {
+    alert("Add at least one active task or complete one task before submitting.");
     return;
   }
 
@@ -1365,14 +1613,19 @@ async function submitPriorities({ allowPartial = false, fromTimer = false } = {}
       rank: idx + 1,
       taskId: task.id,
       taskLabel: task.label,
-      minutes: computeTaskMinutes(task),
+      minutes: round1(Number((taskProgressById.get(task.id) || {}).remainingWorkMinutes || computeTaskWorkMinutes(task))),
       wellbeing: Boolean(task.wellbeing),
       clarity: task.clarity,
-      quality: qualityChoiceByTaskId.get(task.id) || "goodEnough"
+      quality: qualityChoiceByTaskId.get(task.id) || "goodEnough",
+      businessScore: computeBusinessScore(task),
+      falseUrgency: Boolean(task.falseUrgency)
     } : null))
     .filter(Boolean);
 
-  const summary = computeSummary();
+  const summary = {
+    ...computeSummary(),
+    completedTasks: completedTasks.slice()
+  };
 
   const res = await fetch(`${API_BASE}/submit`, {
     method: "POST",
@@ -1395,6 +1648,7 @@ async function submitPriorities({ allowPartial = false, fromTimer = false } = {}
   submittedEl.hidden = false;
   taskList.hidden = true;
   budgetStrip.hidden = true;
+  boardLocked = true;
   submitBtn.hidden = true;
   hideChaosOverlay();
   stopUnlockCheck();
@@ -1431,11 +1685,11 @@ async function showInlineResults() {
   if (myRes.ok) {
     const myData = await myRes.json();
     const mySummary = myData.summary || {};
-    const myScore = computeDeliveryScore(myData.ranking || []);
+    const myScore = Number(mySummary.deliveryScore || 0);
     myDelivery.textContent = String(myScore);
     myWellbeing.textContent = String(mySummary.wellbeingScore ?? 0);
     myOverload.textContent = `${mySummary.overloadMinutes ?? 0} min`;
-    inlineResultsSummary.textContent = `Your latest submission is compared with ${groupData.participants || 0} participants.`;
+    inlineResultsSummary.textContent = `Compared with ${groupData.participants || 0} participants. Business alignment: ${mySummary.businessAlignmentScore ?? 0}% (group avg ${groupMetrics.avgBusinessAlignmentScore ?? 0}%).`;
   } else {
     myDelivery.textContent = "-";
     myWellbeing.textContent = "-";
@@ -1445,16 +1699,6 @@ async function showInlineResults() {
 
   inlineResults.hidden = false;
   hasLoadedInlineResults = true;
-}
-
-function computeDeliveryScore(ranking) {
-  return (ranking || []).reduce((sum, rank, idx) => {
-    if (!rank || !rank.taskId) {
-      return sum;
-    }
-    const weight = Math.max(1, 10 - idx);
-    return sum + weight * (rank.wellbeing ? 0.5 : 1);
-  }, 0);
 }
 
 function getOrCreateParticipantId() {
