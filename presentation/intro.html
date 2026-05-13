@@ -1,425 +1,451 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Workload & Digital Stress – Presentation</title>
+  <title>Workload & Digital Stress</title>
   <style>
-    * {
+    :root {
+      --bg: #f4efe6;
+      --ink: #1e1b16;
+      --muted: #6f6659;
+      --line: #d9cfbf;
+      --accent: #c3551a;
+      --accent-soft: #e38a58;
+      --shadow: 0 18px 45px rgba(35, 23, 10, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
       margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #f0f0f0;
+      height: 100%;
+      color: var(--ink);
+      font-family: "Aptos", "Bahnschrift", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(circle at 6% 8%, rgba(227, 138, 88, 0.22), transparent 36%),
+        radial-gradient(circle at 90% 20%, rgba(195, 85, 26, 0.18), transparent 32%),
+        linear-gradient(145deg, #f8f3ea, #efe6d8 60%, #f6efe4);
       overflow: hidden;
-      height: 100vh;
     }
 
-    .presentation-container {
-      display: flex;
-      height: 100vh;
-      flex-direction: column;
+    .grain::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(rgba(30, 27, 22, 0.04) 0.7px, transparent 0.7px);
+      background-size: 3px 3px;
+      pointer-events: none;
+      opacity: 0.55;
     }
 
-    .slide-viewer {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 60px;
-      background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
+    .shell {
+      height: 100%;
+      display: grid;
+      grid-template-rows: 1fr auto;
       position: relative;
-      overflow: hidden;
+      z-index: 2;
+    }
+
+    .hud {
+      position: fixed;
+      top: 18px;
+      left: 24px;
+      right: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .chip {
+      pointer-events: auto;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 248, 0.9);
+      padding: 8px 12px;
+      border-radius: 999px;
+      backdrop-filter: blur(6px);
+    }
+
+    .viewport {
+      padding: 90px 48px 24px;
+      display: grid;
+      place-items: center;
     }
 
     .slide {
       display: none;
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      text-align: center;
-      max-width: 900px;
-      animation: slideIn 0.5s ease;
+      width: min(1220px, 100%);
+      height: min(78vh, 760px);
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      background: linear-gradient(160deg, rgba(255, 254, 251, 0.95), rgba(250, 245, 236, 0.92));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      grid-template-columns: 1.08fr 0.92fr;
       position: relative;
+      animation: lift 420ms ease;
     }
 
-    .slide.active {
-      display: block;
-      opacity: 1;
+    .slide.active { display: grid; }
+
+    @keyframes lift {
+      from { opacity: 0; transform: translateY(22px) scale(0.995); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .copy {
+      padding: clamp(28px, 5vw, 64px);
+      display: grid;
+      align-content: center;
+      gap: 22px;
     }
 
-    .slide-visual {
-      margin-bottom: 30px;
-      height: 180px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .eyebrow {
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0;
     }
 
-    .slide-visual svg {
-      max-width: 100%;
-      max-height: 100%;
-      filter: drop-shadow(0 0 20px rgba(100, 255, 218, 0.2));
+    h1, h2 {
+      margin: 0;
+      line-height: 1.03;
+      font-family: "Rockwell", "Cambria", "Times New Roman", serif;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #201a12;
     }
 
-    .slide h1 {
-      font-size: clamp(2rem, 5vw, 3.5rem);
-      margin-bottom: 40px;
-      color: #64ffda;
-      text-shadow: 0 0 20px rgba(100, 255, 218, 0.3);
+    h1 { font-size: clamp(2.2rem, 5vw, 4.4rem); }
+    h2 { font-size: clamp(1.85rem, 3.7vw, 3.2rem); }
+
+    .subtitle {
+      margin: 0;
+      font-size: clamp(1.05rem, 1.8vw, 1.36rem);
+      color: #5c5143;
+      max-width: 66ch;
+      line-height: 1.45;
     }
 
-    .slide h2 {
-      font-size: clamp(1.5rem, 4vw, 2.5rem);
-      margin-bottom: 30px;
-      color: #64ffda;
-    }
-
-    .slide-content {
-      font-size: 1.3rem;
-      line-height: 1.8;
-      color: #e0e0e0;
-    }
-
-    .slide-content ul {
-      text-align: left;
-      display: inline-block;
-      margin: 30px 0;
-    }
-
-    .slide-content li {
+    ul {
+      margin: 10px 0 0;
+      padding: 0;
       list-style: none;
-      padding: 15px 0;
-      padding-left: 40px;
+      display: grid;
+      gap: 12px;
+      max-width: 70ch;
+    }
+
+    li {
+      border-left: 3px solid var(--accent);
+      padding: 7px 0 7px 12px;
+      font-size: clamp(1rem, 1.5vw, 1.2rem);
+      color: #3d352b;
+      line-height: 1.35;
+    }
+
+    .quote {
+      margin-top: 4px;
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 248, 0.85);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: #4b4032;
+      font-size: clamp(0.96rem, 1.25vw, 1.08rem);
+      line-height: 1.45;
+    }
+
+    .visual {
       position: relative;
-      font-size: 1.15rem;
+      overflow: hidden;
+      background: #efe5d6;
+      border-left: 1px solid var(--line);
     }
 
-    .slide-content li:before {
-      content: "→";
+    .visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: saturate(1.08) contrast(1.04);
+      transform: scale(1.01);
+    }
+
+    .visual::after {
+      content: "";
       position: absolute;
-      left: 0;
-      color: #64ffda;
-      font-weight: bold;
-      font-size: 1.3rem;
+      inset: 0;
+      background: linear-gradient(160deg, rgba(20, 17, 12, 0.1), rgba(255, 250, 242, 0.03));
+      pointer-events: none;
     }
 
-    .scripture {
-      background: rgba(100, 255, 218, 0.1);
-      border-left: 4px solid #64ffda;
-      padding: 25px;
-      margin: 30px 0;
-      border-radius: 8px;
-      font-style: italic;
-      color: #d0d0d0;
-      text-align: left;
+    .bridge {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: clamp(1rem, 1.7vw, 1.35rem);
+      color: #564a3d;
+      border: 1px dashed #bcae99;
+      border-radius: 12px;
+      width: fit-content;
+      padding: 9px 14px;
+    }
+
+    .bridge strong {
+      color: #2b2114;
+      font-size: 1.04em;
+    }
+
+    .cta {
+      width: fit-content;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-size: 1.03rem;
+      padding: 13px 22px;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(195, 85, 26, 0.28);
+      transition: transform 140ms ease, box-shadow 140ms ease;
+    }
+
+    .cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(195, 85, 26, 0.34);
     }
 
     .controls {
+      border-top: 1px solid var(--line);
+      background: rgba(255, 252, 245, 0.86);
+      backdrop-filter: blur(8px);
+      padding: 14px 26px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 20px 60px;
-      background: rgba(0, 0, 0, 0.5);
-      border-top: 1px solid #64ffda;
+      justify-content: space-between;
+      gap: 16px;
     }
 
-    button {
-      background: linear-gradient(135deg, #64ffda, #4dd9cc);
-      color: #0f3460;
-      border: none;
-      padding: 12px 30px;
-      font-size: 1rem;
-      font-weight: 600;
-      border-radius: 6px;
+    .controls button {
+      border: 1px solid #cbbdac;
+      background: #fffdf8;
+      color: #44382b;
+      font-size: 0.96rem;
+      padding: 10px 16px;
+      border-radius: 999px;
       cursor: pointer;
-      transition: all 0.3s ease;
     }
 
-    button:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(100, 255, 218, 0.3);
-    }
+    .controls button:hover:not(:disabled) { border-color: #bda88f; }
+    .controls button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    button.secondary {
-      background: rgba(100, 255, 218, 0.2);
-      color: #64ffda;
-      border: 1px solid #64ffda;
-    }
-
-    button.secondary:hover:not(:disabled) {
-      background: rgba(100, 255, 218, 0.3);
-    }
-
-    button.start-game {
-      background: linear-gradient(135deg, #2ecc71, #27ae60);
-      color: white;
-      padding: 14px 40px;
-      font-size: 1.1rem;
-    }
-
-    button.start-game:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 25px rgba(46, 204, 113, 0.4);
-    }
-
-    .slide-counter {
-      color: #64ffda;
-      font-size: 1.1rem;
-      font-weight: 600;
-      min-width: 100px;
+    .progress-wrap {
+      width: min(520px, 58vw);
+      display: grid;
+      gap: 8px;
       text-align: center;
     }
 
-    .progress-bar {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      height: 4px;
-      background: #64ffda;
-      background-image: linear-gradient(90deg, #64ffda, #4dd9cc);
-      transition: width 0.3s ease;
+    .progress {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: #e1d8ca;
+      overflow: hidden;
     }
 
-    .footer-info {
-      font-size: 0.9rem;
-      color: #888;
-      text-align: right;
-      margin-top: 10px;
-      margin-right: 20px;
+    .progress > span {
+      display: block;
+      height: 100%;
+      width: 14.285%;
+      background: linear-gradient(90deg, #ad4d18, #d7743d);
+      transition: width 220ms ease;
     }
 
-    .shortcut-hint {
-      position: fixed;
-      top: 15px;
-      right: 20px;
-      font-size: 0.85rem;
-      color: #666;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 8px 15px;
-      border-radius: 4px;
-      border: 1px solid #444;
+    #counter {
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .slide-number-badge {
-      position: fixed;
-      top: 15px;
-      left: 20px;
-      font-size: 0.9rem;
-      color: #64ffda;
-      background: rgba(100, 255, 218, 0.1);
-      padding: 8px 15px;
-      border-radius: 4px;
-      border: 1px solid #64ffda;
+    @media (max-width: 900px) {
+      .viewport { padding: 76px 14px 10px; }
+      .slide {
+        height: min(84vh, 920px);
+        grid-template-columns: 1fr;
+        grid-template-rows: 1.15fr 0.85fr;
+      }
+      .visual { border-left: 0; border-top: 1px solid var(--line); }
+      .controls { padding: 12px; }
+      .progress-wrap { width: 56vw; }
     }
   </style>
 </head>
-<body>
-  <div class="slide-number-badge" id="badgeSlideNum">Slide 1/7</div>
-  <div class="shortcut-hint">Arrow keys to navigate • Space to start game</div>
-
-  <div class="presentation-container">
-    <div class="slide-viewer">
-      <div class="progress-bar" id="progressBar"></div>
-
-      <!-- Slide 1: Title -->
-      <div class="slide active">
-        <div class="slide-visual">
-          <img src="./assets/intro/slide-1.svg" alt="Workload and digital stress visual" style="max-height:180px;border-radius:12px;" />
-        </div>
-        <h1>Workload & Digital Stress</h1>
-        <h1 style="color: #aaa; font-size: clamp(1.5rem, 3vw, 2rem); margin-top: 20px;">— Why it's not personal</h1>
-        <div class="scripture" style="margin-top: 80px; font-size: 0.95rem;">
-          "When we talk about stress, focus usually lands on the individual – how they prioritize, plan, and handle pressure. But today we're looking at something else: <strong>how work is organized and how technology amplifies its effects.</strong>"
-        </div>
-      </div>
-
-      <!-- Slide 2: Workload ≠ busy -->
-      <div class="slide">
-        <div class="slide-visual">
-          <img src="./assets/intro/slide-2.svg" alt="Unclear workload illustration" style="max-height:180px;border-radius:12px;" />
-        </div>
-        <h2>Workload ≠ "Busy"</h2>
-        <div class="slide-content">
-          <ul>
-            <li>Unclear tasks and goals</li>
-            <li>Competing priorities</li>
-            <li>Time dependencies and interruptions</li>
-          </ul>
-          <div class="scripture">
-            "Workload isn't just about the amount of work. It's equally about <strong>how clearly work is defined,</strong> <strong>how many things compete simultaneously,</strong> and <strong>how often we get interrupted or dependent on others.</strong> When these fail, responsibility shifts from organization to individual."
-          </div>
-        </div>
-      </div>
-
-      <!-- Slide 3: Guessing work -->
-      <div class="slide">
-        <div class="slide-visual">
-          <img src="./assets/intro/slide-3.svg" alt="Guessing priorities illustration" style="max-height:180px;border-radius:12px;" />
-        </div>
-        <h2>Unclear work creates guessing work</h2>
-        <div class="slide-content">
-          <ul>
-            <li>What's most important?</li>
-            <li>What counts as "done"?</li>
-            <li>What if nothing gets cut?</li>
-          </ul>
-          <div class="scripture">
-            "When tasks lack clarity, a predictable pattern emerges: people start guessing. They guess what matters most, how good something needs to be, and what's actually expected. That's where burden begins – even before stress appears."
-          </div>
-        </div>
-      </div>
-
-      <!-- Slide 4: Digital stress amplifier -->
-      <div class="slide">
-        <div class="slide-visual">
-          <img src="./assets/intro/slide-4.svg" alt="Digital overload illustration" style="max-height:180px;border-radius:12px;" />
-        </div>
-        <h2>Digital stress rarely creates new problems</h2>
-        <div class="slide-content">
-          <ul>
-            <li>Multiple channels simultaneously</li>
-            <li>Constant availability</li>
-            <li>Notifications and interruptions</li>
-          </ul>
-          <div class="scripture">
-            "Digital stress isn't usually a new problem. Technology <strong>rarely creates</strong> the confusion – it <strong>amplifies it.</strong> When the same unclear task shows up in email, Teams, chat, and as a notification, everything feels equally urgent – regardless of actual importance."
-          </div>
-        </div>
-      </div>
-
-      <!-- Slide 5: Consequences -->
-      <div class="slide">
-        <div class="slide-visual">
-          <img src="./assets/intro/slide-5.svg" alt="Fragmented focus illustration" style="max-height:180px;border-radius:12px;" />
-        </div>
-        <h2>What actually happens</h2>
-        <div class="slide-content">
-          <ul>
-            <li>Everything feels urgent</li>
-            <li>Focus breaks constantly</li>
-            <li>Over- or underdelivery</li>
-          </ul>
-          <div class="scripture">
-            "The result isn't higher speed – it's more interruptions. Focus shatters, quality spreads thin, and energy goes to reacting instead of producing value."
-          </div>
-        </div>
-      </div>
-
-      <!-- Slide 6: The bridge -->
-      <div class="slide">
-        <div class="slide-visual">
-          <img src="./assets/intro/slide-6.svg" alt="Bridge equation illustration" style="max-height:180px;border-radius:12px;" />
-        </div>
-        <h1 style="margin-top: 20px; font-size: 2.5rem;">STRESS</h1>
-        <div class="scripture" style="margin-top: 40px;">
-          "This is where both areas meet. When work is unclear and technology sits on top, pressure transforms into stress – very quickly."
-        </div>
-      </div>
-
-      <!-- Slide 7: Game time -->
-      <div class="slide">
-        <div class="slide-visual">
-          <img src="./assets/intro/slide-7.svg" alt="Game start illustration" style="max-height:180px;border-radius:12px;" />
-        </div>
-        <h2>Now it gets interesting</h2>
-        <div class="slide-content" style="margin-top: 60px;">
-          <p style="font-size: 1.4rem; margin-bottom: 40px;">You're about to <strong>experience</strong> how this works in practice.</p>
-          <p style="font-size: 1.2rem; color: #888; margin-bottom: 60px;">No tricks. Do what you think is right.</p>
-          <button class="start-game" id="startGameBtn" style="margin-top: 40px;">🎮 Start the game</button>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="controls">
-      <button id="prevBtn" class="secondary">← Previous</button>
-      <div style="display: flex; flex-direction: column; align-items: center;">
-        <div class="slide-counter" id="counter">Slide 1/7</div>
-        <div class="footer-info">Use arrow keys to navigate</div>
-      </div>
-      <button id="nextBtn" class="secondary">Next →</button>
-    </div>
+<body class="grain">
+  <div class="hud">
+    <div class="chip" id="chip">Slide 1 of 7</div>
+    <div class="chip">Use Left/Right arrows</div>
   </div>
 
+  <main class="shell">
+    <section class="viewport">
+      <article class="slide active">
+        <div class="copy">
+          <p class="eyebrow">Opening</p>
+          <h1>Workload and Digital Stress</h1>
+          <p class="subtitle">Why it is not personal and why system design drives pressure more than individual effort.</p>
+          <p class="quote">"Today is not about helping people survive stress. It is about understanding how unclear work and digital environments manufacture stress in the first place."</p>
+        </div>
+        <div class="visual"><img src="./assets/intro/slide-1.svg" alt="Stress abstract"></div>
+      </article>
+
+      <article class="slide">
+        <div class="copy">
+          <p class="eyebrow">Core Idea</p>
+          <h2>Workload is not equal to being busy</h2>
+          <ul>
+            <li>Unclear goals produce hidden effort.</li>
+            <li>Competing priorities force constant trade-offs.</li>
+            <li>Interruptions fragment focus and decision quality.</li>
+          </ul>
+          <p class="quote">When structure is missing, people are forced to compensate with personal energy.</p>
+        </div>
+        <div class="visual"><img src="./assets/intro/slide-2.svg" alt="Workload model"></div>
+      </article>
+
+      <article class="slide">
+        <div class="copy">
+          <p class="eyebrow">Behavior Pattern</p>
+          <h2>Unclear work creates guessing work</h2>
+          <ul>
+            <li>What should come first?</li>
+            <li>What is good enough to be done?</li>
+            <li>What happens if we do not cut scope?</li>
+          </ul>
+          <p class="quote">The burden starts before stress. It starts when people must guess.</p>
+        </div>
+        <div class="visual"><img src="./assets/intro/slide-3.svg" alt="Decision uncertainty"></div>
+      </article>
+
+      <article class="slide">
+        <div class="copy">
+          <p class="eyebrow">Amplifier</p>
+          <h2>Digital stress rarely creates new problems</h2>
+          <ul>
+            <li>Email, chat, and alerts stack urgency.</li>
+            <li>Always-on channels remove recovery time.</li>
+            <li>Everything feels urgent, even when it is not.</li>
+          </ul>
+          <p class="quote">Technology amplifies unclear systems. It does not fix them.</p>
+        </div>
+        <div class="visual"><img src="./assets/intro/slide-4.svg" alt="Digital overload"></div>
+      </article>
+
+      <article class="slide">
+        <div class="copy">
+          <p class="eyebrow">Impact</p>
+          <h2>What actually happens in teams</h2>
+          <ul>
+            <li>Everything looks critical at once.</li>
+            <li>Focus is repeatedly broken.</li>
+            <li>Output quality oscillates between over- and underdelivery.</li>
+          </ul>
+          <p class="quote">More activity does not mean more value.</p>
+        </div>
+        <div class="visual"><img src="./assets/intro/slide-5.svg" alt="Impact on focus"></div>
+      </article>
+
+      <article class="slide">
+        <div class="copy">
+          <p class="eyebrow">Bridge</p>
+          <h2>How pressure turns into stress</h2>
+          <div class="bridge"><strong>Unclear work</strong> + <strong>digital tools</strong> = <strong>stress</strong></div>
+          <p class="subtitle">This is the mechanism you are about to experience in a compressed format.</p>
+          <p class="quote">When ambiguity and constant digital input collide, the system itself creates overload.</p>
+        </div>
+        <div class="visual"><img src="./assets/intro/slide-6.svg" alt="Stress equation"></div>
+      </article>
+
+      <article class="slide">
+        <div class="copy">
+          <p class="eyebrow">Transition</p>
+          <h2>Now you will experience it live</h2>
+          <ul>
+            <li>Open the game link.</li>
+            <li>Join the session.</li>
+            <li>Do what you believe is right.</li>
+          </ul>
+          <button class="cta" id="startGameBtn" type="button">Start Game</button>
+        </div>
+        <div class="visual"><img src="./assets/intro/slide-7.svg" alt="Start simulation"></div>
+      </article>
+    </section>
+
+    <footer class="controls">
+      <button id="prevBtn" type="button">Previous</button>
+      <div class="progress-wrap">
+        <div id="counter">Slide 1 of 7</div>
+        <div class="progress"><span id="bar"></span></div>
+      </div>
+      <button id="nextBtn" type="button">Next</button>
+    </footer>
+  </main>
+
   <script>
-    let currentSlide = 0;
-    const slides = document.querySelectorAll('.slide');
-    const totalSlides = slides.length;
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const total = slides.length;
+    let index = 0;
 
-    function updateSlide() {
-      slides.forEach((slide, index) => {
-        slide.classList.remove('active');
-        if (index === currentSlide) {
-          slide.classList.add('active');
-        }
-      });
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const startBtn = document.getElementById('startGameBtn');
+    const chip = document.getElementById('chip');
+    const counter = document.getElementById('counter');
+    const bar = document.getElementById('bar');
 
-      document.getElementById('counter').textContent = `Slide ${currentSlide + 1}/${totalSlides}`;
-      document.getElementById('badgeSlideNum').textContent = `Slide ${currentSlide + 1}/${totalSlides}`;
-
-      const progress = ((currentSlide + 1) / totalSlides) * 100;
-      document.getElementById('progressBar').style.width = progress + '%';
-
-      document.getElementById('prevBtn').disabled = currentSlide === 0;
-      document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+    function render() {
+      slides.forEach((s, i) => s.classList.toggle('active', i === index));
+      const text = `Slide ${index + 1} of ${total}`;
+      chip.textContent = text;
+      counter.textContent = text;
+      bar.style.width = `${((index + 1) / total) * 100}%`;
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === total - 1;
     }
 
-    document.getElementById('prevBtn').addEventListener('click', () => {
-      if (currentSlide > 0) {
-        currentSlide--;
-        updateSlide();
+    function move(delta) {
+      const next = Math.max(0, Math.min(total - 1, index + delta));
+      if (next !== index) {
+        index = next;
+        render();
       }
-    });
+    }
 
-    document.getElementById('nextBtn').addEventListener('click', () => {
-      if (currentSlide < totalSlides - 1) {
-        currentSlide++;
-        updateSlide();
-      }
-    });
+    prevBtn.addEventListener('click', () => move(-1));
+    nextBtn.addEventListener('click', () => move(1));
 
-    document.getElementById('startGameBtn').addEventListener('click', () => {
-      // Goes to participant page to join a session
+    startBtn.addEventListener('click', () => {
       window.location.href = './index.html';
     });
 
-    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') {
-        document.getElementById('prevBtn').click();
-      } else if (e.key === 'ArrowRight') {
-        document.getElementById('nextBtn').click();
-      } else if (e.key === ' ') {
+      if (e.key === 'ArrowLeft') move(-1);
+      if (e.key === 'ArrowRight') move(1);
+      if (e.key === ' ' && index === total - 1) {
         e.preventDefault();
-        if (currentSlide === 6) {
-          document.getElementById('startGameBtn').click();
-        } else if (currentSlide < totalSlides - 1) {
-          document.getElementById('nextBtn').click();
-        }
+        startBtn.click();
       }
     });
 
-    updateSlide();
+    render();
   </script>
 </body>
 </html>
