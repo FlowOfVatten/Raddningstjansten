@@ -16,10 +16,10 @@ const INTERRUPTS = [
   "Support: Urgent help needed right away."
 ];
 const INBOX_TEMPLATES = [
-  { text: "URGENT: customer waiting", severity: "high", impact: 8 },
-  { text: "Can you handle this quickly?", severity: "medium", impact: 4 },
-  { text: "Not important (or?)", severity: "low", impact: 2 },
-  { text: "New rule: precision is prioritized", severity: "high", impact: 7 }
+  { text: "URGENT: customer waiting", severity: "high", impact: 8, idealAction: "handle" },
+  { text: "Can you handle this quickly?", severity: "medium", impact: 4, idealAction: "postpone" },
+  { text: "Not important (or?)", severity: "low", impact: 2, idealAction: "ignore" },
+  { text: "New rule: precision is prioritized", severity: "high", impact: 7, idealAction: "handle" }
 ];
 
 const els = {
@@ -40,6 +40,7 @@ const els = {
   ignoreInterrupt: document.getElementById("ignoreInterrupt"),
   reactionPrompt: document.getElementById("reactionPrompt"),
   reactionButton: document.getElementById("reactionButton"),
+  reactionPanel: document.getElementById("reactionPanel"),
   eventLog: document.getElementById("eventLog"),
   results: document.getElementById("resultsPanel"),
   metrics: document.getElementById("metricsGrid"),
@@ -87,6 +88,8 @@ function emptyMetrics() {
     attempts: 0,
     errors: 0,
     completed: 0,
+    inboxCorrectDecisions: 0,
+    inboxWrongDecisions: 0,
     missedDeadlines: 0,
     ignoredCriticalInbox: 0,
     acceptedInterrupts: 0,
@@ -137,6 +140,7 @@ function updateHUD() {
   const live = calcLiveStress();
   els.liveStress.textContent = String(live);
   els.root.classList.toggle("stress-high", live > 70);
+  els.root.classList.toggle("peak-stress-phase", state.currentPhase.name === "Peak Stress");
 }
 
 function calcLiveStress() {
@@ -216,7 +220,7 @@ function makeTask() {
 
   if (type === "memory") {
     const seq = [randInt(10, 99), randInt(10, 99), randInt(10, 99)];
-    task.prompt = `Memorize this series for 3 sec: ${seq.join("-")}. Enter the last number.`;
+    task.prompt = `Memorize this series for 5 sec: ${seq.join("-")}. Enter the last number.`;
     task.correctAnswer = String(seq[2]);
   }
 
@@ -282,7 +286,7 @@ function renderWorkspace() {
         if (state.selectedTaskId === task.id) {
           form.querySelector("p").textContent = `Task #${task.id}: Enter the last number in the series.`;
         }
-      }, 3000);
+      }, 5000);
     }
   }
 
@@ -350,8 +354,9 @@ function makeInboxMessage() {
     text: template.text,
     severity: template.severity,
     impact: template.impact,
+    idealAction: template.idealAction,
     createdAt: Date.now(),
-    handled: false
+    resolved: false
   };
   state.inboxItems.unshift(item);
   renderInbox();
@@ -359,25 +364,88 @@ function makeInboxMessage() {
 
 function renderInbox() {
   els.inbox.innerHTML = "";
-  state.inboxItems.slice(0, 9).forEach((item) => {
+  state.inboxItems.filter((item) => !item.resolved).slice(0, 9).forEach((item) => {
     const li = document.createElement("li");
     li.className = item.severity;
     li.innerHTML = `<strong>${item.text}</strong><br>Impact: ${item.impact}`;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = item.handled ? "Handled" : "Mark as handled";
-    button.disabled = item.handled;
-    button.addEventListener("click", () => {
-      item.handled = true;
-      state.score += Math.round(2 * state.dynamicRule.rewardMultiplier);
-      logEvent(`Inbox #${item.id} handled.`);
-      renderInbox();
-      updateHUD();
+    const actions = document.createElement("div");
+    actions.className = "row";
+
+    [
+      ["Handle", "handle"],
+      ["Postpone", "postpone"],
+      ["Ignore", "ignore"]
+    ].forEach(([label, action]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        resolveInboxDecision(item.id, action);
+      });
+      actions.appendChild(button);
     });
-    li.appendChild(document.createElement("br"));
-    li.appendChild(button);
+
+    li.appendChild(actions);
     els.inbox.appendChild(li);
   });
+}
+
+function resolveInboxDecision(itemId, action) {
+  const item = state.inboxItems.find((entry) => entry.id === itemId);
+  if (!item || item.resolved) {
+    return;
+  }
+
+  item.resolved = true;
+
+  const delta = scoreInboxDecision(item, action);
+  if (delta >= 0) {
+    state.score += Math.round(delta * state.dynamicRule.rewardMultiplier);
+  } else {
+    state.score += Math.round(delta * state.dynamicRule.penaltyMultiplier);
+  }
+
+  const outcome = delta >= 0 ? `+${Math.round(Math.abs(delta))}` : `-${Math.round(Math.abs(delta))}`;
+  logEvent(`Inbox #${item.id}: ${action} (${outcome}).`);
+  renderInbox();
+  updateHUD();
+}
+
+function scoreInboxDecision(item, action) {
+  const ideal = item.idealAction;
+  if (action === ideal) {
+    state.metrics.inboxCorrectDecisions += 1;
+    if (action === "handle") {
+      return item.impact + 2;
+    }
+    if (action === "postpone") {
+      return Math.max(2, Math.round(item.impact * 0.75));
+    }
+    return Math.max(2, Math.round(item.impact * 0.6));
+  }
+
+  state.metrics.inboxWrongDecisions += 1;
+
+  if (ideal === "handle" && action === "ignore") {
+    return -(item.impact + 4);
+  }
+  if (ideal === "handle" && action === "postpone") {
+    return -Math.max(3, item.impact - 1);
+  }
+  if (ideal === "ignore" && action === "handle") {
+    return -Math.max(2, Math.round(item.impact * 1.5));
+  }
+  if (ideal === "ignore" && action === "postpone") {
+    return -2;
+  }
+  if (ideal === "postpone" && action === "handle") {
+    return -Math.max(2, Math.round(item.impact * 0.75));
+  }
+  if (ideal === "postpone" && action === "ignore") {
+    return -Math.max(3, Math.round(item.impact * 1.25));
+  }
+
+  return -Math.max(2, item.impact);
 }
 
 function maybeSpawnInterrupt() {
@@ -416,6 +484,7 @@ function resolveInterrupt(accepted) {
 
 function scheduleReaction() {
   clearTimeout(state.reactionSchedule);
+  setReactionAlert(false);
   const delay = randInt(5000, 15000);
   state.reactionSchedule = setTimeout(() => {
     if (!state.active) {
@@ -423,6 +492,7 @@ function scheduleReaction() {
     }
     state.reactionActive = true;
     state.reactionStartedAt = Date.now();
+    setReactionAlert(true);
     els.reactionPrompt.textContent = "SIGNAL! Click immediately!";
     els.reactionButton.disabled = false;
     logEvent("Reaction test started.");
@@ -436,6 +506,7 @@ function captureReaction() {
   const rt = Date.now() - state.reactionStartedAt;
   state.metrics.reactionTimes.push(rt);
   state.reactionActive = false;
+  setReactionAlert(false);
   els.reactionButton.disabled = true;
   els.reactionPrompt.textContent = `Recorded: ${rt} ms`;
   const reward = rt < 600 ? 6 : rt < 1100 ? 3 : 0;
@@ -507,6 +578,7 @@ function startGame(deadlineMs, durationSec) {
   state.inboxItems = [];
   state.currentInterrupt = null;
   state.reactionActive = false;
+  setReactionAlert(false);
   state.metrics = emptyMetrics();
   state.latestBaseMetrics = null;
   state.hasSubmitted = false;
@@ -569,12 +641,13 @@ function calculateBaselineMetrics() {
 
 function renderBaseResults(base) {
   const cards = [
-    ["Score", state.score],
+    ["Game Score", state.score],
     ["Task throughput", base.throughput],
     ["Error rate", `${base.errorRate.toFixed(1)}%`],
     ["Missed deadlines", base.missed],
     ["Average RT", `${Math.round(base.avgRT)} ms`],
-    ["RT variance (norm)", base.rtVarNorm.toFixed(1)]
+    ["RT variance (norm)", base.rtVarNorm.toFixed(1)],
+    ["Inbox decisions", `${state.metrics.inboxCorrectDecisions}/${state.metrics.inboxCorrectDecisions + state.metrics.inboxWrongDecisions}`]
   ];
 
   els.metrics.innerHTML = cards
@@ -592,6 +665,7 @@ function endGame() {
   clearInterval(state.inboxTimer);
   clearInterval(state.interruptTimer);
   clearTimeout(state.reactionSchedule);
+  setReactionAlert(false);
   els.reactionButton.disabled = true;
   els.acceptInterrupt.disabled = true;
   els.ignoreInterrupt.disabled = true;
@@ -616,11 +690,16 @@ function buildFeedback(stressScore, base, nasaAvg) {
   if (state.metrics.ignoredCriticalInbox > 2) {
     lines.push("You ignored important messages when working memory was overloaded.");
   }
+  if (state.metrics.inboxWrongDecisions > state.metrics.inboxCorrectDecisions) {
+    lines.push("Your inbox prioritization was unstable under pressure.");
+  }
   if (lines.length === 0) {
     lines.push("You stayed relatively stable under pressure but showed a clear stress peak in high-load phases.");
   }
+  lines.push(`Game Score: ${state.score}.`);
   lines.push(`NASA-TLX average: ${nasaAvg.toFixed(1)} / 100.`);
   lines.push(`Final Stress Score: ${stressScore.toFixed(1)} / 100.`);
+  lines.push("The leaderboard uses Final Stress Score, not raw Game Score.");
   return lines;
 }
 
@@ -661,13 +740,13 @@ async function loadServerLeaderboard() {
 
   const data = await res.json();
   const rows = (data.leaderboard || []).map((item, idx) => {
-    return `${idx + 1}. ${item.participantId.slice(0, 8)} - Stress ${Math.round(item.stressScore)}`;
+    return `${idx + 1}. ${item.participantId.slice(0, 8)} - Final Stress Score ${Math.round(item.stressScore)}`;
   });
 
   els.leaderboard.innerHTML = `
     <h3>Group feedback (live)</h3>
     <p>Median stress: <strong>${data.medianStress || 0}</strong></p>
-    <p>Average stress: <strong>${data.avgStress || 0}</strong></p>
+    <p>Leaderboard ranking is based on Final Stress Score.</p>
     <p>${rows.join("<br>") || "No results yet."}</p>
   `;
 }
@@ -803,6 +882,17 @@ function applySessionFromQuery() {
   if (session) {
     els.sessionIdInput.value = session;
   }
+}
+
+function setReactionAlert(active) {
+  if (!els.reactionPanel) {
+    return;
+  }
+  els.reactionPanel.classList.toggle("reaction-active", Boolean(active));
+  els.reactionPanel.classList.toggle(
+    "reaction-peak",
+    Boolean(active) && state.currentPhase.name === "Peak Stress"
+  );
 }
 
 els.joinButton.addEventListener("click", joinSession);

@@ -9,15 +9,16 @@ const memorySessions = new Map();
 let poolPromise = null;
 
 class MemoryStressStore {
-  createSession() {
+  createSession({ durationSec } = {}) {
     const sessionId = `T${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
     const adminKey = `K${Math.random().toString(36).slice(2, 12)}`;
+    const initialDurationSec = sanitizeDurationSec(durationSec, DEFAULT_DURATION_SEC);
     memorySessions.set(sessionId, {
       sessionId,
       adminKey,
       phase: "idle",
       deadlineMs: null,
-      durationSec: DEFAULT_DURATION_SEC,
+      durationSec: initialDurationSec,
       participants: new Set(),
       resultsByParticipant: {}
     });
@@ -97,16 +98,17 @@ class MemoryStressStore {
 }
 
 class SqlStressStore {
-  async createSession() {
+  async createSession({ durationSec } = {}) {
     const pool = await getPool();
     const sessionId = `T${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
     const adminKey = `K${Math.random().toString(36).slice(2, 12)}`;
+    const initialDurationSec = sanitizeDurationSec(durationSec, DEFAULT_DURATION_SEC);
     const payload = {
       sessionId,
       adminKey,
       phase: "idle",
       deadlineMs: null,
-      durationSec: DEFAULT_DURATION_SEC,
+      durationSec: initialDurationSec,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };

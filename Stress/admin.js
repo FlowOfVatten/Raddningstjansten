@@ -23,12 +23,14 @@ let lastDeadlineMs = null;
 els.createSession.addEventListener("click", createSession);
 els.startGame.addEventListener("click", () => setPhase("live"));
 els.showResults.addEventListener("click", () => setPhase("results"));
+els.durationSec.addEventListener("change", onDurationChange);
 
 async function createSession() {
+  const durationSec = Math.max(60, Math.min(1200, Number(els.durationSec.value || 600)));
   const res = await fetch(`${API_BASE}/createSession`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: "{}"
+    body: JSON.stringify({ durationSec })
   });
 
   if (!res.ok) {
@@ -43,6 +45,22 @@ async function createSession() {
   els.participantLink.innerHTML = `Participant link: <a href="${url}" target="_blank" rel="noopener">${url}</a>`;
   els.adminStatus.textContent = "Session created.";
   startPolling();
+}
+
+async function onDurationChange() {
+  const sessionId = (els.sessionId.value || "").trim().toUpperCase();
+  const adminKey = (els.adminKey.value || "").trim();
+  if (!sessionId || !adminKey) {
+    return;
+  }
+
+  const phase = (els.phase.textContent || "idle").trim().toLowerCase();
+  if (phase !== "idle") {
+    return;
+  }
+
+  await setPhase("idle");
+  els.adminStatus.textContent = "Duration updated for waiting participants.";
 }
 
 async function setPhase(phase) {
@@ -124,12 +142,12 @@ async function loadResults() {
 
   const data = await res.json();
   const rows = (data.leaderboard || []).map((item, idx) => {
-    return `${idx + 1}. ${item.participantId.slice(0, 8)} - Stress ${Math.round(item.stressScore)}`;
+    return `${idx + 1}. ${item.participantId.slice(0, 8)} - Final Stress Score ${Math.round(item.stressScore)}`;
   });
 
   els.leaderboard.innerHTML = `
     <p>Median stress: <strong>${data.medianStress || 0}</strong></p>
-    <p>Average stress: <strong>${data.avgStress || 0}</strong></p>
+    <p>Leaderboard ranking is based on Final Stress Score.</p>
     <p>${rows.join("<br>") || "No results yet."}</p>
   `;
 }

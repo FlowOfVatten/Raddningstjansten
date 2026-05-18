@@ -239,6 +239,27 @@ select {
   gap: 0.2rem;
 }
 
+.reaction.reaction-active {
+  border-color: #dc2626;
+  animation: reactionAlert 0.36s ease-in-out infinite alternate;
+}
+
+.reaction.reaction-active.reaction-peak {
+  animation-duration: 0.18s;
+  border-color: #b91c1c;
+}
+
+@keyframes reactionAlert {
+  from {
+    background: #fff5f5;
+    box-shadow: 0 8px 24px rgba(127, 29, 29, 0.2);
+  }
+  to {
+    background: #fee2e2;
+    box-shadow: 0 10px 30px rgba(220, 38, 38, 0.45);
+  }
+}
+
 .stress-high .topbar,
 .stress-high .panel,
 .stress-high .hud article {

@@ -8,7 +8,8 @@ module.exports = async function (context, req) {
 
   try {
     if (method === "POST" && action === "createsession") {
-      return json(200, await store.createSession());
+      const payload = req.body || {};
+      return json(200, await store.createSession({ durationSec: payload.durationSec }));
     }
 
     if (method === "POST" && action === "activate") {
