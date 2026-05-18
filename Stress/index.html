@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,44 +18,44 @@
       <div class="session-controls">
         <label for="sessionIdInput">Session</label>
         <input id="sessionIdInput" placeholder="T12345" maxlength="12" autocomplete="off">
-        <button id="joinButton" type="button">Anslut</button>
+        <button id="joinButton" type="button">Join</button>
       </div>
     </header>
 
-    <section class="panel session-panel" aria-label="Sessionstatus">
-      <p id="joinStatus">Anslut till en session som startas via adminvyn.</p>
+    <section class="panel session-panel" aria-label="Session status">
+      <p id="joinStatus">Join a session started from the admin page.</p>
       <p id="sessionMeta"></p>
     </section>
 
-    <section class="hud" aria-label="Spelstatus">
+    <section class="hud" aria-label="Game status">
       <article>
-        <p class="label">Tid kvar</p>
+        <p class="label">Time left</p>
         <p class="value" id="timeLeft">--:--</p>
       </article>
       <article>
-        <p class="label">Fas</p>
-        <p class="value" id="phaseName">Vantar</p>
+        <p class="label">Phase</p>
+        <p class="value" id="phaseName">Waiting</p>
       </article>
       <article>
-        <p class="label">Poang</p>
+        <p class="label">Score</p>
         <p class="value" id="scoreValue">0</p>
       </article>
       <article>
-        <p class="label">Stressindikator</p>
+        <p class="label">Stress indicator</p>
         <p class="value" id="liveStress">0</p>
       </article>
     </section>
 
     <section class="board">
       <article class="panel" id="tasksPanel">
-        <h2>Aktiva Tasks</h2>
+        <h2>Active Tasks</h2>
         <ul id="taskList" class="list"></ul>
       </article>
 
       <article class="panel" id="focusPanel">
-        <h2>Fokusuppgift</h2>
+        <h2>Focus Task</h2>
         <div id="taskWorkspace">
-          <p>Valj en task for att svara.</p>
+          <p>Select a task to answer.</p>
         </div>
       </article>
 
@@ -67,38 +67,38 @@
 
     <section class="event-row">
       <article class="panel interrupt" id="interruptPanel">
-        <h2>Avbrott</h2>
-        <p id="interruptText">Inga avbrott just nu.</p>
+        <h2>Interrupts</h2>
+        <p id="interruptText">No interrupts right now.</p>
         <div class="row">
-          <button id="acceptInterrupt" type="button" disabled>Acceptera</button>
-          <button id="ignoreInterrupt" type="button" disabled>Ignorera</button>
+          <button id="acceptInterrupt" type="button" disabled>Accept</button>
+          <button id="ignoreInterrupt" type="button" disabled>Ignore</button>
         </div>
       </article>
 
       <article class="panel reaction" id="reactionPanel">
-        <h2>Reaktionstest</h2>
-        <p id="reactionPrompt">Vanta pa signal...</p>
-        <button id="reactionButton" type="button" disabled>KLICKA NU</button>
+        <h2>Reaction Test</h2>
+        <p id="reactionPrompt">Wait for signal...</p>
+        <button id="reactionButton" type="button" disabled>CLICK NOW</button>
       </article>
     </section>
 
     <section class="panel log">
-      <h2>Händelselogg</h2>
+      <h2>Event Log</h2>
       <ul id="eventLog" class="list"></ul>
     </section>
 
     <section class="results panel" id="resultsPanel" hidden>
-      <h2>Resultat</h2>
+      <h2>Results</h2>
       <div id="metricsGrid" class="metrics"></div>
 
       <h3>NASA-TLX (0-100)</h3>
       <form id="nasaForm" class="nasa-form">
-        <label>Mental belastning <input type="range" name="mental" min="0" max="100" value="50"></label>
-        <label>Tidspress <input type="range" name="temporal" min="0" max="100" value="50"></label>
-        <label>Anstrangning <input type="range" name="effort" min="0" max="100" value="50"></label>
+        <label>Mental load <input type="range" name="mental" min="0" max="100" value="50"></label>
+        <label>Time pressure <input type="range" name="temporal" min="0" max="100" value="50"></label>
+        <label>Effort <input type="range" name="effort" min="0" max="100" value="50"></label>
         <label>Frustration <input type="range" name="frustration" min="0" max="100" value="50"></label>
-        <label>Upplevd prestation <input type="range" name="performance" min="0" max="100" value="50"></label>
-        <button type="submit">Berakna slutlig stress score</button>
+        <label>Perceived performance <input type="range" name="performance" min="0" max="100" value="50"></label>
+        <button type="submit">Calculate final stress score</button>
       </form>
 
       <div id="feedbackBox"></div>
@@ -107,7 +107,7 @@
 
     <section class="panel">
       <h2>Admin</h2>
-      <p>Oppna adminvyn i separat fonster: <a href="admin.html" target="_blank" rel="noopener">Stress Admin</a></p>
+      <p>Open the admin page in a separate window: <a href="admin.html" target="_blank" rel="noopener">Stress Admin</a></p>
     </section>
   </main>
 

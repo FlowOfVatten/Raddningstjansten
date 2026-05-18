@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,43 +20,43 @@
     <section class="panel">
       <h2>Session</h2>
       <div class="row">
-        <button id="createSession" type="button">Skapa session</button>
+        <button id="createSession" type="button">Create session</button>
       </div>
       <div class="task-form">
         <label>Session ID <input id="sessionId" readonly></label>
         <label>Admin key <input id="adminKey" readonly></label>
-        <label>Speltid (sek) <input id="durationSec" type="number" min="60" max="1200" value="600"></label>
+        <label>Game duration (sec) <input id="durationSec" type="number" min="60" max="1200" value="600"></label>
       </div>
       <div class="row">
-        <button id="startGame" type="button">Starta spel</button>
-        <button id="showResults" type="button">Visa resultat</button>
+        <button id="startGame" type="button">Start game</button>
+        <button id="showResults" type="button">Show results</button>
       </div>
-      <p id="adminStatus">Ingen aktiv session.</p>
+      <p id="adminStatus">No active session.</p>
       <p id="participantLink"></p>
     </section>
 
     <section class="hud">
       <article>
-        <p class="label">Fas</p>
+        <p class="label">Phase</p>
         <p class="value" id="phaseValue">-</p>
       </article>
       <article>
-        <p class="label">Deltagare</p>
+        <p class="label">Participants</p>
         <p class="value" id="participantCount">0</p>
       </article>
       <article>
-        <p class="label">Inskickade</p>
+        <p class="label">Submissions</p>
         <p class="value" id="submissionCount">0</p>
       </article>
       <article>
-        <p class="label">Tid kvar</p>
+        <p class="label">Time left</p>
         <p class="value" id="timeLeft">--</p>
       </article>
     </section>
 
     <section class="panel">
       <h2>Leaderboard</h2>
-      <div id="leaderboard">Inga resultat an.</div>
+      <div id="leaderboard">No results yet.</div>
     </section>
   </main>
 

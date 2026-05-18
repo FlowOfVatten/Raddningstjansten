@@ -2,24 +2,24 @@ const API_BASE = "/api/stress";
 const POLL_MS = 2000;
 
 const PHASES = [
-  { name: "Introduktion", startRatio: 0, endRatio: 0.2, taskEvery: 9000, inboxEvery: 13000, interruptEvery: 0 },
+  { name: "Introduction", startRatio: 0, endRatio: 0.2, taskEvery: 9000, inboxEvery: 13000, interruptEvery: 0 },
   { name: "Load", startRatio: 0.2, endRatio: 0.6, taskEvery: 6000, inboxEvery: 9000, interruptEvery: 14000 },
   { name: "Peak Stress", startRatio: 0.6, endRatio: 0.9, taskEvery: 3600, inboxEvery: 6000, interruptEvery: 9000 },
-  { name: "Nedtrappning", startRatio: 0.9, endRatio: 1, taskEvery: 12000, inboxEvery: 14000, interruptEvery: 22000 }
+  { name: "Cooldown", startRatio: 0.9, endRatio: 1, taskEvery: 12000, inboxEvery: 14000, interruptEvery: 22000 }
 ];
 
 const TASK_TYPES = ["decision", "calculation", "memory", "priority"];
 const INTERRUPTS = [
-  "Kollega: Kan du ta den har snabbt?",
-  "Samtal: Kunden vill ha direkt besked.",
-  "Chef: Prioritera om allt nu.",
-  "Support: Akut hjalp behovs omgaende."
+  "Colleague: Can you take this quickly?",
+  "Call: The customer needs an immediate answer.",
+  "Manager: Reprioritize everything now.",
+  "Support: Urgent help needed right away."
 ];
 const INBOX_TEMPLATES = [
-  { text: "AKUT: kund vantar", severity: "high", impact: 8 },
-  { text: "Kan du ta denna snabbt?", severity: "medium", impact: 4 },
-  { text: "Ej viktigt (eller?)", severity: "low", impact: 2 },
-  { text: "Ny regel: precision prioriteras", severity: "high", impact: 7 }
+  { text: "URGENT: customer waiting", severity: "high", impact: 8 },
+  { text: "Can you handle this quickly?", severity: "medium", impact: 4 },
+  { text: "Not important (or?)", severity: "low", impact: 2 },
+  { text: "New rule: precision is prioritized", severity: "high", impact: 7 }
 ];
 
 const els = {
@@ -178,7 +178,7 @@ function phaseTick() {
     state.currentPhase = nextPhase;
     applyDynamicRules(nextPhase);
     els.phaseName.textContent = nextPhase.name;
-    logEvent(`Fasbyte: ${nextPhase.name}. Regler justerade.`);
+    logEvent(`Phase change: ${nextPhase.name}. Rules updated.`);
     restartSpawnTimers();
   }
 }
@@ -204,31 +204,31 @@ function makeTask() {
   if (type === "calculation") {
     const a = randInt(2, 12 + difficulty * 3);
     const b = randInt(2, 9 + difficulty * 3);
-    task.prompt = `Berakna: ${a} x ${b}`;
+    task.prompt = `Calculate: ${a} x ${b}`;
     task.correctAnswer = String(a * b);
   }
 
   if (type === "decision") {
-    task.prompt = "Snabbt beslut: Vem hanteras forst?";
-    task.options = ["Kritisk incident", "Rutinarende", "Intern fraga"];
-    task.correctAnswer = "Kritisk incident";
+    task.prompt = "Quick decision: What should be handled first?";
+    task.options = ["Critical incident", "Routine case", "Internal question"];
+    task.correctAnswer = "Critical incident";
   }
 
   if (type === "memory") {
     const seq = [randInt(10, 99), randInt(10, 99), randInt(10, 99)];
-    task.prompt = `Memorera serien i 3 sek: ${seq.join("-")}. Skriv sista talet.`;
+    task.prompt = `Memorize this series for 3 sec: ${seq.join("-")}. Enter the last number.`;
     task.correctAnswer = String(seq[2]);
   }
 
   if (type === "priority") {
-    task.prompt = "Prioritering: Vilken task ska upp?";
-    task.options = ["Deadline 3 min", "Lagt tryck utan deadline", "Vantar pa intern review"];
-    task.correctAnswer = "Deadline 3 min";
+    task.prompt = "Prioritization: Which task should be first?";
+    task.options = ["Deadline in 3 min", "High pressure without deadline", "Waiting for internal review"];
+    task.correctAnswer = "Deadline in 3 min";
   }
 
   state.activeTasks.push(task);
   renderTasks();
-  logEvent(`Ny task #${task.id} (${task.type}) deadline ${task.deadline}s.`);
+  logEvent(`New task #${task.id} (${task.type}) deadline ${task.deadline}s.`);
 }
 
 function renderTasks() {
@@ -242,7 +242,7 @@ function renderTasks() {
       li.className = urgency;
       li.innerHTML = `
         <strong>#${task.id} ${task.type}</strong><br>
-        Deadline: ${timeLeftSec}s | Diff: ${task.difficulty} | Poang: +${task.reward}/${task.penalty}
+        Deadline: ${timeLeftSec}s | Difficulty: ${task.difficulty} | Score: +${task.reward}/${task.penalty}
       `;
       li.addEventListener("click", () => {
         state.selectedTaskId = task.id;
@@ -255,7 +255,7 @@ function renderTasks() {
 function renderWorkspace() {
   const task = state.activeTasks.find((t) => t.id === state.selectedTaskId);
   if (!task) {
-    els.workspace.innerHTML = "<p>Valj en task for att svara.</p>";
+    els.workspace.innerHTML = "<p>Select a task to answer.</p>";
     return;
   }
 
@@ -280,7 +280,7 @@ function renderWorkspace() {
     if (task.type === "memory") {
       setTimeout(() => {
         if (state.selectedTaskId === task.id) {
-          form.querySelector("p").textContent = `Task #${task.id}: Skriv sista talet i serien.`;
+          form.querySelector("p").textContent = `Task #${task.id}: Enter the last number in the series.`;
         }
       }, 3000);
     }
@@ -288,7 +288,7 @@ function renderWorkspace() {
 
   const submit = document.createElement("button");
   submit.type = "submit";
-  submit.textContent = "Skicka svar";
+  submit.textContent = "Submit answer";
   form.appendChild(inputEl);
   form.appendChild(submit);
 
@@ -315,13 +315,13 @@ function evaluateTask(taskId, answer) {
     state.score += reward;
     state.metrics.completed += 1;
     registerPhasePerformance(true);
-    logEvent(`Task #${task.id} klar (+${reward}).`);
+    logEvent(`Task #${task.id} completed (+${reward}).`);
   } else {
     const penalty = Math.round(Math.abs(task.penalty) * state.dynamicRule.penaltyMultiplier);
     state.score -= penalty;
     state.metrics.errors += 1;
     registerPhasePerformance(false);
-    logEvent(`Task #${task.id} fel (-${penalty}).`);
+    logEvent(`Task #${task.id} incorrect (-${penalty}).`);
   }
 
   state.activeTasks.splice(idx, 1);
@@ -362,15 +362,15 @@ function renderInbox() {
   state.inboxItems.slice(0, 9).forEach((item) => {
     const li = document.createElement("li");
     li.className = item.severity;
-    li.innerHTML = `<strong>${item.text}</strong><br>Konsekvens: ${item.impact}`;
+    li.innerHTML = `<strong>${item.text}</strong><br>Impact: ${item.impact}`;
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = item.handled ? "Hanterad" : "Markera hanterad";
+    button.textContent = item.handled ? "Handled" : "Mark as handled";
     button.disabled = item.handled;
     button.addEventListener("click", () => {
       item.handled = true;
       state.score += Math.round(2 * state.dynamicRule.rewardMultiplier);
-      logEvent(`Inbox #${item.id} hanterad.`);
+      logEvent(`Inbox #${item.id} handled.`);
       renderInbox();
       updateHUD();
     });
@@ -391,7 +391,7 @@ function maybeSpawnInterrupt() {
   els.interruptText.textContent = state.currentInterrupt.text;
   els.acceptInterrupt.disabled = false;
   els.ignoreInterrupt.disabled = false;
-  logEvent("Avbrott inkom.");
+  logEvent("Interrupt received.");
 }
 
 function resolveInterrupt(accepted) {
@@ -401,14 +401,14 @@ function resolveInterrupt(accepted) {
   if (accepted) {
     state.metrics.acceptedInterrupts += 1;
     state.score -= Math.round(3 * state.dynamicRule.penaltyMultiplier);
-    logEvent("Avbrott accepterat (tidskostnad).");
+    logEvent("Interrupt accepted (time cost).");
   } else {
     state.metrics.ignoredInterrupts += 1;
     state.score -= Math.round(5 * state.dynamicRule.penaltyMultiplier);
-    logEvent("Avbrott ignorerat (social penalty).");
+    logEvent("Interrupt ignored (social penalty).");
   }
   state.currentInterrupt = null;
-  els.interruptText.textContent = "Inga avbrott just nu.";
+  els.interruptText.textContent = "No interrupts right now.";
   els.acceptInterrupt.disabled = true;
   els.ignoreInterrupt.disabled = true;
   updateHUD();
@@ -423,9 +423,9 @@ function scheduleReaction() {
     }
     state.reactionActive = true;
     state.reactionStartedAt = Date.now();
-    els.reactionPrompt.textContent = "SIGNAL! Klicka direkt!";
+    els.reactionPrompt.textContent = "SIGNAL! Click immediately!";
     els.reactionButton.disabled = false;
-    logEvent("Reaktionstest startat.");
+    logEvent("Reaction test started.");
   }, delay);
 }
 
@@ -437,7 +437,7 @@ function captureReaction() {
   state.metrics.reactionTimes.push(rt);
   state.reactionActive = false;
   els.reactionButton.disabled = true;
-  els.reactionPrompt.textContent = `Registrerat: ${rt} ms`;
+  els.reactionPrompt.textContent = `Recorded: ${rt} ms`;
   const reward = rt < 600 ? 6 : rt < 1100 ? 3 : 0;
   if (reward === 0) {
     state.metrics.errors += 1;
@@ -454,7 +454,7 @@ function checkDeadlines() {
     if (task.dueAt < now) {
       state.metrics.missedDeadlines += 1;
       state.score -= Math.round(Math.abs(task.penalty) * 1.2 * state.dynamicRule.penaltyMultiplier);
-      logEvent(`Missad deadline for task #${task.id}.`);
+      logEvent(`Missed deadline for task #${task.id}.`);
     } else {
       stillActive.push(task);
     }
@@ -466,7 +466,7 @@ function checkDeadlines() {
       item.handled = true;
       state.metrics.ignoredCriticalInbox += 1;
       state.score -= 4;
-      logEvent(`Viktig inbox ignorerades: ${item.text}.`);
+      logEvent(`Critical inbox item ignored: ${item.text}.`);
     }
   }
 
@@ -515,7 +515,7 @@ function startGame(deadlineMs, durationSec) {
   els.nasaForm.reset();
   els.feedback.innerHTML = "";
   els.leaderboard.innerHTML = "";
-  els.workspace.innerHTML = "<p>Valj en task for att svara.</p>";
+  els.workspace.innerHTML = "<p>Select a task to answer.</p>";
 
   state.currentPhase = PHASES[0];
   applyDynamicRules(state.currentPhase);
@@ -541,8 +541,8 @@ function startGame(deadlineMs, durationSec) {
     }
   }, 700);
 
-  els.joinStatus.textContent = "Ansluten. Spelet ar aktivt.";
-  logEvent("Simulering startad via adminsession.");
+  els.joinStatus.textContent = "Connected. The game is active.";
+  logEvent("Simulation started via admin session.");
   updateHUD();
 }
 
@@ -569,12 +569,12 @@ function calculateBaselineMetrics() {
 
 function renderBaseResults(base) {
   const cards = [
-    ["Poang", state.score],
+    ["Score", state.score],
     ["Task throughput", base.throughput],
-    ["Felprocent", `${base.errorRate.toFixed(1)}%`],
-    ["Missade deadlines", base.missed],
-    ["Medel RT", `${Math.round(base.avgRT)} ms`],
-    ["RT-varians (norm)", base.rtVarNorm.toFixed(1)]
+    ["Error rate", `${base.errorRate.toFixed(1)}%`],
+    ["Missed deadlines", base.missed],
+    ["Average RT", `${Math.round(base.avgRT)} ms`],
+    ["RT variance (norm)", base.rtVarNorm.toFixed(1)]
   ];
 
   els.metrics.innerHTML = cards
@@ -601,26 +601,26 @@ function endGame() {
   state.latestBaseMetrics = base;
   renderBaseResults(base);
   els.results.hidden = false;
-  els.joinStatus.textContent = "Session avslutad. Fyll i NASA-TLX och skicka resultat.";
-  logEvent("Simulering avslutad. Fyll i NASA-TLX.");
+  els.joinStatus.textContent = "Session ended. Complete NASA-TLX and submit your result.";
+  logEvent("Simulation finished. Complete NASA-TLX.");
 }
 
 function buildFeedback(stressScore, base, nasaAvg) {
   const lines = [];
   if (base.errorRate > 35) {
-    lines.push("Du prioriterade snabbhet over noggrannhet i flera kritiska moment.");
+    lines.push("You prioritized speed over accuracy in multiple critical moments.");
   }
   if (base.missed > 5) {
-    lines.push("Du tappade kontroll over deadlines under hog belastning.");
+    lines.push("You lost control over deadlines under high load.");
   }
   if (state.metrics.ignoredCriticalInbox > 2) {
-    lines.push("Du ignorerade viktiga meddelanden nar arbetsminnet blev belastat.");
+    lines.push("You ignored important messages when working memory was overloaded.");
   }
   if (lines.length === 0) {
-    lines.push("Du beholl relativ stabilitet under press men visar tydlig peak i stressfaserna.");
+    lines.push("You stayed relatively stable under pressure but showed a clear stress peak in high-load phases.");
   }
-  lines.push(`NASA-TLX medel: ${nasaAvg.toFixed(1)} / 100.`);
-  lines.push(`Slutlig Stress Score: ${stressScore.toFixed(1)} / 100.`);
+  lines.push(`NASA-TLX average: ${nasaAvg.toFixed(1)} / 100.`);
+  lines.push(`Final Stress Score: ${stressScore.toFixed(1)} / 100.`);
   return lines;
 }
 
@@ -641,12 +641,12 @@ async function submitResultToServer(payload) {
 
   if (res.ok) {
     state.hasSubmitted = true;
-    logEvent("Resultat skickat till server.");
+    logEvent("Result sent to server.");
     return;
   }
 
   const err = await res.json().catch(() => ({}));
-  logEvent(`Kunde inte skicka resultat: ${err.error || "okant fel"}.`);
+  logEvent(`Could not submit result: ${err.error || "unknown error"}.`);
 }
 
 async function loadServerLeaderboard() {
@@ -665,10 +665,10 @@ async function loadServerLeaderboard() {
   });
 
   els.leaderboard.innerHTML = `
-    <h3>Gruppfeedback (live)</h3>
+    <h3>Group feedback (live)</h3>
     <p>Median stress: <strong>${data.medianStress || 0}</strong></p>
     <p>Average stress: <strong>${data.avgStress || 0}</strong></p>
-    <p>${rows.join("<br>") || "Inga resultat an."}</p>
+    <p>${rows.join("<br>") || "No results yet."}</p>
   `;
 }
 
@@ -691,7 +691,7 @@ async function submitNasa(event) {
     nasaAvg * 0.3;
 
   const lines = buildFeedback(stressScore, base, nasaAvg);
-  els.feedback.innerHTML = `<h3>Individuell feedback</h3><p>${lines.join("<br>")}</p>`;
+  els.feedback.innerHTML = `<h3>Individual feedback</h3><p>${lines.join("<br>")}</p>`;
 
   await submitResultToServer({
     stressScore,
@@ -709,12 +709,12 @@ async function submitNasa(event) {
 async function joinSession() {
   const sessionId = (els.sessionIdInput.value || "").trim().toUpperCase();
   if (!sessionId) {
-    els.joinStatus.textContent = "Ange ett session-ID.";
+    els.joinStatus.textContent = "Enter a session ID.";
     return;
   }
 
   els.joinButton.disabled = true;
-  els.joinStatus.textContent = "Ansluter...";
+  els.joinStatus.textContent = "Joining...";
 
   try {
     const res = await fetch(
@@ -723,22 +723,22 @@ async function joinSession() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      els.joinStatus.textContent = err.error || "Kunde inte ansluta till session.";
+      els.joinStatus.textContent = err.error || "Could not join session.";
       return;
     }
 
     const sessionState = await res.json();
     state.joined = true;
     state.sessionId = sessionId;
-    els.sessionMeta.textContent = `Session: ${sessionId} | Deltagar-ID: ${state.participantId}`;
-    els.joinStatus.textContent = "Ansluten till session. Vanta pa spelstart fran admin.";
-    logEvent(`Ansluten till session ${sessionId}.`);
+    els.sessionMeta.textContent = `Session: ${sessionId} | Participant ID: ${state.participantId}`;
+    els.joinStatus.textContent = "Connected to session. Waiting for admin to start the game.";
+    logEvent(`Connected to session ${sessionId}.`);
 
     startPolling();
     await handleSessionState(sessionState);
   } catch (error) {
-    els.joinStatus.textContent = "Natverksfel vid anslutning.";
-    logEvent(`Anslutning misslyckades: ${error.message}`);
+    els.joinStatus.textContent = "Network error while joining.";
+    logEvent(`Join failed: ${error.message}`);
   } finally {
     els.joinButton.disabled = false;
   }
@@ -775,8 +775,8 @@ async function handleSessionState(sessionState) {
   const durationSec = Number(sessionState.durationSec || 600);
 
   if (phase === "idle") {
-    els.joinStatus.textContent = "Ansluten. Session ar skapad men inte startad.";
-    els.phaseName.textContent = "Vantar";
+    els.joinStatus.textContent = "Connected. Session has been created but not started.";
+    els.phaseName.textContent = "Waiting";
     els.timeLeft.textContent = formatTime(durationSec * 1000);
     return;
   }
@@ -792,7 +792,7 @@ async function handleSessionState(sessionState) {
     if (state.active) {
       endGame();
     }
-    els.joinStatus.textContent = "Resultatlage aktivt. Slutfor NASA-TLX om du inte redan gjort det.";
+    els.joinStatus.textContent = "Results mode is active. Complete NASA-TLX if you have not done it yet.";
     await loadServerLeaderboard();
   }
 }
@@ -813,5 +813,5 @@ els.nasaForm.addEventListener("submit", submitNasa);
 
 applySessionFromQuery();
 els.timeLeft.textContent = "--:--";
-els.phaseName.textContent = "Vantar";
+els.phaseName.textContent = "Waiting";
 updateHUD();

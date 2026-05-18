@@ -32,7 +32,7 @@ async function createSession() {
   });
 
   if (!res.ok) {
-    els.adminStatus.textContent = "Kunde inte skapa session.";
+    els.adminStatus.textContent = "Could not create session.";
     return;
   }
 
@@ -40,8 +40,8 @@ async function createSession() {
   els.sessionId.value = data.sessionId;
   els.adminKey.value = data.adminKey;
   const url = `${location.origin}${location.pathname.replace("admin.html", "index.html")}?session=${encodeURIComponent(data.sessionId)}`;
-  els.participantLink.innerHTML = `Deltagarlank: <a href="${url}" target="_blank" rel="noopener">${url}</a>`;
-  els.adminStatus.textContent = "Session skapad.";
+  els.participantLink.innerHTML = `Participant link: <a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+  els.adminStatus.textContent = "Session created.";
   startPolling();
 }
 
@@ -49,7 +49,7 @@ async function setPhase(phase) {
   const sessionId = (els.sessionId.value || "").trim().toUpperCase();
   const adminKey = (els.adminKey.value || "").trim();
   if (!sessionId || !adminKey) {
-    els.adminStatus.textContent = "Skapa session forst.";
+    els.adminStatus.textContent = "Create a session first.";
     return;
   }
 
@@ -63,11 +63,11 @@ async function setPhase(phase) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    els.adminStatus.textContent = err.error || "Kunde inte uppdatera fas.";
+    els.adminStatus.textContent = err.error || "Could not update phase.";
     return;
   }
 
-  els.adminStatus.textContent = phase === "live" ? "Spel startat." : "Resultatlage aktiverat.";
+  els.adminStatus.textContent = phase === "live" ? "Game started." : "Results mode activated.";
   await syncState();
 }
 
@@ -130,7 +130,7 @@ async function loadResults() {
   els.leaderboard.innerHTML = `
     <p>Median stress: <strong>${data.medianStress || 0}</strong></p>
     <p>Average stress: <strong>${data.avgStress || 0}</strong></p>
-    <p>${rows.join("<br>") || "Inga resultat an."}</p>
+    <p>${rows.join("<br>") || "No results yet."}</p>
   `;
 }
 
