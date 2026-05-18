@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operational Overload - MVP</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <main class="app" id="appRoot">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Serious game / Stress simulation</p>
+        <h1>Operational Overload</h1>
+      </div>
+      <div class="session-controls">
+        <label for="sessionIdInput">Session</label>
+        <input id="sessionIdInput" placeholder="T12345" maxlength="12" autocomplete="off">
+        <button id="joinButton" type="button">Anslut</button>
+      </div>
+    </header>
+
+    <section class="panel session-panel" aria-label="Sessionstatus">
+      <p id="joinStatus">Anslut till en session som startas via adminvyn.</p>
+      <p id="sessionMeta"></p>
+    </section>
+
+    <section class="hud" aria-label="Spelstatus">
+      <article>
+        <p class="label">Tid kvar</p>
+        <p class="value" id="timeLeft">--:--</p>
+      </article>
+      <article>
+        <p class="label">Fas</p>
+        <p class="value" id="phaseName">Vantar</p>
+      </article>
+      <article>
+        <p class="label">Poang</p>
+        <p class="value" id="scoreValue">0</p>
+      </article>
+      <article>
+        <p class="label">Stressindikator</p>
+        <p class="value" id="liveStress">0</p>
+      </article>
+    </section>
+
+    <section class="board">
+      <article class="panel" id="tasksPanel">
+        <h2>Aktiva Tasks</h2>
+        <ul id="taskList" class="list"></ul>
+      </article>
+
+      <article class="panel" id="focusPanel">
+        <h2>Fokusuppgift</h2>
+        <div id="taskWorkspace">
+          <p>Valj en task for att svara.</p>
+        </div>
+      </article>
+
+      <article class="panel" id="inboxPanel">
+        <h2>Inbox</h2>
+        <ul id="inboxList" class="list"></ul>
+      </article>
+    </section>
+
+    <section class="event-row">
+      <article class="panel interrupt" id="interruptPanel">
+        <h2>Avbrott</h2>
+        <p id="interruptText">Inga avbrott just nu.</p>
+        <div class="row">
+          <button id="acceptInterrupt" type="button" disabled>Acceptera</button>
+          <button id="ignoreInterrupt" type="button" disabled>Ignorera</button>
+        </div>
+      </article>
+
+      <article class="panel reaction" id="reactionPanel">
+        <h2>Reaktionstest</h2>
+        <p id="reactionPrompt">Vanta pa signal...</p>
+        <button id="reactionButton" type="button" disabled>KLICKA NU</button>
+      </article>
+    </section>
+
+    <section class="panel log">
+      <h2>Händelselogg</h2>
+      <ul id="eventLog" class="list"></ul>
+    </section>
+
+    <section class="results panel" id="resultsPanel" hidden>
+      <h2>Resultat</h2>
+      <div id="metricsGrid" class="metrics"></div>
+
+      <h3>NASA-TLX (0-100)</h3>
+      <form id="nasaForm" class="nasa-form">
+        <label>Mental belastning <input type="range" name="mental" min="0" max="100" value="50"></label>
+        <label>Tidspress <input type="range" name="temporal" min="0" max="100" value="50"></label>
+        <label>Anstrangning <input type="range" name="effort" min="0" max="100" value="50"></label>
+        <label>Frustration <input type="range" name="frustration" min="0" max="100" value="50"></label>
+        <label>Upplevd prestation <input type="range" name="performance" min="0" max="100" value="50"></label>
+        <button type="submit">Berakna slutlig stress score</button>
+      </form>
+
+      <div id="feedbackBox"></div>
+      <div id="leaderboard"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Admin</h2>
+      <p>Oppna adminvyn i separat fonster: <a href="admin.html" target="_blank" rel="noopener">Stress Admin</a></p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
