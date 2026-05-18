@@ -126,6 +126,15 @@ function pick(arr) {
   return arr[randInt(0, arr.length - 1)];
 }
 
+function shuffleArray(values) {
+  const shuffled = [...values];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = randInt(0, index);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 function logEvent(text) {
   const li = document.createElement("li");
   li.textContent = `[${new Date().toLocaleTimeString("sv-SE")}] ${text}`;
@@ -214,7 +223,7 @@ function makeTask() {
 
   if (type === "decision") {
     task.prompt = "Quick decision: What should be handled first?";
-    task.options = ["Critical incident", "Routine case", "Internal question"];
+    task.options = shuffleArray(["Critical incident", "Routine case", "Internal question"]);
     task.correctAnswer = "Critical incident";
   }
 
@@ -226,7 +235,7 @@ function makeTask() {
 
   if (type === "priority") {
     task.prompt = "Prioritization: Which task should be first?";
-    task.options = ["Deadline in 3 min", "High pressure without deadline", "Waiting for internal review"];
+    task.options = shuffleArray(["Deadline in 3 min", "High pressure without deadline", "Waiting for internal review"]);
     task.correctAnswer = "Deadline in 3 min";
   }
 
