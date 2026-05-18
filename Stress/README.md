@@ -18,9 +18,10 @@ Webbaserad stress-simulering enligt GDD for `Operational Overload`.
 
 ## Starta
 
-1. Oppna `index.html` i webblasare eller via Live Server i VS Code.
-2. Valj `Demo 3 min` eller `Standard 10 min`.
-3. Klicka `Starta simulering`.
+1. Oppna `admin.html` och klicka `Skapa session`.
+2. Oppna deltagarlanken (eller `index.html`) och ange samma session-id.
+3. Klicka `Anslut` pa klientsidan.
+4. Starta spelet i adminvyn med `Starta spel`.
 
 ## Notering om multiplayer
 
