@@ -107,6 +107,23 @@
 
   </main>
 
+  <section id="memoryOverlay" class="overlay" hidden aria-live="polite">
+    <div class="overlay-card overlay-card-number">
+      <p class="overlay-label">Memorera numret</p>
+      <p id="memoryNumberValue" class="memory-number">00</p>
+      <button id="memoryDismissButton" type="button">Jag har sett numret</button>
+    </div>
+  </section>
+
+  <section id="recallOverlay" class="overlay" hidden aria-live="polite">
+    <div class="overlay-card">
+      <h3>Minnesfraga</h3>
+      <p>Vad var det forsta numret som visades nar testet startade?</p>
+      <div id="recallOptions" class="recall-options"></div>
+      <p id="recallStatus" class="recall-status" hidden></p>
+    </div>
+  </section>
+
   <script src="app.js"></script>
 </body>
 </html>

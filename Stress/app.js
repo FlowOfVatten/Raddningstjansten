@@ -47,6 +47,12 @@ const els = {
   nasaForm: document.getElementById("nasaForm"),
   feedback: document.getElementById("feedbackBox"),
   leaderboard: document.getElementById("leaderboard")
+  ,memoryOverlay: document.getElementById("memoryOverlay")
+  ,memoryNumberValue: document.getElementById("memoryNumberValue")
+  ,memoryDismissButton: document.getElementById("memoryDismissButton")
+  ,recallOverlay: document.getElementById("recallOverlay")
+  ,recallOptions: document.getElementById("recallOptions")
+  ,recallStatus: document.getElementById("recallStatus")
 };
 
 const state = {
@@ -55,6 +61,7 @@ const state = {
   participantId: getOrCreateParticipantId(),
   pollHandle: null,
   hasSubmitted: false,
+  starting: false,
   latestBaseMetrics: null,
 
   active: false,
@@ -80,6 +87,12 @@ const state = {
   dynamicRule: {
     rewardMultiplier: 1,
     penaltyMultiplier: 1
+  },
+  memoryChallenge: {
+    firstNumber: null,
+    options: [],
+    selected: null,
+    correct: null
   }
 };
 
@@ -96,8 +109,98 @@ function emptyMetrics() {
     ignoredInterrupts: 0,
     reactionTimes: [],
     throughputBuckets: [],
-    phasePerformance: {}
+    phasePerformance: {},
+    memoryRecallCorrect: null
   };
+}
+
+function makeRecallOptions(correctValue) {
+  const values = new Set([Number(correctValue)]);
+  while (values.size < 5) {
+    values.add(randInt(10, 99));
+  }
+  return shuffleArray(Array.from(values));
+}
+
+function showStartNumberPrompt() {
+  return new Promise((resolve) => {
+    const firstNumber = randInt(10, 99);
+    state.memoryChallenge.firstNumber = firstNumber;
+    state.memoryChallenge.options = [];
+    state.memoryChallenge.selected = null;
+    state.memoryChallenge.correct = null;
+    state.metrics.memoryRecallCorrect = null;
+
+    els.memoryNumberValue.textContent = String(firstNumber);
+    els.memoryOverlay.hidden = false;
+
+    const closePrompt = () => {
+      els.memoryOverlay.hidden = true;
+      els.memoryDismissButton.removeEventListener("click", closePrompt);
+      resolve();
+    };
+
+    els.memoryDismissButton.addEventListener("click", closePrompt);
+    els.memoryDismissButton.focus();
+  });
+}
+
+function showRecallQuestion() {
+  return new Promise((resolve) => {
+    const correctNumber = Number(state.memoryChallenge.firstNumber);
+    if (!Number.isFinite(correctNumber)) {
+      resolve();
+      return;
+    }
+
+    const options = makeRecallOptions(correctNumber);
+    state.memoryChallenge.options = options;
+    els.recallOptions.innerHTML = "";
+    els.recallStatus.hidden = true;
+    els.recallStatus.textContent = "";
+    els.recallStatus.className = "recall-status";
+
+    options.forEach((option) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "recall-option";
+      button.textContent = String(option);
+      button.addEventListener("click", () => {
+        const allButtons = els.recallOptions.querySelectorAll("button");
+        allButtons.forEach((btn) => {
+          btn.disabled = true;
+          btn.classList.toggle("selected", btn === button);
+        });
+
+        const isCorrect = option === correctNumber;
+        state.memoryChallenge.selected = option;
+        state.memoryChallenge.correct = isCorrect;
+        state.metrics.memoryRecallCorrect = isCorrect;
+        logEvent(`Memory recall answer: ${option} (${isCorrect ? "correct" : "wrong"}).`);
+
+        els.recallStatus.hidden = false;
+        if (isCorrect) {
+          els.recallStatus.classList.add("correct");
+          els.recallStatus.textContent = "Ratt svar! V";
+        } else {
+          els.recallStatus.classList.add("wrong");
+          els.recallStatus.textContent = `Fel svar. X Ratt nummer var ${correctNumber}.`;
+        }
+
+        setTimeout(() => {
+          els.recallOverlay.hidden = true;
+          resolve();
+        }, 1200);
+      });
+      els.recallOptions.appendChild(button);
+    });
+
+    els.recallOverlay.hidden = false;
+    const firstButton = els.recallOptions.querySelector("button");
+    if (firstButton) {
+      firstButton.focus();
+    }
+  });
 }
 
 function getOrCreateParticipantId() {
@@ -574,7 +677,11 @@ function restartSpawnTimers() {
   }
 }
 
-function startGame(deadlineMs, durationSec) {
+async function startGame(deadlineMs, durationSec) {
+  if (state.starting || state.active) {
+    return;
+  }
+  state.starting = true;
   state.active = true;
   state.deadlineMs = Number(deadlineMs || 0) || Date.now() + Number(durationSec || 600) * 1000;
   state.durationMs = Math.max(60000, Number(durationSec || 600) * 1000);
@@ -591,12 +698,20 @@ function startGame(deadlineMs, durationSec) {
   state.metrics = emptyMetrics();
   state.latestBaseMetrics = null;
   state.hasSubmitted = false;
+  state.memoryChallenge = {
+    firstNumber: null,
+    options: [],
+    selected: null,
+    correct: null
+  };
 
   els.results.hidden = true;
   els.nasaForm.reset();
   els.feedback.innerHTML = "";
   els.leaderboard.innerHTML = "";
   els.workspace.innerHTML = "<p>Select a task to answer.</p>";
+
+  await showStartNumberPrompt();
 
   state.currentPhase = PHASES[0];
   applyDynamicRules(state.currentPhase);
@@ -625,6 +740,7 @@ function startGame(deadlineMs, durationSec) {
   els.joinStatus.textContent = "Connected. The game is active.";
   logEvent("Simulation started via admin session.");
   updateHUD();
+  state.starting = false;
 }
 
 function calculateBaselineMetrics() {
@@ -649,6 +765,12 @@ function calculateBaselineMetrics() {
 }
 
 function renderBaseResults(base) {
+  const memoryMark = state.metrics.memoryRecallCorrect === null
+    ? '<span class="mark mark-neutral">-</span>'
+    : (state.metrics.memoryRecallCorrect
+      ? '<span class="mark mark-good">V</span>'
+      : '<span class="mark mark-bad">X</span>');
+
   const cards = [
     ["Game Score", state.score],
     ["Task throughput", base.throughput],
@@ -656,7 +778,8 @@ function renderBaseResults(base) {
     ["Missed deadlines", base.missed],
     ["Average RT", `${Math.round(base.avgRT)} ms`],
     ["RT variance (norm)", base.rtVarNorm.toFixed(1)],
-    ["Inbox decisions", `${state.metrics.inboxCorrectDecisions}/${state.metrics.inboxCorrectDecisions + state.metrics.inboxWrongDecisions}`]
+    ["Inbox decisions", `${state.metrics.inboxCorrectDecisions}/${state.metrics.inboxCorrectDecisions + state.metrics.inboxWrongDecisions}`],
+    ["Memory recall", memoryMark]
   ];
 
   els.metrics.innerHTML = cards
@@ -664,7 +787,7 @@ function renderBaseResults(base) {
     .join("");
 }
 
-function endGame() {
+async function endGame() {
   if (!state.active) {
     return;
   }
@@ -682,6 +805,7 @@ function endGame() {
 
   const base = calculateBaselineMetrics();
   state.latestBaseMetrics = base;
+  await showRecallQuestion();
   renderBaseResults(base);
   els.results.hidden = false;
   els.joinStatus.textContent = "Session ended. Complete NASA-TLX and submit your result.";
@@ -749,7 +873,12 @@ async function loadServerLeaderboard() {
 
   const data = await res.json();
   const rows = (data.leaderboard || []).map((item, idx) => {
-    return `${idx + 1}. ${item.participantId.slice(0, 8)} - Final Stress Score ${Math.round(item.stressScore)}`;
+    const memoryMark = item.memoryRecallCorrect === true
+      ? '<span class="mark mark-good">V</span>'
+      : item.memoryRecallCorrect === false
+        ? '<span class="mark mark-bad">X</span>'
+        : '<span class="mark mark-neutral">-</span>';
+    return `${idx + 1}. ${item.participantId.slice(0, 8)} - Final Stress Score ${Math.round(item.stressScore)} | Memory ${memoryMark}`;
   });
 
   els.leaderboard.innerHTML = `
@@ -788,7 +917,8 @@ async function submitNasa(event) {
     missedDeadlines: base.missed,
     rtVarianceNorm: base.rtVarNorm,
     nasaTlX: nasaAvg,
-    score: state.score
+    score: state.score,
+    memoryRecallCorrect: state.metrics.memoryRecallCorrect
   });
 
   await loadServerLeaderboard();
@@ -870,7 +1000,7 @@ async function handleSessionState(sessionState) {
   }
 
   if (phase === "live") {
-    if (!state.active) {
+    if (!state.active && !state.starting) {
       startGame(deadlineMs, durationSec);
     }
     return;
