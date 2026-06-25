@@ -451,9 +451,9 @@ function init() {
     const parsed = parseDateInput(saved);
     if (parsed) {
       state.startDate = parsed;
-      state.currentMonth = firstDayOfMonth(parsed);
       const today = stripTime(new Date());
       state.selectedDate = isBetweenProgramDates(today) ? today : stripTime(parsed);
+      state.currentMonth = firstDayOfMonth(state.selectedDate);
     }
   }
 
@@ -1897,6 +1897,10 @@ function applyUserData(user) {
         }
       }
     }
+
+    if (state.selectedDate) {
+      state.currentMonth = firstDayOfMonth(state.selectedDate);
+    }
   }
 }
 
@@ -2354,7 +2358,26 @@ function renderProgressGraph() {
     .filter((entry) => Number.isFinite(Number(entry.weightKg)) && Number.isFinite(Number(entry.waistCm)))
     .sort((a, b) => (a.weekIndex || 0) - (b.weekIndex || 0));
 
-  if (!checkins.length) {
+  const profile = state.auth.profile || {};
+  const startWeight = Number(profile.startWeightKg);
+  const startWaist = Number(profile.startWaistCm);
+
+  const graphEntries = checkins.map((entry) => ({
+    weekIndex: Number(entry.weekIndex) || 0,
+    weightKg: Number(entry.weightKg),
+    waistCm: Number(entry.waistCm),
+  }));
+
+  const hasWeekZero = graphEntries.some((entry) => entry.weekIndex === 0);
+  if (!hasWeekZero && Number.isFinite(startWeight) && Number.isFinite(startWaist)) {
+    graphEntries.unshift({
+      weekIndex: 0,
+      weightKg: startWeight,
+      waistCm: startWaist,
+    });
+  }
+
+  if (!graphEntries.length) {
     dom.progressGraph.innerHTML = '<div class="graph-empty">Lägg in minst en veckouppföljning för att se grafen.</div>';
     return;
   }
@@ -2364,13 +2387,17 @@ function renderProgressGraph() {
   const padding = { top: 20, right: 18, bottom: 36, left: 18 };
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
-  const weightValues = checkins.map((entry) => Number(entry.weightKg));
-  const waistValues = checkins.map((entry) => Number(entry.waistCm));
-  const maxCheckinWeek = Math.max(...checkins.map((entry) => Number(entry.weekIndex) || 0));
+  const weightValues = graphEntries
+    .map((entry) => Number(entry.weightKg))
+    .filter((value) => Number.isFinite(value));
+  const waistValues = graphEntries
+    .map((entry) => Number(entry.waistCm))
+    .filter((value) => Number.isFinite(value));
+  const maxCheckinWeek = Math.max(...graphEntries.map((entry) => Number(entry.weekIndex) || 0));
   const fireAverages = getWeeklyFireAverages(maxCheckinWeek);
   const weekIndices = [...new Set([
     0,
-    ...checkins.map((entry) => Number(entry.weekIndex)),
+    ...graphEntries.map((entry) => Number(entry.weekIndex)),
     ...fireAverages.flatMap((entry) => [Number(entry.weekIndex) - 1, Number(entry.weekIndex)]),
   ])]
     .filter((weekIndex) => Number.isFinite(weekIndex) && weekIndex >= 0)
@@ -2392,14 +2419,16 @@ function renderProgressGraph() {
 
   const weightBounds = getChartBounds(weightValues);
   const waistBounds = getChartBounds(waistValues);
-  const weightPath = checkins
+  const weightPath = graphEntries
+    .filter((entry) => Number.isFinite(Number(entry.weightKg)))
     .map((entry, index) => {
       const x = xByWeek.get(Number(entry.weekIndex));
       const y = mapValueToY(Number(entry.weightKg), weightBounds.min, weightBounds.max, padding.top, innerHeight);
       return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
-  const waistPath = checkins
+  const waistPath = graphEntries
+    .filter((entry) => Number.isFinite(Number(entry.waistCm)))
     .map((entry, index) => {
       const x = xByWeek.get(Number(entry.weekIndex));
       const y = mapValueToY(Number(entry.waistCm), waistBounds.min, waistBounds.max, padding.top, innerHeight);
@@ -2428,22 +2457,19 @@ function renderProgressGraph() {
     })
     .join("");
 
-  const dots = checkins
+  const dots = graphEntries
     .map((entry) => {
       const x = xByWeek.get(Number(entry.weekIndex));
       const weightValue = Number(entry.weightKg);
       const waistValue = Number(entry.waistCm);
-      const weightY = mapValueToY(weightValue, weightBounds.min, weightBounds.max, padding.top, innerHeight);
-      const waistY = mapValueToY(waistValue, waistBounds.min, waistBounds.max, padding.top, innerHeight);
+      const weightDot = Number.isFinite(weightValue)
+        ? `<circle class="graph-dot-weight" cx="${x.toFixed(2)}" cy="${mapValueToY(weightValue, weightBounds.min, weightBounds.max, padding.top, innerHeight).toFixed(2)}" r="4"><title>Vecka ${entry.weekIndex}: ${weightValue.toFixed(1)} kg</title></circle>`
+        : "";
+      const waistDot = Number.isFinite(waistValue)
+        ? `<circle class="graph-dot-waist" cx="${x.toFixed(2)}" cy="${mapValueToY(waistValue, waistBounds.min, waistBounds.max, padding.top, innerHeight).toFixed(2)}" r="4"><title>Vecka ${entry.weekIndex}: ${waistValue.toFixed(1)} cm</title></circle>`
+        : "";
 
-      return `
-        <circle class="graph-dot-weight" cx="${x.toFixed(2)}" cy="${weightY.toFixed(2)}" r="4">
-          <title>Vecka ${entry.weekIndex}: ${weightValue.toFixed(1)} kg</title>
-        </circle>
-        <circle class="graph-dot-waist" cx="${x.toFixed(2)}" cy="${waistY.toFixed(2)}" r="4">
-          <title>Vecka ${entry.weekIndex}: ${waistValue.toFixed(1)} cm</title>
-        </circle>
-      `;
+      return `${weightDot}${waistDot}`;
     })
     .join("");
 
