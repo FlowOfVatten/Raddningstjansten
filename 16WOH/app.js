@@ -26,13 +26,6 @@ function clearRecipeOffsets() {
 }
 const PROGRAM_DAYS = 112;
 const weekdayNames = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
-const FIRE_METER_LEVELS = {
-  1: "Rökdykning utan luft: Allt är motigt. Pannbenet räddade dagen.",
-  2: "Eftersläckning: Energin är låg, men jobbet blev gjort.",
-  3: "Kontrollerad brand: Stabil dag. Allt rullar på enligt plan.",
-  4: "Full utryckning: Stark energi! Dominans på gymmet.",
-  5: "Flashover: Ostoppbar! Vikterna känns lätta och formen är topp.",
-};
 
 const EXERCISE_GUIDES = window.EXERCISE_GUIDES || { gym: {}, hemma: {} };
 const EXERCISE_GUIDE_ALIASES = {
@@ -358,7 +351,6 @@ const state = {
     token: "",
     profile: null,
     checkins: [],
-    fireRatings: {},
   },
   recipeCatalog: Array.isArray(MEAL_RECIPE_CATALOG) ? [...MEAL_RECIPE_CATALOG] : [],
   recipeOffsets: {},
@@ -387,11 +379,6 @@ const dom = {
   foodList: document.getElementById("foodList"),
   showBlockInfoBtn: document.getElementById("showBlockInfoBtn"),
   exportWeekPdf: document.getElementById("exportWeekPdf"),
-  fireMeter: document.getElementById("fireMeter"),
-  fireMeterValue: document.getElementById("fireMeterValue"),
-  fireMeterInfo: document.getElementById("fireMeterInfo"),
-  fireMeterButtons: document.getElementById("fireMeterButtons"),
-  fireMeterDescription: document.getElementById("fireMeterDescription"),
   authStatus: document.getElementById("authStatus"),
   loginUsername: document.getElementById("loginUsername"),
   loginPassword: document.getElementById("loginPassword"),
@@ -641,14 +628,6 @@ function bindEvents() {
 
   dom.exportWeekPdf.addEventListener("click", exportWeekToPdf);
   dom.showBlockInfoBtn.addEventListener("click", openBlockInfoDetail);
-  dom.fireMeterButtons.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-fire-rating]");
-    if (!button) {
-      return;
-    }
-
-    saveFireRating(Number(button.dataset.fireRating));
-  });
 
   dom.showProfileBtn.addEventListener("click", () => {
     state.showProfile = !state.showProfile;
@@ -829,7 +808,6 @@ function renderDetails() {
     dom.detailsTitle.textContent = "Välj ett startdatum";
     dom.detailsSubtitle.textContent = "Kalendern fylls när programmet är startat.";
     addListItem(dom.trainingList, "Ingen plan ännu.");
-    renderFireMeter();
     return;
   }
 
@@ -839,14 +817,12 @@ function renderDetails() {
   if (dayIndex < 0) {
     dom.detailsSubtitle.textContent = "Programmet har inte startat denna dag.";
     addListItem(dom.trainingList, "Vila eller valfri lätt promenad.");
-    renderFireMeter();
     return;
   }
 
   if (dayIndex >= PROGRAM_DAYS) {
     dom.detailsSubtitle.textContent = "16 veckor är genomförda. Bra jobbat!";
     addListItem(dom.trainingList, "Återhämtning eller fortsättningsprogram.");
-    renderFireMeter();
     return;
   }
 
@@ -854,102 +830,6 @@ function renderDetails() {
   const kostInfo = getKostBlock(plan.week);
   dom.detailsSubtitle.textContent = `Vecka ${plan.week} av 16 · Dag ${dayIndex + 1} · ${kostInfo.blockType} (Block ${kostInfo.block})`;
   renderTrainingList(plan.training);
-  renderFireMeter();
-}
-
-function getSelectedProgramDayIndex() {
-  if (!state.startDate) {
-    return null;
-  }
-
-  const dayIndex = diffDays(state.startDate, state.selectedDate);
-  if (dayIndex < 0 || dayIndex >= PROGRAM_DAYS) {
-    return null;
-  }
-
-  return dayIndex;
-}
-
-function renderFireMeter() {
-  const programDayIndex = getSelectedProgramDayIndex();
-  const loggedIn = isLoggedIn();
-  const dateKey = formatDateInput(state.selectedDate);
-  const savedRating = Number(state.auth.fireRatings?.[dateKey] || 0);
-  const selectedLabel = FIRE_METER_LEVELS[savedRating] || "";
-
-  dom.fireMeterButtons.innerHTML = "";
-
-  if (!loggedIn) {
-    dom.fireMeterValue.textContent = "";
-    dom.fireMeterInfo.textContent = "Logga in för att spara Fire-o-meter i databasen.";
-    dom.fireMeterDescription.textContent = "";
-    dom.fireMeterDescription.classList.add("is-empty");
-    return;
-  }
-
-  if (programDayIndex === null) {
-    dom.fireMeterValue.textContent = "";
-    dom.fireMeterInfo.textContent = "Fire-o-meter finns bara för dagar inom programmets 112 dagar.";
-    dom.fireMeterDescription.textContent = "";
-    dom.fireMeterDescription.classList.add("is-empty");
-    return;
-  }
-
-  dom.fireMeterValue.textContent = savedRating ? `${savedRating}/5` : "Inte satt";
-  dom.fireMeterInfo.textContent = savedRating
-    ? `Vald dag: ${formatShortDate(state.selectedDate)}.`
-    : "Hur het var dagen? Klicka på en flamma för att logga.";
-  dom.fireMeterDescription.textContent = selectedLabel;
-  dom.fireMeterDescription.classList.toggle("is-empty", !selectedLabel);
-
-  for (let rating = 1; rating <= 5; rating += 1) {
-    const levelLabel = FIRE_METER_LEVELS[rating];
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `fire-meter-btn${rating <= savedRating ? " is-active" : ""}`;
-    button.dataset.fireRating = String(rating);
-    button.setAttribute("aria-label", `${rating} av 5. ${levelLabel}`);
-    button.setAttribute("title", levelLabel);
-    button.innerHTML = `<span class="flame">&#128293;</span><span class="sr-only">${escapeHtml(levelLabel)}</span>`;
-    dom.fireMeterButtons.appendChild(button);
-  }
-}
-
-async function saveFireRating(rating) {
-  if (!isLoggedIn()) {
-    dom.authStatus.textContent = "Logga in först.";
-    return;
-  }
-
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-    dom.authStatus.textContent = "Ogiltigt Fire-o-meter-värde.";
-    return;
-  }
-
-  if (getSelectedProgramDayIndex() === null) {
-    dom.authStatus.textContent = "Fire-o-meter kan bara sparas för dagar i programmet.";
-    return;
-  }
-
-  dom.fireMeter.classList.add("is-saving");
-  dom.authStatus.textContent = "Sparar Fire-o-meter...";
-
-  try {
-    const result = await accountApi("saveFireRating", {
-      username: state.auth.username,
-      token: state.auth.token,
-      ratingDate: formatDateInput(state.selectedDate),
-      rating,
-    });
-
-    applyUserData(result.user || {});
-    dom.authStatus.textContent = `Fire-o-meter sparad för ${formatShortDate(state.selectedDate)}.`;
-  } catch (err) {
-    dom.authStatus.textContent = err.message;
-  } finally {
-    dom.fireMeter.classList.remove("is-saving");
-    renderAll();
-  }
 }
 
 function renderFoodList() {
@@ -1482,7 +1362,7 @@ function buildFoodInfoHtml(context) {
       ]),
       renderMealRecipeSection("🚒 Verkligheten (larm & skift)", [
         "Vid nattarbete: om du måste äta utanför fönstret, välj en lätt proteinkälla som ägg eller shake. Återgå till ordinarie ätfönster så snart som möjligt nästa dag.",
-        "Pannben: om du faller ur ramen en dag, analysera varför, logga din Fire-o-meter och kom ihåg: nästa måltid är en ny chans att göra rätt.",
+        "Pannben: om du faller ur ramen en dag, analysera varför och kom ihåg: nästa måltid är en ny chans att göra rätt.",
       ]),
       `<div class="manual-actions"><button id="modalRecipeCatalogBtn" class="btn btn-ghost" type="button">Behöver du receptinspiration?<br>Se 112DIB-recept.</button></div>`,
     ],
@@ -1875,7 +1755,6 @@ function persistAuth() {
 function applyUserData(user) {
   state.auth.profile = user.profile || null;
   state.auth.checkins = Array.isArray(user.checkins) ? user.checkins : [];
-  state.auth.fireRatings = user.fireRatings && typeof user.fireRatings === "object" ? user.fireRatings : {};
   loadRecipeOffsets(user.recipeOffsets);
 
   if (state.auth.profile) {
@@ -1957,7 +1836,7 @@ async function refreshSession() {
     dom.authStatus.textContent = "";
     state.authMode = "member";
   } catch (err) {
-    state.auth = { username: "", token: "", profile: null, checkins: [], fireRatings: {} };
+    state.auth = { username: "", token: "", profile: null, checkins: [] };
     persistAuth();
     state.authMode = "chooser";
     dom.authStatus.textContent = err.message;
@@ -2093,7 +1972,7 @@ async function loginAccount() {
 
 function logoutAccount() {
   setLoginLoading(false);
-  state.auth = { username: "", token: "", profile: null, checkins: [], fireRatings: {} };
+  state.auth = { username: "", token: "", profile: null, checkins: [] };
   state.authMode = "chooser";
   state.showRecovery = false;
   state.showProfile = false;
@@ -2120,7 +1999,7 @@ async function deleteAccount() {
       token: state.auth.token,
     });
 
-    state.auth = { username: "", token: "", profile: null, checkins: [], fireRatings: {} };
+    state.auth = { username: "", token: "", profile: null, checkins: [] };
     state.authMode = "chooser";
     state.showRecovery = false;
     state.showProfile = false;
@@ -2393,21 +2272,15 @@ function renderProgressGraph() {
   const waistValues = graphEntries
     .map((entry) => Number(entry.waistCm))
     .filter((value) => Number.isFinite(value));
-  const maxCheckinWeek = Math.max(...graphEntries.map((entry) => Number(entry.weekIndex) || 0));
-  const fireAverages = getWeeklyFireAverages(maxCheckinWeek);
   const weekIndices = [...new Set([
     0,
     ...graphEntries.map((entry) => Number(entry.weekIndex)),
-    ...fireAverages.flatMap((entry) => [Number(entry.weekIndex) - 1, Number(entry.weekIndex)]),
   ])]
     .filter((weekIndex) => Number.isFinite(weekIndex) && weekIndex >= 0)
     .sort((a, b) => a - b);
   const minWeekIndex = weekIndices[0];
   const maxWeekIndex = weekIndices[weekIndices.length - 1];
-  const maxFireEndWeek = fireAverages.length
-    ? Math.max(...fireAverages.map((entry) => Number(entry.weekIndex)))
-    : maxWeekIndex;
-  const maxAxisWeekIndex = Math.max(maxWeekIndex, maxFireEndWeek);
+  const maxAxisWeekIndex = maxWeekIndex;
   const axisWeekSpan = Math.max(1, maxAxisWeekIndex - minWeekIndex);
   const xForWeek = (weekIndex) => padding.left + ((weekIndex - minWeekIndex) / axisWeekSpan) * innerWidth;
   const xByWeek = new Map(
@@ -2436,27 +2309,6 @@ function renderProgressGraph() {
     })
     .join(" ");
 
-  const fireBars = fireAverages
-    .map((entry) => {
-      const weekIndex = Number(entry.weekIndex);
-      if (!Number.isFinite(weekIndex)) {
-        return "";
-      }
-
-      const barStartX = xForWeek(weekIndex - 1);
-      const barEndX = xForWeek(weekIndex);
-      const barWidth = Math.max(0, barEndX - barStartX);
-      const barHeight = (Math.max(1, Math.min(5, Number(entry.average) || 0)) / 5) * innerHeight;
-      const y = padding.top + innerHeight - barHeight;
-      return `
-        <g>
-          <title>Fire-o-meter vecka ${entry.weekIndex}: ${entry.average.toFixed(1)} av 5 (${entry.daysCount}/7 dagar)</title>
-          <rect class="graph-fire-bar" x="${barStartX.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${barHeight.toFixed(2)}" style="fill:${entry.color}"></rect>
-        </g>
-      `;
-    })
-    .join("");
-
   const dots = graphEntries
     .map((entry) => {
       const x = xByWeek.get(Number(entry.weekIndex));
@@ -2470,6 +2322,47 @@ function renderProgressGraph() {
         : "";
 
       return `${weightDot}${waistDot}`;
+    })
+    .join("");
+
+  const formatValue = (value) => (Number.isInteger(value) ? `${value}` : value.toFixed(1));
+  const formatValueWithDelta = (value, startValue, unit) => {
+    if (!Number.isFinite(value)) {
+      return `- ${unit}`;
+    }
+
+    if (!Number.isFinite(startValue)) {
+      return `${formatValue(value)}${unit}`;
+    }
+
+    const diff = value - startValue;
+    const diffPrefix = diff > 0 ? "+" : "";
+    return `${formatValue(value)}${unit} (${diffPrefix}${formatValue(diff)}${unit})`;
+  };
+
+  const hoverTargets = graphEntries
+    .filter((entry) => Number.isFinite(Number(entry.weekIndex)))
+    .map((entry) => ({
+      weekIndex: Number(entry.weekIndex),
+      weightKg: Number(entry.weightKg),
+      waistCm: Number(entry.waistCm),
+    }))
+    .sort((a, b) => a.weekIndex - b.weekIndex)
+    .map((entry) => {
+      const x = xByWeek.get(entry.weekIndex);
+      const weekLabel = entry.weekIndex === 0 ? "Start" : `Vecka ${entry.weekIndex}`;
+      const titleText = `${weekLabel}&#10;Vikt: ${formatValueWithDelta(entry.weightKg, startWeight, "kg")}&#10;Midja: ${formatValueWithDelta(entry.waistCm, startWaist, "cm")}`;
+      const yWeight = Number.isFinite(entry.weightKg)
+        ? mapValueToY(entry.weightKg, weightBounds.min, weightBounds.max, padding.top, innerHeight)
+        : null;
+      const yWaist = Number.isFinite(entry.waistCm)
+        ? mapValueToY(entry.waistCm, waistBounds.min, waistBounds.max, padding.top, innerHeight)
+        : null;
+      const yCenter = yWeight !== null && yWaist !== null
+        ? (yWeight + yWaist) / 2
+        : (yWeight ?? yWaist ?? (padding.top + innerHeight / 2));
+
+      return `<circle class="graph-hover-target" cx="${x.toFixed(2)}" cy="${yCenter.toFixed(2)}" r="12"><title>${titleText}</title></circle>`;
     })
     .join("");
 
@@ -2489,103 +2382,17 @@ function renderProgressGraph() {
     <div class="graph-legend">
       <span><i style="background:#f7a521"></i>Vikt (kg)</span>
       <span><i style="background:#cf2f24"></i>Midja (cm)</span>
-      <span><i class="legend-bar" style="background:linear-gradient(90deg,#8e969d,#f28b23,#cf2f24,#fff3c2)"></i>Fire-o-meter snitt</span>
     </div>
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Graf över vikt och midjemått per vecka">
       <line class="graph-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + innerHeight}"></line>
       <line class="graph-axis" x1="${padding.left}" y1="${padding.top + innerHeight}" x2="${padding.left + innerWidth}" y2="${padding.top + innerHeight}"></line>
-      ${fireBars}
       <path class="graph-weight" d="${weightPath}"></path>
       <path class="graph-waist" d="${waistPath}"></path>
       ${dots}
+      ${hoverTargets}
       ${weekLabels}
     </svg>
   `;
-}
-
-function getWeeklyFireAverages(maxWeekHint = 0) {
-  const hasStartDate = Boolean(state.startDate);
-
-  const ratingsByDay = new Map();
-  const fireRatings = state.auth.fireRatings && typeof state.auth.fireRatings === "object"
-    ? state.auth.fireRatings
-    : {};
-
-  if (hasStartDate) {
-    Object.entries(fireRatings).forEach(([dateIso, rawRating]) => {
-      const rating = Number(rawRating);
-      const ratingDate = parseDateInput(dateIso);
-      if (!ratingDate || !Number.isInteger(rating) || rating < 1 || rating > 5) {
-        return;
-      }
-
-      const dayIndex = diffDays(state.startDate, ratingDate);
-      if (dayIndex < 0 || dayIndex >= PROGRAM_DAYS) {
-        return;
-      }
-
-      ratingsByDay.set(dayIndex, rating);
-    });
-  }
-
-  const today = stripTime(new Date());
-  const currentDayIndex = hasStartDate
-    ? Math.min(PROGRAM_DAYS - 1, diffDays(state.startDate, today))
-    : -1;
-  const todayWeekCount = currentDayIndex >= 0 ? Math.floor(currentDayIndex / 7) + 1 : 0;
-  const weekCount = Math.max(Number(maxWeekHint) || 0, todayWeekCount);
-
-  if (weekCount <= 0) {
-    return [];
-  }
-
-  return Array.from({ length: weekCount }, (_, weekOffset) => {
-    const weekStartDay = weekOffset * 7;
-    let elapsedDays = 7;
-
-    if (hasStartDate && todayWeekCount > 0) {
-      if (weekOffset < todayWeekCount - 1) {
-        elapsedDays = 7;
-      } else if (weekOffset === todayWeekCount - 1) {
-        elapsedDays = (currentDayIndex % 7) + 1;
-      } else {
-        // Fallback weeks (from checkin data) are treated as complete weeks.
-        elapsedDays = 7;
-      }
-    }
-
-    const ratings = Array.from({ length: elapsedDays }, (_, dayOffset) => {
-      const dayIndex = weekStartDay + dayOffset;
-      return hasStartDate ? (ratingsByDay.get(dayIndex) || 1) : 1;
-    });
-
-    const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
-
-    return {
-      weekIndex: weekOffset + 1,
-      average,
-      daysCount: elapsedDays,
-      color: getFireAverageColor(average),
-    };
-  }).sort((a, b) => a.weekIndex - b.weekIndex);
-}
-
-function getFireAverageColor(average) {
-  const rounded = Math.max(1, Math.min(5, Math.round(Number(average) || 0)));
-
-  if (rounded === 1) {
-    return "#8e969d";
-  }
-
-  if (rounded <= 3) {
-    return "#f28b23";
-  }
-
-  if (rounded === 4) {
-    return "#cf2f24";
-  }
-
-  return "#fff3c2";
 }
 
 function getChartBounds(values) {
