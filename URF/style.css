@@ -85,6 +85,19 @@ header {
     animation: spin 1s linear infinite;
 }
 
+.schedule-test-badge {
+    position: absolute;
+    top: 56px;
+    right: 14px;
+    background: rgba(255, 243, 205, 0.95);
+    color: #7a111e;
+    border: 2px solid #ce1126;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.78em;
+    font-weight: 700;
+}
+
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -183,6 +196,13 @@ header .subtitle.subtitle-tagline {
         order: 3;
         margin-top: 8px;
         gap: 4px;
+    }
+
+    .schedule-test-badge {
+        position: static;
+        order: 4;
+        margin-top: 6px;
+        font-size: 0.72em;
     }
 
     .refresh-button {

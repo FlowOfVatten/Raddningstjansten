@@ -68,6 +68,35 @@ function formatBorrowedTime(ts) {
     });
 }
 
+function getScheduleOverrideFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const dayParam = String(params.get('urfDay') || '').toLowerCase();
+    const hourParam = params.get('urfHour');
+
+    const day = (dayParam === 'friday' || dayParam === 'saturday') ? dayParam : null;
+    const parsedHour = Number.parseInt(hourParam, 10);
+    const hour = Number.isInteger(parsedHour) && parsedHour >= 0 && parsedHour <= 23 ? parsedHour : null;
+
+    return { day, hour };
+}
+
+function updateScheduleTestBadge() {
+    const badge = document.getElementById('scheduleTestBadge');
+    if (!badge) return;
+
+    const override = getScheduleOverrideFromUrl();
+    if (!override.day && override.hour === null) {
+        badge.style.display = 'none';
+        badge.textContent = '';
+        return;
+    }
+
+    const dayLabel = override.day === 'friday' ? 'Fredag' : (override.day === 'saturday' ? 'Lördag' : 'Auto');
+    const hourLabel = override.hour === null ? 'Auto' : `${String(override.hour).padStart(2, '0')}:00`;
+    badge.textContent = `Testläge: ${dayLabel}, ${hourLabel}`;
+    badge.style.display = 'inline-block';
+}
+
 function updateSyncStatus(text, stateClass = 'is-ok') {
     const el = document.getElementById('syncStatus');
     if (!el) return;
@@ -109,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localUpdatedAt ? `Last data: ${formatSyncTime(localUpdatedAt)} (cache)` : 'Last data: lokal cache',
         localUpdatedAt ? 'is-ok' : 'is-pending'
     );
+    updateScheduleTestBadge();
 
     // Non-blocking remote sync: app is instantly usable even if DB is sleeping.
     startRemoteSyncWithRetry();
@@ -449,18 +479,7 @@ function saveKeysToStorage() {
 
 // Get current booking for a car (based on today's day and current hour)
 function getCurrentBookingForCar(carId) {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 5 = Friday, 6 = Saturday, 0 = Sunday
-    const hour = now.getHours();
-    let day = null;
-    // Hours 0-2 belong to the previous night's day
-    if (hour <= 2) {
-        if (dayOfWeek === 6) day = 'friday';       // Saturday 00-02 = Friday night
-        else if (dayOfWeek === 0) day = 'saturday'; // Sunday 00-02 = Saturday night
-    } else {
-        if (dayOfWeek === 5) day = 'friday';
-        else if (dayOfWeek === 6) day = 'saturday';
-    }
+    const { day, hour } = getCurrentScheduleContext();
     if (!day) return null;
     return bookings.find(b => sameCarId(b.carId, carId) && b.day === day && b.hour === hour) || null;
 }
@@ -477,6 +496,14 @@ function getCurrentScheduleContext() {
     } else {
         if (dayOfWeek === 5) day = 'friday';
         else if (dayOfWeek === 6) day = 'saturday';
+    }
+
+    const override = getScheduleOverrideFromUrl();
+    if (override.day) {
+        day = override.day;
+    }
+    if (override.hour !== null) {
+        hour = override.hour;
     }
 
     return { day, hour };
