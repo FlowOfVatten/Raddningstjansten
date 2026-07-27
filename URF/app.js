@@ -34,6 +34,7 @@ let currentBookingCarId = null;
 let currentModal = null;
 let currentItemId = null;
 let currentItemType = null;
+let currentBorrowBookingId = null;
 let saveDebounceTimer = null;
 let pendingRemoteSave = false;
 let isRemoteSyncInProgress = false;
@@ -176,7 +177,8 @@ function createDefaultCars() {
         regNumber: `URF-${String(car.id).padStart(3, '0')}`,
         borrowed: false,
         borrowerName: '',
-        borrowedAt: ''
+        borrowedAt: '',
+        borrowedFromBookingId: ''
     }));
 }
 
@@ -201,7 +203,8 @@ function normalizeCars(carItems) {
         regNumber: String(car?.regNumber || `URF-${String(index + 1).padStart(3, '0')}`),
         borrowed: Boolean(car?.borrowed),
         borrowerName: String(car?.borrowerName || ''),
-        borrowedAt: String(car?.borrowedAt || '')
+        borrowedAt: String(car?.borrowedAt || ''),
+        borrowedFromBookingId: String(car?.borrowedFromBookingId || '')
     }));
 }
 
@@ -655,7 +658,8 @@ function addCar() {
         regNumber: `URF-${String(nextNumber).padStart(3, '0')}`,
         borrowed: false,
         borrowerName: '',
-        borrowedAt: ''
+        borrowedAt: '',
+        borrowedFromBookingId: ''
     });
 
     saveCarsToStorage();
@@ -780,6 +784,7 @@ function showBorrowModal(car, activeBooking) {
     document.getElementById('borrowCarInfo').textContent = `Reg.nr: ${car.regNumber}`;
     // Prefill name from active booking if available
     document.getElementById('borrowName').value = activeBooking ? activeBooking.bookerName : '';
+    currentBorrowBookingId = activeBooking && !activeBooking.isReturned ? String(activeBooking.id) : null;
 
     const nextBooking = getNextBookingForCar(car.id);
     if (nextBooking && sameCarId(nextBooking.carId, car.id)) {
@@ -849,6 +854,7 @@ function confirmBorrow() {
         car.borrowed = true;
         car.borrowerName = name;
         car.borrowedAt = new Date().toISOString();
+        car.borrowedFromBookingId = currentBorrowBookingId || '';
         saveCarsToStorage();
         renderCars();
         closeModal();
@@ -859,11 +865,25 @@ function confirmBorrow() {
 function confirmReturn() {
     const car = cars.find(c => c.id === currentItemId);
     if (car) {
+        const linkedBookingId = String(car.borrowedFromBookingId || '');
+        if (linkedBookingId) {
+            bookings = bookings.map(booking => {
+                if (String(booking.id) !== linkedBookingId) return booking;
+                if (booking.isReturned) return booking;
+                return {
+                    ...booking,
+                    isReturned: true,
+                    returnedAt: new Date().toISOString()
+                };
+            });
+        }
         car.borrowed = false;
         car.borrowerName = '';
         car.borrowedAt = '';
+        car.borrowedFromBookingId = '';
         saveCarsToStorage();
         renderCars();
+        renderBookingGrid();
         closeModal();
     }
 }
@@ -919,6 +939,7 @@ function closeModal() {
     currentModal = null;
     currentItemId = null;
     currentItemType = null;
+    currentBorrowBookingId = null;
 }
 
 // Switch between tabs
