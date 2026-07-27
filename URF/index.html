@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URF - Uppsala Reggae Festival | Billånning</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="URF2022_Logo_White_H-1-1024x604.webp" alt="URF Logo" class="header-logo">
+            <div class="header-content">
+                <h1>🎶 URF 🎶</h1>
+                <p class="subtitle">Uppsala Reggae Festival - Utlåning</p>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('cars')">Bilar</button>
+            <button class="tab-button" onclick="switchTab('keys')">Nycklar</button>
+            <button class="tab-button" onclick="switchTab('booking')">📅 Bokningar</button>
+        </div>
+
+        <section id="cars-section" class="tab-section active">
+            <main class="cars-grid" id="carsContainer">
+                <!-- Bilkort skapas dynamiskt med JavaScript -->
+            </main>
+        </section>
+
+        <section id="keys-section" class="tab-section">
+            <main class="keys-grid" id="keysContainer">
+                <!-- Nyckelkort skapas dynamiskt med JavaScript -->
+            </main>
+        </section>
+
+        <section id="booking-section" class="tab-section">
+            <div class="booking-day-selector">
+                <button class="day-btn active" onclick="switchBookingDay('friday')">Fredag</button>
+                <button class="day-btn" onclick="switchBookingDay('saturday')">Lördag</button>
+            </div>
+            <div class="booking-grid-container" id="bookingGrid">
+                <!-- Bokningstabell skapas dynamiskt med JavaScript -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Pop-up för låning -->
+    <div id="borrowModal" class="modal">
+        <div class="modal-content">
+            <h2>Låna bil</h2>
+            <p id="borrowCarInfo"></p>
+            <div class="form-group">
+                <label for="borrowName">Namn:</label>
+                <input type="text" id="borrowName" placeholder="Ditt namn">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmBorrow()">OK</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för återlämning av bil -->
+    <div id="returnModal" class="modal">
+        <div class="modal-content">
+            <h2>Är bilen tillbaka?</h2>
+            <p id="returnCarInfo"></p>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmReturn()">Ja, bilen är tillbaka</button>
+                <button class="btn-cancel" onclick="closeModal()">Nej, håller på ännu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för att låna nyckel -->
+    <div id="borrowKeyModal" class="modal">
+        <div class="modal-content">
+            <h2>Låna nyckel</h2>
+            <p id="borrowKeyInfo"></p>
+            <div class="form-group">
+                <label for="borrowKeyName">Namn:</label>
+                <input type="text" id="borrowKeyName" placeholder="Ditt namn">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmBorrowKey()">OK</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för återlämning av nyckel -->
+    <div id="returnKeyModal" class="modal">
+        <div class="modal-content">
+            <h2>Är nyckeln tillbaka?</h2>
+            <p id="returnKeyInfo"></p>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmReturnKey()">Ja, nyckeln är tillbaka</button>
+                <button class="btn-cancel" onclick="closeModal()">Nej, håller på ännu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för ny bokning -->
+    <div id="newBookingModal" class="modal">
+        <div class="modal-content">
+            <h2>Boka bil</h2>
+            <p id="newBookingInfo"></p>
+            <div class="form-group">
+                <label for="bookingName">Namn:</label>
+                <input type="text" id="bookingName" placeholder="Ditt namn">
+            </div>
+            <div class="form-group">
+                <label for="bookingEndHour">Sluttid:</label>
+                <select id="bookingEndHour">
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="bookingComment">Kommentar (valfritt):</label>
+                <input type="text" id="bookingComment" placeholder="Anledning / notering">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmNewBooking()">Boka</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för att ta bort bokning -->
+    <div id="cancelBookingModal" class="modal">
+        <div class="modal-content">
+            <h2>Ta bort bokning?</h2>
+            <p id="cancelBookingInfo"></p>
+            <div class="modal-buttons">
+                <button class="btn-taken" style="flex:1;padding:12px;font-size:1.1em;font-weight:bold;border:none;border-radius:10px;cursor:pointer;text-transform:uppercase;" onclick="confirmCancelBooking()">Ta bort</button>
+                <button class="btn-cancel" onclick="closeModal()">Behåll</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

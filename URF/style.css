@@ -1,0 +1,603 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Comic Sans MS', 'Arial', sans-serif;
+    background: linear-gradient(135deg, #1a472a 0%, #2d5a3d 50%, #1a472a 100%);
+    background-attachment: fixed;
+    color: #fff;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px 20px;
+    background: linear-gradient(to right, #ce1126 0%, #fcd116 33%, #007a5e 66%, #ce1126 100%);
+    border-radius: 20px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    transform: rotate(-2deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.header-logo {
+    width: 150px;
+    height: auto;
+}
+
+.header-content {
+    flex: 1;
+    min-width: 250px;
+}
+
+header h1 {
+    font-size: 3.5em;
+    margin-bottom: 10px;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+    letter-spacing: 3px;
+    font-weight: bold;
+    display: none;
+}
+
+header .subtitle {
+    font-size: 1.2em;
+    color: #000;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    border-bottom: 3px solid #ce1126;
+}
+
+.tab-button {
+    padding: 15px 30px;
+    font-size: 1.2em;
+    font-weight: bold;
+    background: #fcd116;
+    border: 3px solid #ce1126;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #333;
+}
+
+.tab-button:hover {
+    background: #ffeb3b;
+    transform: translateY(-3px);
+}
+
+.tab-button.active {
+    background: linear-gradient(135deg, #fcd116 0%, #ffeb3b 100%);
+    border-color: #007a5e;
+    color: #007a5e;
+}
+
+.tab-section {
+    display: none;
+}
+
+.tab-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.cars-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 100%;
+}
+
+.car-card {
+    background: linear-gradient(135deg, #fcd116 0%, #ffeb3b 100%);
+    border: 5px solid #ce1126;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transform: rotate(0deg);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.car-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.keys-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 100%;
+}
+
+.key-card {
+    background: linear-gradient(135deg, #fcd116 0%, #ffeb3b 100%);
+    border: 5px solid #ce1126;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transform: rotate(0deg);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.key-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.car-icon {
+    display: none;
+}
+
+.car-reg-container {
+    margin-bottom: 0;
+    flex: 0 0 150px;
+}
+
+.car-reg-label {
+    display: block;
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.car-reg-input {
+    width: 100%;
+    padding: 10px;
+    font-size: 0.95em;
+    border: 3px solid #ce1126;
+    border-radius: 10px;
+    background: white;
+    color: #333;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.car-reg-input:focus {
+    outline: none;
+    border-color: #007a5e;
+    background: #f0f8f5;
+}
+
+.key-reg-container {
+    margin-bottom: 0;
+    flex: 0 0 150px;
+}
+
+.key-reg-label {
+    display: block;
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.key-reg-input {
+    width: 100%;
+    padding: 10px;
+    font-size: 0.95em;
+    border: 3px solid #ce1126;
+    border-radius: 10px;
+    background: white;
+    color: #333;
+    font-weight: bold;
+    text-align: left;
+}
+
+.key-reg-input:focus {
+    outline: none;
+    border-color: #007a5e;
+    background: #f0f8f5;
+}
+
+.car-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    min-height: 60px;
+}
+
+.action-button {
+    width: auto;
+    padding: 12px 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: 4px solid #333;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 0;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.action-button:active {
+    transform: translateY(2px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-available {
+    background: linear-gradient(to bottom, #007a5e, #005a40);
+    color: white;
+}
+
+.btn-available:hover {
+    background: linear-gradient(to bottom, #009970, #007a5e);
+    transform: scale(1.02);
+}
+
+.btn-taken {
+    background: linear-gradient(to bottom, #ce1126, #a00a1e);
+    color: white;
+}
+
+.btn-taken:hover {
+    background: linear-gradient(to bottom, #e01536, #ce1126);
+    transform: scale(1.02);
+}
+
+.btn-booked {
+    background: linear-gradient(to bottom, #e67e00, #c96b00);
+    color: white;
+}
+
+.btn-booked:hover {
+    background: linear-gradient(to bottom, #f08c00, #e67e00);
+    transform: scale(1.02);
+}
+
+.borrower-booked {
+    font-weight: bold;
+    color: #e67e00;
+    font-size: 0.95em;
+}
+
+.borrower-info {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px 15px;
+    border-radius: 10px;
+    border-left: 5px solid #007a5e;
+    color: #333;
+    min-height: auto;
+    flex: 1;
+}
+
+.borrower-info p {
+    margin: 2px 0;
+    font-size: 0.9em;
+}
+
+.borrower-name {
+    font-weight: bold;
+    color: #ce1126;
+    font-size: 1em;
+}
+
+.borrower-phone {
+    color: #007a5e;
+    font-size: 0.85em;
+}
+
+.empty-borrower {
+    color: #999;
+    font-style: italic;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.modal.show {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #fcd116 0%, #ffeb3b 100%);
+    padding: 40px;
+    border-radius: 20px;
+    border: 5px solid #ce1126;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+    max-width: 400px;
+    width: 90%;
+    animation: slideIn 0.3s ease;
+    color: #333;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content h2 {
+    color: #ce1126;
+    margin-bottom: 20px;
+    font-size: 1.8em;
+    text-align: center;
+}
+
+.modal-content p {
+    color: #333;
+    margin-bottom: 20px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 3px solid #ce1126;
+    border-radius: 8px;
+    font-size: 1em;
+    font-family: Arial, sans-serif;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #007a5e;
+    background: #f0f8f5;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.btn-ok,
+.btn-cancel {
+    flex: 1;
+    padding: 12px;
+    font-size: 1.1em;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+}
+
+.btn-ok {
+    background: linear-gradient(to bottom, #007a5e, #005a40);
+    color: white;
+}
+
+.btn-ok:hover {
+    background: linear-gradient(to bottom, #009970, #007a5e);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.btn-cancel {
+    background: #ccc;
+    color: #333;
+}
+
+.btn-cancel:hover {
+    background: #aaa;
+    transform: translateY(-2px);
+}
+
+/* ---- Booking styles ---- */
+
+.booking-day-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.day-btn {
+    padding: 12px 30px;
+    font-size: 1.1em;
+    font-weight: bold;
+    background: #fcd116;
+    border: 3px solid #ce1126;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    color: #333;
+}
+
+.day-btn:hover {
+    background: #ffeb3b;
+}
+
+.day-btn.active {
+    background: linear-gradient(135deg, #ce1126, #a00a1e);
+    color: white;
+    border-color: #333;
+}
+
+.booking-table-wrapper {
+    overflow-x: auto;
+}
+
+.booking-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.booking-table thead th {
+    background: linear-gradient(to right, #ce1126 0%, #fcd116 33%, #007a5e 100%);
+    color: white;
+    padding: 14px 10px;
+    font-size: 1em;
+    text-align: center;
+    font-weight: bold;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.booking-table thead th:first-child {
+    background: #1a472a;
+    width: 80px;
+}
+
+.hour-cell {
+    background: #1a472a;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    padding: 12px 8px;
+    font-size: 1em;
+    border: 1px solid rgba(255,255,255,0.2);
+    white-space: nowrap;
+}
+
+.booking-cell {
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: bold;
+    border: 1px solid #ddd;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.booking-cell.free {
+    background: #e8f8f0;
+    color: #007a5e;
+}
+
+.booking-cell.free:hover {
+    background: #007a5e;
+    color: white;
+    transform: scale(1.05);
+}
+
+.booking-cell.booked {
+    background: #fde8ea;
+    color: #ce1126;
+    cursor: pointer;
+}
+
+.booking-cell.booked:hover {
+    background: #ce1126;
+    color: white;
+}
+
+.booking-cell small {
+    display: block;
+    font-size: 0.8em;
+    opacity: 0.8;
+    font-weight: normal;
+}
+
+.booking-comment {
+    display: block;
+    font-size: 0.78em;
+    font-style: italic;
+    opacity: 0.85;
+    font-weight: normal;
+    margin-top: 2px;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 3px solid #ce1126;
+    border-radius: 8px;
+    font-size: 1em;
+    font-family: Arial, sans-serif;
+    background: white;
+    color: #333;
+    cursor: pointer;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #007a5e;
+}
+
+.booking-table tbody tr:nth-child(even) .booking-cell.free {
+    background: #d4f3e5;
+}
+
+.booking-table tbody tr:nth-child(even) .hour-cell {
+    background: #144d22;
+}
+
