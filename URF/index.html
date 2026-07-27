@@ -37,7 +37,7 @@
                 <!-- Bilkort skapas dynamiskt med JavaScript -->
             </main>
             <div class="list-actions">
-                <button class="add-row-button" onclick="addCar()">Ny Bil</button>
+                <button class="add-row-button" onclick="openNewCarModal()">Ny Bil</button>
             </div>
         </section>
 
@@ -129,6 +129,32 @@
     </div>
 
     <!-- Pop-up för ny bokning -->
+    <div id="newCarModal" class="modal">
+        <div class="modal-content">
+            <h2>Ny bil / minibuss</h2>
+            <div class="form-group">
+                <label for="newCarModel">Modell:</label>
+                <input type="text" id="newCarModel" placeholder="Ex: Volkswagen Transporter">
+            </div>
+            <div class="form-group">
+                <label for="newCarReg">Reg.nr:</label>
+                <input type="text" id="newCarReg" placeholder="Ex: ABC123">
+            </div>
+            <div class="form-group">
+                <label for="newCarType">Fordonstyp:</label>
+                <select id="newCarType">
+                    <option value="car">Bil</option>
+                    <option value="minibus">Minibuss</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmNewCar()">Lägg till</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för ny bokning -->
     <div id="newBookingModal" class="modal">
         <div class="modal-content">
             <h2>Boka bil</h2>
@@ -162,6 +188,18 @@
                 <button id="markReturnedBookingBtn" class="btn-ok" onclick="confirmReturnBooking()">Återlämnad</button>
                 <button class="btn-taken" style="flex:1;padding:12px;font-size:1.1em;font-weight:bold;border:none;border-radius:10px;cursor:pointer;text-transform:uppercase;" onclick="confirmCancelBooking()">Ta bort</button>
                 <button class="btn-cancel" onclick="closeModal()">Behåll</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för att ta bort fordon -->
+    <div id="deleteCarModal" class="modal">
+        <div class="modal-content">
+            <h2>Ta bort fordon?</h2>
+            <p id="deleteCarInfo"></p>
+            <div class="modal-buttons">
+                <button class="btn-taken" style="flex:1;padding:12px;font-size:1.1em;font-weight:bold;border:none;border-radius:10px;cursor:pointer;text-transform:uppercase;" onclick="confirmDeleteCar()">Ta bort</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
             </div>
         </div>
     </div>

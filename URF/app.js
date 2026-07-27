@@ -35,6 +35,7 @@ let currentModal = null;
 let currentItemId = null;
 let currentItemType = null;
 let currentBorrowBookingId = null;
+let currentDeleteCarId = null;
 let saveDebounceTimer = null;
 let pendingRemoteSave = false;
 let isRemoteSyncInProgress = false;
@@ -67,6 +68,14 @@ function formatBorrowedTime(ts) {
         day: '2-digit',
         month: '2-digit'
     });
+}
+
+function getVehicleIcon(type) {
+    return type === 'minibus' ? '🚌' : '🚗';
+}
+
+function getVehicleTypeLabel(type) {
+    return type === 'minibus' ? 'Minibuss' : 'Bil';
 }
 
 function getScheduleOverrideFromUrl() {
@@ -171,15 +180,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = REMOTE_REQUEST_TI
 }
 
 function createDefaultCars() {
-    return CARS_DATA.map(car => ({
-        id: car.id,
-        icon: car.icon,
-        regNumber: `URF-${String(car.id).padStart(3, '0')}`,
-        borrowed: false,
-        borrowerName: '',
-        borrowedAt: '',
-        borrowedFromBookingId: ''
-    }));
+    return [];
 }
 
 function createDefaultItems() {
@@ -194,18 +195,23 @@ function createDefaultItems() {
 
 function normalizeCars(carItems) {
     if (!Array.isArray(carItems) || carItems.length === 0) {
-        return createDefaultCars();
+        return [];
     }
 
-    return carItems.map((car, index) => ({
+    return carItems.map((car, index) => {
+        const normalizedType = car?.vehicleType === 'minibus' ? 'minibus' : 'car';
+        return {
         id: car?.id ?? index + 1,
-        icon: car?.icon || CARS_DATA[index % CARS_DATA.length].icon,
+        icon: car?.icon || getVehicleIcon(normalizedType),
+        vehicleType: normalizedType,
+        modelName: String(car?.modelName || ''),
         regNumber: String(car?.regNumber || `URF-${String(index + 1).padStart(3, '0')}`),
         borrowed: Boolean(car?.borrowed),
         borrowerName: String(car?.borrowerName || ''),
         borrowedAt: String(car?.borrowedAt || ''),
         borrowedFromBookingId: String(car?.borrowedFromBookingId || '')
-    }));
+        };
+    });
 }
 
 function normalizeItems(items) {
@@ -548,10 +554,12 @@ function getAvailabilityScore(endHour) {
 }
 
 function getBestAlternativeCar(currentCarId) {
+    const currentCar = cars.find(car => sameCarId(car.id, currentCarId));
+    const wantedType = currentCar?.vehicleType === 'minibus' ? 'minibus' : 'car';
     const { day } = getCurrentScheduleContext();
     if (!day) return null;
 
-    const candidates = cars
+    const allCandidates = cars
         .filter(car => !sameCarId(car.id, currentCarId))
         .filter(car => !car.borrowed)
         .filter(car => !getCurrentBookingForCar(car.id))
@@ -562,14 +570,26 @@ function getBestAlternativeCar(currentCarId) {
             return {
                 id: car.id,
                 regNumber: car.regNumber,
+                vehicleType: car.vehicleType === 'minibus' ? 'minibus' : 'car',
                 availableUntilHour,
                 score: getAvailabilityScore(availableUntilHour)
             };
         })
-        .filter(Boolean)
-        .sort((a, b) => b.score - a.score);
+        .filter(Boolean);
 
-    return candidates[0] || null;
+    const sameTypeCandidates = allCandidates
+        .filter(candidate => candidate.vehicleType === wantedType)
+        .sort((a, b) => b.score - a.score);
+    if (sameTypeCandidates.length > 0) {
+        return { ...sameTypeCandidates[0], usedFallbackType: false };
+    }
+
+    const fallbackCandidates = allCandidates.sort((a, b) => b.score - a.score);
+    if (fallbackCandidates.length > 0) {
+        return { ...fallbackCandidates[0], usedFallbackType: true, wantedType };
+    }
+
+    return null;
 }
 
 function switchBorrowCar(targetCarId) {
@@ -589,6 +609,11 @@ function switchBorrowCar(targetCarId) {
 function renderCars() {
     const container = document.getElementById('carsContainer');
     container.innerHTML = '';
+
+    if (!cars.length) {
+        container.innerHTML = '<div class="empty-state-card">Inga fordon ännu. Klicka på Ny Bil för att lägga till bil eller minibuss.</div>';
+        return;
+    }
 
     cars.forEach(car => {
         const card = document.createElement('div');
@@ -615,22 +640,18 @@ function renderCars() {
         }
 
         card.innerHTML = `
-            <div class="car-icon">${car.icon}</div>
+            <div class="car-icon">${car.icon || getVehicleIcon(car.vehicleType)}</div>
             <div class="car-reg-container">
-                <label class="car-reg-label">Reg.nr</label>
-                <input 
-                    type="text" 
-                    class="car-reg-input" 
-                    value="${car.regNumber}"
-                    onchange="updateRegNumber(${car.id}, this.value)"
-                    maxlength="10"
-                >
+                <div class="car-reg-label">${getVehicleTypeLabel(car.vehicleType)}</div>
+                <div class="car-reg-value">${car.regNumber}</div>
+                <div class="car-model-value">${car.modelName || 'Okänd modell'}</div>
             </div>
             <div class="car-content">
                 <button class="action-button ${buttonClass}" onclick="handleCarAction(${car.id})">
                     ${buttonText}
                 </button>
                 ${borrowerHTML}
+                <button class="car-delete-btn" onclick="openDeleteCarModal(${car.id})" aria-label="Ta bort fordon">X</button>
             </div>
         `;
 
@@ -648,14 +669,41 @@ function updateRegNumber(carId, newRegNumber) {
     }
 }
 
-function addCar() {
+function openNewCarModal() {
+    const modelInput = document.getElementById('newCarModel');
+    const regInput = document.getElementById('newCarReg');
+    const typeSelect = document.getElementById('newCarType');
+    if (!modelInput || !regInput || !typeSelect) return;
+
+    modelInput.value = '';
+    regInput.value = '';
+    typeSelect.value = 'car';
+    document.getElementById('newCarModal').classList.add('show');
+    modelInput.focus();
+}
+
+function confirmNewCar() {
+    const modelName = String(document.getElementById('newCarModel').value || '').trim();
+    const regNumber = String(document.getElementById('newCarReg').value || '').toUpperCase().trim();
+    const vehicleType = String(document.getElementById('newCarType').value || 'car') === 'minibus' ? 'minibus' : 'car';
+
+    if (!modelName) {
+        alert('Vänligen fyll i modell!');
+        return;
+    }
+    if (!regNumber) {
+        alert('Vänligen fyll i reg.nr!');
+        return;
+    }
+
     const nextId = cars.reduce((maxId, car) => Math.max(maxId, Number(car.id) || 0), 0) + 1;
-    const nextNumber = cars.length + 1;
 
     cars.push({
         id: nextId,
-        icon: '🚗',
-        regNumber: `URF-${String(nextNumber).padStart(3, '0')}`,
+        icon: getVehicleIcon(vehicleType),
+        vehicleType,
+        modelName,
+        regNumber,
         borrowed: false,
         borrowerName: '',
         borrowedAt: '',
@@ -665,6 +713,32 @@ function addCar() {
     saveCarsToStorage();
     renderCars();
     renderBookingGrid();
+    closeModal();
+}
+
+function openDeleteCarModal(carId) {
+    const car = cars.find(c => sameCarId(c.id, carId));
+    if (!car) return;
+
+    currentDeleteCarId = car.id;
+    const info = document.getElementById('deleteCarInfo');
+    if (info) {
+        info.textContent = `Är du säker på att du vill ta bort detta fordon: ${car.regNumber} (${car.modelName || getVehicleTypeLabel(car.vehicleType)})?`;
+    }
+
+    document.getElementById('deleteCarModal').classList.add('show');
+}
+
+function confirmDeleteCar() {
+    if (currentDeleteCarId === null) return;
+
+    cars = cars.filter(car => !sameCarId(car.id, currentDeleteCarId));
+    bookings = bookings.filter(booking => !sameCarId(booking.carId, currentDeleteCarId));
+
+    persistState();
+    renderCars();
+    renderBookingGrid();
+    closeModal();
 }
 
 // Update key name
@@ -796,7 +870,10 @@ function showBorrowModal(car, activeBooking) {
         if (alternative) {
             const untilLabel = formatHourLabel(alternative.availableUntilHour);
             const altLabel = alternative.regNumber || `Bil ${alternative.id}`;
-            suggestion.innerHTML = `Om du behöver bilen längre än så rekommenderar jag ${altLabel}. Den är ledig fram till ${untilLabel}.<br><button type="button" class="borrow-switch-btn" onclick="switchBorrowCar(${alternative.id})">Vill du byta till ${altLabel}?</button>`;
+            const fallbackInfo = alternative.usedFallbackType
+                ? `<br><strong>Ingen ledig ${getVehicleTypeLabel(alternative.wantedType).toLowerCase()} hittades just nu.</strong>`
+                : '';
+            suggestion.innerHTML = `Om du behöver bilen längre än så rekommenderar jag ${altLabel}. Den är ledig fram till ${untilLabel}.${fallbackInfo}<br><button type="button" class="borrow-switch-btn" onclick="switchBorrowCar(${alternative.id})">Vill du byta till ${altLabel}?</button>`;
             suggestion.style.display = 'block';
         } else {
             suggestion.style.display = 'none';
@@ -923,7 +1000,7 @@ function confirmReturnKey() {
 
 // Close modal
 function closeModal() {
-    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal'].forEach(id => {
+    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal'].forEach(id => {
         document.getElementById(id).classList.remove('show');
     });
     const notice = document.getElementById('borrowCarNotice');
@@ -940,6 +1017,7 @@ function closeModal() {
     currentItemId = null;
     currentItemType = null;
     currentBorrowBookingId = null;
+    currentDeleteCarId = null;
 }
 
 // Switch between tabs
@@ -1272,7 +1350,7 @@ document.addEventListener('click', (e) => {
     const borrowKeyModal = document.getElementById('borrowKeyModal');
     const returnKeyModal = document.getElementById('returnKeyModal');
     
-    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal'];
+    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal'];
     if (modalIds.some(id => e.target === document.getElementById(id))) {
         closeModal();
     }
