@@ -37,6 +37,7 @@ let currentItemType = null;
 let saveDebounceTimer = null;
 let pendingRemoteSave = false;
 let isRemoteSyncInProgress = false;
+let lastKnownGoodContacts = [];  // Backup to prevent losing non-empty contacts
 
 function formatSyncTime(ts) {
     if (!ts) return '';
@@ -144,12 +145,14 @@ function normalizeItems(items) {
 }
 
 function getStatePayload() {
+    // Safeguard: Never overwrite DB with empty contacts if we had non-empty contacts before
+    const contactsToSave = contacts.length > 0 ? contacts : (lastKnownGoodContacts.length > 0 ? lastKnownGoodContacts : []);
     return {
         version: 1,
         cars,
         keys,
         bookings,
-        contacts
+        contacts: contactsToSave
     };
 }
 
@@ -158,6 +161,11 @@ function saveLocalSnapshot() {
     localStorage.setItem('urf_keys', JSON.stringify(keys));
     localStorage.setItem('urf_bookings', JSON.stringify(bookings));
     localStorage.setItem('urf_contacts', JSON.stringify(contacts));
+    // Always keep a backup of non-empty contacts
+    if (contacts.length > 0) {
+        localStorage.setItem('urf_contacts_backup', JSON.stringify(contacts));
+        lastKnownGoodContacts = contacts;
+    }
 }
 
 function scheduleRemoteSave() {
@@ -184,9 +192,13 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     keys = normalizeItems(payload.keys);
     bookings = Array.isArray(payload.bookings) ? payload.bookings : bookings;
     if (Array.isArray(payload.contacts)) {
-        // Keep local contacts if remote is empty, to avoid losing locally cached rows.
-        if (payload.contacts.length > 0 || contacts.length === 0) {
+        // Safeguard: Keep local/backup contacts if remote is empty, to avoid data loss
+        if (payload.contacts.length > 0) {
             contacts = payload.contacts;
+            lastKnownGoodContacts = payload.contacts;  // Update backup on successful sync
+        } else if (contacts.length === 0 && lastKnownGoodContacts.length > 0) {
+            // Remote is empty AND local is empty, but we had contacts before -> restore from backup
+            contacts = lastKnownGoodContacts;
         }
     }
     saveLocalSnapshot();
@@ -728,6 +740,13 @@ function saveBookingsToStorage() {
 function loadContactsFromStorage() {
     const stored = localStorage.getItem('urf_contacts');
     contacts = stored ? JSON.parse(stored) : [];
+    // Load backup on startup
+    const backup = localStorage.getItem('urf_contacts_backup');
+    lastKnownGoodContacts = (backup ? JSON.parse(backup) : []);
+    // If local is empty but backup has data, use backup as starting point
+    if (contacts.length === 0 && lastKnownGoodContacts.length > 0) {
+        contacts = lastKnownGoodContacts;
+    }
 }
 
 function saveContactsToStorage() {
