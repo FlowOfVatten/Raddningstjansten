@@ -462,7 +462,7 @@ function getCurrentBookingForCar(carId) {
         else if (dayOfWeek === 6) day = 'saturday';
     }
     if (!day) return null;
-    return bookings.find(b => b.carId === carId && b.day === day && b.hour === hour) || null;
+    return bookings.find(b => sameCarId(b.carId, carId) && b.day === day && b.hour === hour) || null;
 }
 
 function getCurrentScheduleContext() {
@@ -482,15 +482,77 @@ function getCurrentScheduleContext() {
     return { day, hour };
 }
 
+function sameCarId(leftId, rightId) {
+    return Number(leftId) === Number(rightId);
+}
+
 function getNextBookingForCar(carId) {
     const { day, hour } = getCurrentScheduleContext();
     if (!day) return null;
 
     const candidates = bookings
-        .filter(b => b.carId === carId && b.day === day && b.startHour !== undefined && b.startHour > hour)
+        .filter(b => sameCarId(b.carId, carId) && b.day === day && b.startHour !== undefined && b.startHour > hour)
         .sort((a, b) => a.startHour - b.startHour);
 
     return candidates.length > 0 ? candidates[0] : null;
+}
+
+function formatHourLabel(hour) {
+    const normalizedHour = hour === 3 ? 3 : Number(hour);
+    return `${String(normalizedHour).padStart(2, '0')}:00`;
+}
+
+function getAvailabilityEndHourForCar(carId) {
+    const { day } = getCurrentScheduleContext();
+    if (!day) return null;
+    const nextBooking = getNextBookingForCar(carId);
+    return nextBooking ? nextBooking.startHour : 3;
+}
+
+function getAvailabilityScore(endHour) {
+    const { hour } = getCurrentScheduleContext();
+    const nowIdx = HOURS.indexOf(hour);
+    const endIdx = endHour === 3 ? HOURS.length : HOURS.indexOf(endHour);
+    if (nowIdx === -1 || endIdx === -1) return -1;
+    return endIdx - nowIdx;
+}
+
+function getBestAlternativeCar(currentCarId) {
+    const { day } = getCurrentScheduleContext();
+    if (!day) return null;
+
+    const candidates = cars
+        .filter(car => !sameCarId(car.id, currentCarId))
+        .filter(car => !car.borrowed)
+        .filter(car => !getCurrentBookingForCar(car.id))
+        .map(car => {
+            const availableUntilHour = getAvailabilityEndHourForCar(car.id);
+            if (availableUntilHour === null) return null;
+
+            return {
+                id: car.id,
+                regNumber: car.regNumber,
+                availableUntilHour,
+                score: getAvailabilityScore(availableUntilHour)
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score);
+
+    return candidates[0] || null;
+}
+
+function switchBorrowCar(targetCarId) {
+    const currentName = document.getElementById('borrowName').value;
+    const targetCar = cars.find(car => sameCarId(car.id, targetCarId));
+    if (!targetCar) return;
+
+    currentItemId = targetCar.id;
+    const activeBooking = getCurrentBookingForCar(targetCar.id);
+    showBorrowModal(targetCar, activeBooking);
+
+    // Keep whatever user already typed in the name field when switching car.
+    document.getElementById('borrowName').value = currentName;
 }
 
 // Render all cars
@@ -687,18 +749,32 @@ function handleKeyAction(keyId) {
 function showBorrowModal(car, activeBooking) {
     const modal = document.getElementById('borrowModal');
     const notice = document.getElementById('borrowCarNotice');
+    const suggestion = document.getElementById('borrowCarSuggestion');
     document.getElementById('borrowCarInfo').textContent = `Reg.nr: ${car.regNumber}`;
     // Prefill name from active booking if available
     document.getElementById('borrowName').value = activeBooking ? activeBooking.bookerName : '';
 
     const nextBooking = getNextBookingForCar(car.id);
-    if (nextBooking) {
+    if (nextBooking && sameCarId(nextBooking.carId, car.id)) {
         const fromTime = `${String(nextBooking.startHour).padStart(2, '0')}:00`;
         notice.textContent = `Notis: Denna bil är bokad från ${fromTime} och behöver vara tillbaka då.`;
         notice.style.display = 'block';
+
+        const alternative = getBestAlternativeCar(car.id);
+        if (alternative) {
+            const altName = `Bil ${alternative.id}`;
+            const untilLabel = formatHourLabel(alternative.availableUntilHour);
+            suggestion.innerHTML = `Om du behöver bilen längre än så rekommenderar jag ${altName}${alternative.regNumber ? ` (${alternative.regNumber})` : ''}. Den är ledig fram till ${untilLabel}.<br><button type="button" class="borrow-switch-btn" onclick="switchBorrowCar(${alternative.id})">Vill du byta till ${altName}?</button>`;
+            suggestion.style.display = 'block';
+        } else {
+            suggestion.style.display = 'none';
+            suggestion.innerHTML = '';
+        }
     } else {
         notice.style.display = 'none';
         notice.textContent = '';
+        suggestion.style.display = 'none';
+        suggestion.innerHTML = '';
     }
 
     modal.classList.add('show');
@@ -803,6 +879,16 @@ function closeModal() {
     ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal'].forEach(id => {
         document.getElementById(id).classList.remove('show');
     });
+    const notice = document.getElementById('borrowCarNotice');
+    const suggestion = document.getElementById('borrowCarSuggestion');
+    if (notice) {
+        notice.style.display = 'none';
+        notice.textContent = '';
+    }
+    if (suggestion) {
+        suggestion.style.display = 'none';
+        suggestion.innerHTML = '';
+    }
     currentModal = null;
     currentItemId = null;
     currentItemType = null;

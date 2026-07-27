@@ -675,6 +675,36 @@ header .subtitle.subtitle-tagline {
     margin-top: -5px;
 }
 
+.borrow-suggestion {
+    background: #e8f6ef;
+    border: 2px solid #007a5e;
+    border-radius: 8px;
+    color: #0f4f3f;
+    font-size: 0.95em;
+    padding: 10px 12px;
+    text-align: left;
+    margin-top: 10px;
+    margin-bottom: 6px;
+    line-height: 1.35;
+}
+
+.borrow-switch-btn {
+    margin-top: 10px;
+    background: linear-gradient(to bottom, #007a5e, #005a40);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.borrow-switch-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
 .form-group {
     margin-bottom: 20px;
 }

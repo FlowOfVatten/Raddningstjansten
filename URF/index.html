@@ -13,7 +13,7 @@
     <div class="container">
         <header>
             <div class="sync-container">
-                <div id="syncStatus" class="sync-status">Last sync: lokal cache</div>
+                <div id="syncStatus" class="sync-status">Last data: lokal cache</div>
                 <button id="refreshButton" class="refresh-button" onclick="handleRefreshSync()" title="Force manual sync">🔄</button>
             </div>
             <img src="URF2022_Logo_White_H-1-1024x604.webp" alt="URF Logo" class="header-logo">
@@ -75,6 +75,7 @@
             <h2>Låna bil</h2>
             <p id="borrowCarInfo"></p>
             <p id="borrowCarNotice" class="borrow-notice" style="display:none;"></p>
+            <div id="borrowCarSuggestion" class="borrow-suggestion" style="display:none;"></div>
             <div class="form-group">
                 <label for="borrowName">Namn:</label>
                 <input type="text" id="borrowName" placeholder="Ditt namn">
