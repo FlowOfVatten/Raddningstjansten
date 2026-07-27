@@ -581,6 +581,14 @@ header .subtitle.subtitle-tagline {
     font-size: 1em;
 }
 
+.borrowed-at {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 0.82em;
+    font-weight: 600;
+    color: #5f6a72;
+}
+
 .borrower-phone {
     color: #007a5e;
     font-size: 0.85em;

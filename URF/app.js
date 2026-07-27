@@ -56,6 +56,18 @@ function formatSyncTime(ts) {
     });
 }
 
+function formatBorrowedTime(ts) {
+    if (!ts) return '';
+    const date = new Date(ts);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('sv-SE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit'
+    });
+}
+
 function updateSyncStatus(text, stateClass = 'is-ok') {
     const el = document.getElementById('syncStatus');
     if (!el) return;
@@ -94,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const localUpdatedAt = getLocalUpdatedAt();
     updateSyncStatus(
-        localUpdatedAt ? `Last sync: ${formatSyncTime(localUpdatedAt)} (cache)` : 'Last sync: lokal cache',
+        localUpdatedAt ? `Last data: ${formatSyncTime(localUpdatedAt)} (cache)` : 'Last data: lokal cache',
         localUpdatedAt ? 'is-ok' : 'is-pending'
     );
 
@@ -133,7 +145,8 @@ function createDefaultCars() {
         icon: car.icon,
         regNumber: `URF-${String(car.id).padStart(3, '0')}`,
         borrowed: false,
-        borrowerName: ''
+        borrowerName: '',
+        borrowedAt: ''
     }));
 }
 
@@ -142,7 +155,23 @@ function createDefaultItems() {
         id: item.id,
         keyName: `Pryl ${item.id}`,
         borrowed: false,
-        borrowerName: ''
+        borrowerName: '',
+        borrowedAt: ''
+    }));
+}
+
+function normalizeCars(carItems) {
+    if (!Array.isArray(carItems) || carItems.length === 0) {
+        return createDefaultCars();
+    }
+
+    return carItems.map((car, index) => ({
+        id: car?.id ?? index + 1,
+        icon: car?.icon || CARS_DATA[index % CARS_DATA.length].icon,
+        regNumber: String(car?.regNumber || `URF-${String(index + 1).padStart(3, '0')}`),
+        borrowed: Boolean(car?.borrowed),
+        borrowerName: String(car?.borrowerName || ''),
+        borrowedAt: String(car?.borrowedAt || '')
     }));
 }
 
@@ -160,7 +189,8 @@ function normalizeItems(items) {
             id: item?.id ?? index + 1,
             keyName: migratedName || fallbackName,
             borrowed: Boolean(item?.borrowed),
-            borrowerName: String(item?.borrowerName || '')
+            borrowerName: String(item?.borrowerName || ''),
+            borrowedAt: String(item?.borrowedAt || '')
         };
     });
 }
@@ -210,7 +240,7 @@ function scheduleRemoteSave() {
     }
 
     pendingRemoteSave = true;
-    updateSyncStatus('Last sync: osynkade lokala ändringar', 'is-pending');
+    updateSyncStatus('Last data: osynkade lokala ändringar', 'is-pending');
 
     saveDebounceTimer = setTimeout(() => {
         saveStateToApi();
@@ -227,8 +257,8 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     // Safeguard: Keep local/backup data if remote is empty, to avoid data loss
     if (Array.isArray(payload.cars)) {
         if (payload.cars.length > 0) {
-            cars = payload.cars;
-            lastKnownGoodCars = payload.cars;  // Update backup on successful sync
+            cars = normalizeCars(payload.cars);
+            lastKnownGoodCars = cars;  // Update backup on successful sync
         } else if (cars.length === 0 && lastKnownGoodCars.length > 0) {
             cars = lastKnownGoodCars;
         }
@@ -294,7 +324,7 @@ async function loadStateFromApi() {
 async function saveStateToApi() {
     try {
         const timestamp = getLocalUpdatedAt() || new Date().toISOString();
-        updateSyncStatus('Last sync: synkar...', 'is-syncing');
+        updateSyncStatus('Last data: synkar...', 'is-syncing');
         const response = await fetchWithTimeout(STATE_ENDPOINT, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -307,17 +337,17 @@ async function saveStateToApi() {
 
         if (!response.ok) {
             pendingRemoteSave = true;
-            updateSyncStatus('Last sync: väntar på databas...', 'is-pending');
+            updateSyncStatus('Last data: väntar på databas...', 'is-pending');
             return false;
         }
 
         pendingRemoteSave = false;
-        updateSyncStatus(`Last sync: ${formatSyncTime(timestamp)}`, 'is-ok');
+        updateSyncStatus(`Last data: ${formatSyncTime(timestamp)}`, 'is-ok');
         return true;
     } catch (error) {
         // Keep running with local cache if remote save fails.
         pendingRemoteSave = true;
-        updateSyncStatus('Last sync: väntar på databas...', 'is-pending');
+        updateSyncStatus('Last data: väntar på databas...', 'is-pending');
         console.warn('URF: kunde inte spara state till API, sparat lokalt.', error);
         return false;
     }
@@ -328,10 +358,10 @@ async function syncWithRemoteOnce() {
     isRemoteSyncInProgress = true;
 
     try {
-        updateSyncStatus('Last sync: kontaktar databas...', 'is-syncing');
+        updateSyncStatus('Last data: kontaktar databas...', 'is-syncing');
         const result = await loadStateFromApi();
         if (!result.ok) {
-            updateSyncStatus('Last sync: DB sover, använder cache', 'is-pending');
+            updateSyncStatus('Last data: DB sover, använder cache', 'is-pending');
             return false;
         }
 
@@ -351,7 +381,7 @@ async function syncWithRemoteOnce() {
             await saveStateToApi();
         } else {
             updateSyncStatus(
-                remoteUpdatedAt ? `Last sync: ${formatSyncTime(remoteUpdatedAt)}` : 'Last sync: ansluten',
+                remoteUpdatedAt ? `Last data: ${formatSyncTime(remoteUpdatedAt)}` : 'Last data: ansluten',
                 'is-ok'
             );
         }
@@ -376,9 +406,9 @@ async function startRemoteSyncWithRetry() {
 function loadCarsFromStorage() {
     const stored = localStorage.getItem('urf_cars');
     const backup = localStorage.getItem('urf_cars_backup');
-    lastKnownGoodCars = (backup ? JSON.parse(backup) : []);
+    lastKnownGoodCars = (backup ? normalizeCars(JSON.parse(backup)) : []);
     if (stored) {
-        cars = JSON.parse(stored);
+        cars = normalizeCars(JSON.parse(stored));
         // If local is empty but backup has data, use backup as starting point
         if (cars.length === 0 && lastKnownGoodCars.length > 0) {
             cars = lastKnownGoodCars;
@@ -477,7 +507,8 @@ function renderCars() {
         if (car.borrowed) {
             buttonClass = 'btn-taken';
             buttonText = 'UPPTAGEN';
-            borrowerHTML = `<div class="borrower-info"><p class="borrower-name">${car.borrowerName}</p></div>`;
+            const borrowedAtText = formatBorrowedTime(car.borrowedAt);
+            borrowerHTML = `<div class="borrower-info"><p class="borrower-name">${car.borrowerName}${borrowedAtText ? ` <span class="borrowed-at">(${borrowedAtText})</span>` : ''}</p></div>`;
         } else {
             const activeBooking = getCurrentBookingForCar(car.id);
             if (activeBooking) {
@@ -534,7 +565,8 @@ function addCar() {
         icon: '🚗',
         regNumber: `URF-${String(nextNumber).padStart(3, '0')}`,
         borrowed: false,
-        borrowerName: ''
+        borrowerName: '',
+        borrowedAt: ''
     });
 
     saveCarsToStorage();
@@ -560,7 +592,8 @@ function addKeyItem() {
         id: nextId,
         keyName: `Pryl ${nextNumber}`,
         borrowed: false,
-        borrowerName: ''
+        borrowerName: '',
+        borrowedAt: ''
     });
 
     saveKeysToStorage();
@@ -581,9 +614,10 @@ function renderKeys() {
         
         let borrowerHTML = '';
         if (key.borrowed) {
+            const borrowedAtText = formatBorrowedTime(key.borrowedAt);
             borrowerHTML = `
                 <div class="borrower-info">
-                    <p class="borrower-name">${key.borrowerName}</p>
+                    <p class="borrower-name">${key.borrowerName}${borrowedAtText ? ` <span class="borrowed-at">(${borrowedAtText})</span>` : ''}</p>
                 </div>
             `;
         } else {
@@ -711,6 +745,7 @@ function confirmBorrow() {
     if (car) {
         car.borrowed = true;
         car.borrowerName = name;
+        car.borrowedAt = new Date().toISOString();
         saveCarsToStorage();
         renderCars();
         closeModal();
@@ -723,6 +758,7 @@ function confirmReturn() {
     if (car) {
         car.borrowed = false;
         car.borrowerName = '';
+        car.borrowedAt = '';
         saveCarsToStorage();
         renderCars();
         closeModal();
@@ -742,6 +778,7 @@ function confirmBorrowKey() {
     if (key) {
         key.borrowed = true;
         key.borrowerName = name;
+        key.borrowedAt = new Date().toISOString();
         saveKeysToStorage();
         renderKeys();
         closeModal();
@@ -754,6 +791,7 @@ function confirmReturnKey() {
     if (key) {
         key.borrowed = false;
         key.borrowerName = '';
+        key.borrowedAt = '';
         saveKeysToStorage();
         renderKeys();
         closeModal();
