@@ -481,7 +481,7 @@ function saveKeysToStorage() {
 function getCurrentBookingForCar(carId) {
     const { day, hour } = getCurrentScheduleContext();
     if (!day) return null;
-    return bookings.find(b => sameCarId(b.carId, carId) && b.day === day && b.hour === hour) || null;
+    return bookings.find(b => sameCarId(b.carId, carId) && b.day === day && b.hour === hour && !b.isReturned) || null;
 }
 
 function getCurrentScheduleContext() {
@@ -518,7 +518,7 @@ function getNextBookingForCar(carId) {
     if (!day) return null;
 
     const candidates = bookings
-        .filter(b => sameCarId(b.carId, carId) && b.day === day && b.startHour !== undefined && b.startHour > hour)
+        .filter(b => sameCarId(b.carId, carId) && b.day === day && b.startHour !== undefined && b.startHour > hour && !b.isReturned)
         .sort((a, b) => a.startHour - b.startHour);
 
     return candidates.length > 0 ? candidates[0] : null;
@@ -789,9 +789,9 @@ function showBorrowModal(car, activeBooking) {
 
         const alternative = getBestAlternativeCar(car.id);
         if (alternative) {
-            const altName = `Bil ${alternative.id}`;
             const untilLabel = formatHourLabel(alternative.availableUntilHour);
-            suggestion.innerHTML = `Om du behöver bilen längre än så rekommenderar jag ${altName}${alternative.regNumber ? ` (${alternative.regNumber})` : ''}. Den är ledig fram till ${untilLabel}.<br><button type="button" class="borrow-switch-btn" onclick="switchBorrowCar(${alternative.id})">Vill du byta till ${altName}?</button>`;
+            const altLabel = alternative.regNumber || `Bil ${alternative.id}`;
+            suggestion.innerHTML = `Om du behöver bilen längre än så rekommenderar jag ${altLabel}. Den är ledig fram till ${untilLabel}.<br><button type="button" class="borrow-switch-btn" onclick="switchBorrowCar(${alternative.id})">Vill du byta till ${altLabel}?</button>`;
             suggestion.style.display = 'block';
         } else {
             suggestion.style.display = 'none';
@@ -1094,7 +1094,9 @@ function renderBookingGrid() {
                 const endLabel = booking.endHour === 3 ? '03:00' : `${String(booking.endHour).padStart(2,'0')}:00`;
                 const timeLabel = `${String(booking.startHour).padStart(2,'0')}:00–${endLabel}`;
                 const commentHtml = booking.comment ? `<br><span class="booking-comment">${booking.comment}</span>` : '';
-                html += `<td class="booking-cell booked"${spanAttr} onclick="handleCancelBooking(${booking.id})">${booking.bookerName}<br><small>${timeLabel}</small>${commentHtml}</td>`;
+                const returnedHtml = booking.isReturned ? '<br><small class="booking-returned-label">Återlämnad</small>' : '';
+                const bookedClass = booking.isReturned ? 'booked returned' : 'booked';
+                html += `<td class="booking-cell ${bookedClass}"${spanAttr} onclick="handleCancelBooking(${booking.id})">${booking.bookerName}<br><small>${timeLabel}</small>${commentHtml}${returnedHtml}</td>`;
             } else {
                 html += `<td class="booking-cell free" onclick="handleNewBooking('${currentBookingDay}', ${hour}, ${car.id})">Ledig</td>`;
             }
@@ -1164,7 +1166,9 @@ function confirmNewBooking() {
             startHour: currentBookingHour,
             endHour: endHour,
             bookerName: name,
-            comment: comment
+            comment: comment,
+            isReturned: false,
+            returnedAt: ''
         });
     }
     saveBookingsToStorage();
@@ -1179,11 +1183,34 @@ function handleCancelBooking(bookingId) {
     const dayName = booking.day === 'friday' ? 'Fredag' : 'Lördag';
     const timeLabel = `${String(booking.startHour).padStart(2,'0')}:00–${String(booking.endHour).padStart(2,'0')}:00`;
     const commentPart = booking.comment ? ` — "${booking.comment}"` : '';
+    const returnedPart = booking.isReturned ? ' — återlämnad' : '';
     document.getElementById('cancelBookingInfo').textContent =
-        `${dayName} ${timeLabel} — ${car.regNumber} — ${booking.bookerName}${commentPart}`;
+        `${dayName} ${timeLabel} — ${car.regNumber} — ${booking.bookerName}${commentPart}${returnedPart}`;
+
+    const markReturnedButton = document.getElementById('markReturnedBookingBtn');
+    if (markReturnedButton) {
+        markReturnedButton.disabled = Boolean(booking.isReturned);
+        markReturnedButton.textContent = booking.isReturned ? 'Redan återlämnad' : 'Återlämnad';
+    }
+
     document.getElementById('cancelBookingModal').classList.add('show');
     currentItemId = bookingId;
     currentItemType = 'booking';
+}
+
+function confirmReturnBooking() {
+    bookings = bookings.map(booking => {
+        if (booking.id !== currentItemId) return booking;
+        return {
+            ...booking,
+            isReturned: true,
+            returnedAt: new Date().toISOString()
+        };
+    });
+    saveBookingsToStorage();
+    renderCars();
+    renderBookingGrid();
+    closeModal();
 }
 
 function confirmCancelBooking() {

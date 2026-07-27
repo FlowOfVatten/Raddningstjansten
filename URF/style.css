@@ -894,6 +894,24 @@ header .subtitle.subtitle-tagline {
     color: white;
 }
 
+.booking-cell.booked.returned {
+    background: #e8f8f0;
+    color: #0f6b4a;
+    border-color: #6bc39c;
+}
+
+.booking-cell.booked.returned:hover {
+    background: #c9eddc;
+    color: #0f6b4a;
+}
+
+.booking-returned-label {
+    display: inline-block;
+    margin-top: 2px;
+    font-weight: 700;
+    color: #0f6b4a;
+}
+
 .booking-cell small {
     display: block;
     font-size: 0.8em;
