@@ -65,6 +65,29 @@ function loadKeysFromStorage() {
     const stored = localStorage.getItem('urf_keys');
     if (stored) {
         keys = JSON.parse(stored);
+        // Migrate older labels from "Nyckel" to "Pryl" in existing localStorage data.
+        let hasMigrationChanges = false;
+        keys = keys.map((key, index) => {
+            const fallbackName = `Pryl ${index + 1}`;
+            const currentName = (key.keyName || '').trim();
+
+            if (!currentName) {
+                hasMigrationChanges = true;
+                return { ...key, keyName: fallbackName };
+            }
+
+            const migratedName = currentName.replace(/^Nyckel\s+/i, 'Pryl ');
+            if (migratedName !== currentName) {
+                hasMigrationChanges = true;
+                return { ...key, keyName: migratedName };
+            }
+
+            return key;
+        });
+
+        if (hasMigrationChanges) {
+            saveKeysToStorage();
+        }
     } else {
         // Initialize with default keys
         keys = KEYS_DATA.map(key => ({
