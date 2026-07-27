@@ -63,6 +63,23 @@ function updateSyncStatus(text, stateClass = 'is-ok') {
     el.className = `sync-status ${stateClass}`;
 }
 
+async function handleRefreshSync() {
+    const button = document.getElementById('refreshButton');
+    if (!button) return;
+    
+    // Disable and add spinner
+    button.disabled = true;
+    button.classList.add('is-syncing');
+    
+    try {
+        await syncWithRemoteOnce();
+    } finally {
+        // Re-enable and remove spinner
+        button.disabled = false;
+        button.classList.remove('is-syncing');
+    }
+}
+
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
     loadCarsFromStorage();
