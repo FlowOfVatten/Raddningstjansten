@@ -1220,14 +1220,38 @@ function handleCancelBooking(bookingId) {
 }
 
 function confirmReturnBooking() {
+    const selectedBooking = bookings.find(booking => String(booking.id) === String(currentItemId));
+
     bookings = bookings.map(booking => {
-        if (booking.id !== currentItemId) return booking;
+        if (String(booking.id) !== String(currentItemId)) return booking;
         return {
             ...booking,
             isReturned: true,
             returnedAt: new Date().toISOString()
         };
     });
+
+    // Keep Cars page in sync: if this booking car is currently marked as borrowed, release it.
+    if (selectedBooking) {
+        cars = cars.map(car => {
+            const linkedMatch = String(car.borrowedFromBookingId || '') === String(currentItemId);
+            const legacyMatch = !car.borrowedFromBookingId
+                && car.borrowed
+                && sameCarId(car.id, selectedBooking.carId)
+                && String(car.borrowerName || '').trim() === String(selectedBooking.bookerName || '').trim();
+
+            if (!linkedMatch && !legacyMatch) return car;
+
+            return {
+                ...car,
+                borrowed: false,
+                borrowerName: '',
+                borrowedAt: '',
+                borrowedFromBookingId: ''
+            };
+        });
+    }
+
     saveBookingsToStorage();
     renderCars();
     renderBookingGrid();
