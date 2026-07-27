@@ -734,6 +734,13 @@ function saveContactsToStorage() {
     persistState();
 }
 
+function toTelHref(phone) {
+    const raw = String(phone || '').trim();
+    if (!raw) return '';
+    const cleaned = raw.replace(/[^\d+]/g, '');
+    return cleaned ? `tel:${cleaned}` : '';
+}
+
 function renderContacts() {
     const container = document.getElementById('contactsContainer');
     if (!container) return;
@@ -745,12 +752,18 @@ function renderContacts() {
 
     container.innerHTML = '';
     contacts.forEach(contact => {
+        const telHref = toTelHref(contact.phone);
+        const callAction = telHref
+            ? `<a class="contact-call-btn" href="${telHref}">Ring</a>`
+            : '<button class="contact-call-btn is-disabled" type="button" disabled>Ring</button>';
+
         const row = document.createElement('div');
         row.className = 'contact-row';
         row.innerHTML = `
             <div class="contact-col contact-name">${contact.name || '-'}</div>
             <div class="contact-col contact-phone">${contact.phone || '-'}</div>
             <div class="contact-col contact-note">${contact.note || '-'}</div>
+            <div class="contact-actions">${callAction}</div>
             <button class="contact-delete-btn" onclick="removeContact(${contact.id})" aria-label="Ta bort kontakt">X</button>
         `;
         container.appendChild(row);
