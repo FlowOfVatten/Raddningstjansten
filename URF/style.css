@@ -31,6 +31,41 @@ header {
     justify-content: center;
     flex-wrap: wrap;
     gap: 20px;
+    position: relative;
+}
+
+.sync-status {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    max-width: 280px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.22);
+    color: #111;
+    font-size: 0.85em;
+    font-weight: bold;
+    text-align: right;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.sync-status.is-ok {
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.sync-status.is-pending {
+    background: rgba(255, 243, 205, 0.95);
+    color: #7a111e;
+}
+
+.sync-status.is-syncing {
+    background: rgba(255, 255, 255, 0.88);
+    color: #1a472a;
+}
+
+.sync-status.is-error {
+    background: rgba(206, 17, 38, 0.18);
+    color: #3b0007;
 }
 
 .header-logo {
@@ -389,6 +424,17 @@ header .subtitle {
     margin-bottom: 20px;
     font-weight: bold;
     text-align: center;
+}
+
+.borrow-notice {
+    background: #fff3cd;
+    border: 2px solid #ce1126;
+    border-radius: 8px;
+    color: #7a111e;
+    font-size: 0.95em;
+    padding: 10px 12px;
+    text-align: left;
+    margin-top: -5px;
 }
 
 .form-group {

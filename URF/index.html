@@ -9,6 +9,7 @@
 <body>
     <div class="container">
         <header>
+            <div id="syncStatus" class="sync-status">Last sync: lokal cache</div>
             <img src="URF2022_Logo_White_H-1-1024x604.webp" alt="URF Logo" class="header-logo">
             <div class="header-content">
                 <h1>🎶 URF 🎶</h1>
@@ -50,6 +51,7 @@
         <div class="modal-content">
             <h2>Låna bil</h2>
             <p id="borrowCarInfo"></p>
+            <p id="borrowCarNotice" class="borrow-notice" style="display:none;"></p>
             <div class="form-group">
                 <label for="borrowName">Namn:</label>
                 <input type="text" id="borrowName" placeholder="Ditt namn">

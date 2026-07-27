@@ -16,6 +16,13 @@ const KEYS_DATA = [
 ];
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2];
+const API_BASE_URL = (window.URF_API_BASE_URL || '').replace(/\/$/, '');
+const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
+const STATE_ID = 'urf:lending:state:v1';
+const REMOTE_REQUEST_TIMEOUT_MS = 8000;
+const REMOTE_STARTUP_RETRIES = 8;
+const REMOTE_RETRY_DELAY_MS = 5000;
+const REMOTE_BACKGROUND_SYNC_MS = 60000;
 
 let cars = [];
 let keys = [];
@@ -26,16 +33,264 @@ let currentBookingCarId = null;
 let currentModal = null;
 let currentItemId = null;
 let currentItemType = null;
+let saveDebounceTimer = null;
+let pendingRemoteSave = false;
+let isRemoteSyncInProgress = false;
+
+function formatSyncTime(ts) {
+    if (!ts) return '';
+    const date = new Date(ts);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('sv-SE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        day: '2-digit',
+        month: '2-digit'
+    });
+}
+
+function updateSyncStatus(text, stateClass = 'is-ok') {
+    const el = document.getElementById('syncStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.className = `sync-status ${stateClass}`;
+}
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
     loadCarsFromStorage();
     loadKeysFromStorage();
     loadBookingsFromStorage();
+
     renderCars();
     renderKeys();
     renderBookingGrid();
+
+    const localUpdatedAt = getLocalUpdatedAt();
+    updateSyncStatus(
+        localUpdatedAt ? `Last sync: ${formatSyncTime(localUpdatedAt)} (cache)` : 'Last sync: lokal cache',
+        localUpdatedAt ? 'is-ok' : 'is-pending'
+    );
+
+    // Non-blocking remote sync: app is instantly usable even if DB is sleeping.
+    startRemoteSyncWithRetry();
+    setInterval(() => {
+        syncWithRemoteOnce();
+    }, REMOTE_BACKGROUND_SYNC_MS);
 });
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getLocalUpdatedAt() {
+    return localStorage.getItem('urf_state_updated_at') || '';
+}
+
+function setLocalUpdatedAt(ts) {
+    localStorage.setItem('urf_state_updated_at', ts);
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = REMOTE_REQUEST_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+function createDefaultCars() {
+    return CARS_DATA.map(car => ({
+        id: car.id,
+        icon: car.icon,
+        regNumber: `URF-${String(car.id).padStart(3, '0')}`,
+        borrowed: false,
+        borrowerName: ''
+    }));
+}
+
+function createDefaultItems() {
+    return KEYS_DATA.map(item => ({
+        id: item.id,
+        keyName: `Pryl ${item.id}`,
+        borrowed: false,
+        borrowerName: ''
+    }));
+}
+
+function normalizeItems(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+        return createDefaultItems();
+    }
+
+    return items.map((item, index) => {
+        const fallbackName = `Pryl ${index + 1}`;
+        const currentName = String(item?.keyName || '').trim();
+        const migratedName = currentName.replace(/^Nyckel\s+/i, 'Pryl ');
+
+        return {
+            id: item?.id ?? index + 1,
+            keyName: migratedName || fallbackName,
+            borrowed: Boolean(item?.borrowed),
+            borrowerName: String(item?.borrowerName || '')
+        };
+    });
+}
+
+function getStatePayload() {
+    return {
+        version: 1,
+        cars,
+        keys,
+        bookings
+    };
+}
+
+function saveLocalSnapshot() {
+    localStorage.setItem('urf_cars', JSON.stringify(cars));
+    localStorage.setItem('urf_keys', JSON.stringify(keys));
+    localStorage.setItem('urf_bookings', JSON.stringify(bookings));
+}
+
+function scheduleRemoteSave() {
+    if (saveDebounceTimer) {
+        clearTimeout(saveDebounceTimer);
+    }
+
+    pendingRemoteSave = true;
+    updateSyncStatus('Last sync: osynkade lokala ändringar', 'is-pending');
+
+    saveDebounceTimer = setTimeout(() => {
+        saveStateToApi();
+    }, 200);
+}
+
+function persistState() {
+    saveLocalSnapshot();
+    setLocalUpdatedAt(new Date().toISOString());
+    scheduleRemoteSave();
+}
+
+function applyRemotePayload(payload, remoteUpdatedAt) {
+    cars = Array.isArray(payload.cars) && payload.cars.length ? payload.cars : cars;
+    keys = normalizeItems(payload.keys);
+    bookings = Array.isArray(payload.bookings) ? payload.bookings : bookings;
+    saveLocalSnapshot();
+    if (remoteUpdatedAt) {
+        setLocalUpdatedAt(new Date(remoteUpdatedAt).toISOString());
+    }
+    renderCars();
+    renderKeys();
+    renderBookingGrid();
+}
+
+async function loadStateFromApi() {
+    try {
+        const response = await fetchWithTimeout(`${STATE_ENDPOINT}?id=${encodeURIComponent(STATE_ID)}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            return { ok: false };
+        }
+
+        const rows = await response.json();
+        const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+        const payload = row ? row.payload : null;
+        if (!payload || typeof payload !== 'object') {
+            return { ok: true, payload: null, updatedAt: row?.updated_at || null };
+        }
+        return { ok: true, payload, updatedAt: row?.updated_at || null };
+    } catch (error) {
+        return { ok: false, error };
+    }
+}
+
+async function saveStateToApi() {
+    try {
+        const timestamp = getLocalUpdatedAt() || new Date().toISOString();
+        updateSyncStatus('Last sync: synkar...', 'is-syncing');
+        const response = await fetchWithTimeout(STATE_ENDPOINT, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: STATE_ID,
+                payload: getStatePayload(),
+                updated_at: timestamp
+            })
+        });
+
+        if (!response.ok) {
+            pendingRemoteSave = true;
+            updateSyncStatus('Last sync: väntar på databas...', 'is-pending');
+            return false;
+        }
+
+        pendingRemoteSave = false;
+        updateSyncStatus(`Last sync: ${formatSyncTime(timestamp)}`, 'is-ok');
+        return true;
+    } catch (error) {
+        // Keep running with local cache if remote save fails.
+        pendingRemoteSave = true;
+        updateSyncStatus('Last sync: väntar på databas...', 'is-pending');
+        console.warn('URF: kunde inte spara state till API, sparat lokalt.', error);
+        return false;
+    }
+}
+
+async function syncWithRemoteOnce() {
+    if (isRemoteSyncInProgress) return false;
+    isRemoteSyncInProgress = true;
+
+    try {
+        updateSyncStatus('Last sync: kontaktar databas...', 'is-syncing');
+        const result = await loadStateFromApi();
+        if (!result.ok) {
+            updateSyncStatus('Last sync: DB sover, använder cache', 'is-pending');
+            return false;
+        }
+
+        const remoteUpdatedAt = result.updatedAt ? new Date(result.updatedAt).toISOString() : '';
+        const localUpdatedAt = getLocalUpdatedAt();
+
+        if (result.payload) {
+            const remoteIsNewer = !localUpdatedAt || (remoteUpdatedAt && remoteUpdatedAt >= localUpdatedAt);
+            if (remoteIsNewer) {
+                applyRemotePayload(result.payload, remoteUpdatedAt);
+            } else {
+                pendingRemoteSave = true;
+            }
+        }
+
+        if (pendingRemoteSave) {
+            await saveStateToApi();
+        } else {
+            updateSyncStatus(
+                remoteUpdatedAt ? `Last sync: ${formatSyncTime(remoteUpdatedAt)}` : 'Last sync: ansluten',
+                'is-ok'
+            );
+        }
+
+        return true;
+    } finally {
+        isRemoteSyncInProgress = false;
+    }
+}
+
+async function startRemoteSyncWithRetry() {
+    for (let attempt = 1; attempt <= REMOTE_STARTUP_RETRIES; attempt += 1) {
+        const ok = await syncWithRemoteOnce();
+        if (ok) {
+            return;
+        }
+        await wait(REMOTE_RETRY_DELAY_MS);
+    }
+}
 
 // Load cars from localStorage
 function loadCarsFromStorage() {
@@ -43,66 +298,31 @@ function loadCarsFromStorage() {
     if (stored) {
         cars = JSON.parse(stored);
     } else {
-        // Initialize with default cars
-        cars = CARS_DATA.map(car => ({
-            id: car.id,
-            icon: car.icon,
-            regNumber: `URF-${String(car.id).padStart(3, '0')}`,
-            borrowed: false,
-            borrowerName: ''
-        }));
-        saveCarsToStorage();
+        cars = createDefaultCars();
+        saveLocalSnapshot();
     }
 }
 
 // Save cars to localStorage
 function saveCarsToStorage() {
-    localStorage.setItem('urf_cars', JSON.stringify(cars));
+    persistState();
 }
 
 // Load keys from localStorage
 function loadKeysFromStorage() {
     const stored = localStorage.getItem('urf_keys');
     if (stored) {
-        keys = JSON.parse(stored);
-        // Migrate older labels from "Nyckel" to "Pryl" in existing localStorage data.
-        let hasMigrationChanges = false;
-        keys = keys.map((key, index) => {
-            const fallbackName = `Pryl ${index + 1}`;
-            const currentName = (key.keyName || '').trim();
-
-            if (!currentName) {
-                hasMigrationChanges = true;
-                return { ...key, keyName: fallbackName };
-            }
-
-            const migratedName = currentName.replace(/^Nyckel\s+/i, 'Pryl ');
-            if (migratedName !== currentName) {
-                hasMigrationChanges = true;
-                return { ...key, keyName: migratedName };
-            }
-
-            return key;
-        });
-
-        if (hasMigrationChanges) {
-            saveKeysToStorage();
-        }
+        keys = normalizeItems(JSON.parse(stored));
+        saveLocalSnapshot();
     } else {
-        // Initialize with default keys
-        keys = KEYS_DATA.map(key => ({
-            id: key.id,
-            keyName: `Pryl ${key.id}`,
-            borrowed: false,
-            borrowerName: ''
-        }));
-        saveKeysToStorage();
+        keys = createDefaultItems();
+        saveLocalSnapshot();
     }
 }
 
 // Save keys to localStorage
 function saveKeysToStorage() {
-    localStorage.setItem('urf_keys', JSON.stringify(keys));
+    persistState();
 }
 
 // Get current booking for a car (based on today's day and current hour)
@@ -121,6 +341,34 @@ function getCurrentBookingForCar(carId) {
     }
     if (!day) return null;
     return bookings.find(b => b.carId === carId && b.day === day && b.hour === hour) || null;
+}
+
+function getCurrentScheduleContext() {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 5 = Friday, 6 = Saturday, 0 = Sunday
+    const hour = now.getHours();
+    let day = null;
+
+    if (hour <= 2) {
+        if (dayOfWeek === 6) day = 'friday';       // Saturday 00-02 belongs to Friday schedule
+        else if (dayOfWeek === 0) day = 'saturday'; // Sunday 00-02 belongs to Saturday schedule
+    } else {
+        if (dayOfWeek === 5) day = 'friday';
+        else if (dayOfWeek === 6) day = 'saturday';
+    }
+
+    return { day, hour };
+}
+
+function getNextBookingForCar(carId) {
+    const { day, hour } = getCurrentScheduleContext();
+    if (!day) return null;
+
+    const candidates = bookings
+        .filter(b => b.carId === carId && b.day === day && b.startHour !== undefined && b.startHour > hour)
+        .sort((a, b) => a.startHour - b.startHour);
+
+    return candidates.length > 0 ? candidates[0] : null;
 }
 
 // Render all cars
@@ -280,9 +528,21 @@ function handleKeyAction(keyId) {
 // Show borrow modal
 function showBorrowModal(car, activeBooking) {
     const modal = document.getElementById('borrowModal');
+    const notice = document.getElementById('borrowCarNotice');
     document.getElementById('borrowCarInfo').textContent = `Reg.nr: ${car.regNumber}`;
     // Prefill name from active booking if available
     document.getElementById('borrowName').value = activeBooking ? activeBooking.bookerName : '';
+
+    const nextBooking = getNextBookingForCar(car.id);
+    if (nextBooking) {
+        const fromTime = `${String(nextBooking.startHour).padStart(2, '0')}:00`;
+        notice.textContent = `Notis: Denna bil är bokad från ${fromTime} och behöver vara tillbaka då.`;
+        notice.style.display = 'block';
+    } else {
+        notice.style.display = 'none';
+        notice.textContent = '';
+    }
+
     modal.classList.add('show');
     currentModal = 'borrow';
     document.getElementById('borrowName').focus();
@@ -414,7 +674,7 @@ function loadBookingsFromStorage() {
 }
 
 function saveBookingsToStorage() {
-    localStorage.setItem('urf_bookings', JSON.stringify(bookings));
+    persistState();
 }
 
 function switchBookingDay(day) {
