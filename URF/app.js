@@ -37,7 +37,11 @@ let currentItemType = null;
 let saveDebounceTimer = null;
 let pendingRemoteSave = false;
 let isRemoteSyncInProgress = false;
-let lastKnownGoodContacts = [];  // Backup to prevent losing non-empty contacts
+// Backups to prevent losing non-empty data via empty overwrites
+let lastKnownGoodCars = [];
+let lastKnownGoodKeys = [];
+let lastKnownGoodBookings = [];
+let lastKnownGoodContacts = [];
 
 function formatSyncTime(ts) {
     if (!ts) return '';
@@ -145,13 +149,16 @@ function normalizeItems(items) {
 }
 
 function getStatePayload() {
-    // Safeguard: Never overwrite DB with empty contacts if we had non-empty contacts before
+    // Safeguard: Never overwrite DB with empty data if we had non-empty data before
+    const carsToSave = cars.length > 0 ? cars : (lastKnownGoodCars.length > 0 ? lastKnownGoodCars : []);
+    const keysToSave = keys.length > 0 ? keys : (lastKnownGoodKeys.length > 0 ? lastKnownGoodKeys : []);
+    const bookingsToSave = bookings.length > 0 ? bookings : (lastKnownGoodBookings.length > 0 ? lastKnownGoodBookings : []);
     const contactsToSave = contacts.length > 0 ? contacts : (lastKnownGoodContacts.length > 0 ? lastKnownGoodContacts : []);
     return {
         version: 1,
-        cars,
-        keys,
-        bookings,
+        cars: carsToSave,
+        keys: keysToSave,
+        bookings: bookingsToSave,
         contacts: contactsToSave
     };
 }
@@ -161,7 +168,19 @@ function saveLocalSnapshot() {
     localStorage.setItem('urf_keys', JSON.stringify(keys));
     localStorage.setItem('urf_bookings', JSON.stringify(bookings));
     localStorage.setItem('urf_contacts', JSON.stringify(contacts));
-    // Always keep a backup of non-empty contacts
+    // Always keep backups of non-empty data
+    if (cars.length > 0) {
+        localStorage.setItem('urf_cars_backup', JSON.stringify(cars));
+        lastKnownGoodCars = cars;
+    }
+    if (keys.length > 0) {
+        localStorage.setItem('urf_keys_backup', JSON.stringify(keys));
+        lastKnownGoodKeys = keys;
+    }
+    if (bookings.length > 0) {
+        localStorage.setItem('urf_bookings_backup', JSON.stringify(bookings));
+        lastKnownGoodBookings = bookings;
+    }
     if (contacts.length > 0) {
         localStorage.setItem('urf_contacts_backup', JSON.stringify(contacts));
         lastKnownGoodContacts = contacts;
@@ -188,16 +207,36 @@ function persistState() {
 }
 
 function applyRemotePayload(payload, remoteUpdatedAt) {
-    cars = Array.isArray(payload.cars) && payload.cars.length ? payload.cars : cars;
-    keys = normalizeItems(payload.keys);
-    bookings = Array.isArray(payload.bookings) ? payload.bookings : bookings;
+    // Safeguard: Keep local/backup data if remote is empty, to avoid data loss
+    if (Array.isArray(payload.cars)) {
+        if (payload.cars.length > 0) {
+            cars = payload.cars;
+            lastKnownGoodCars = payload.cars;  // Update backup on successful sync
+        } else if (cars.length === 0 && lastKnownGoodCars.length > 0) {
+            cars = lastKnownGoodCars;
+        }
+    }
+    if (Array.isArray(payload.keys)) {
+        keys = normalizeItems(payload.keys);
+        if (keys.length > 0) {
+            lastKnownGoodKeys = keys;
+        } else if (keys.length === 0 && lastKnownGoodKeys.length > 0) {
+            keys = lastKnownGoodKeys;
+        }
+    }
+    if (Array.isArray(payload.bookings)) {
+        if (payload.bookings.length > 0) {
+            bookings = payload.bookings;
+            lastKnownGoodBookings = payload.bookings;  // Update backup on successful sync
+        } else if (bookings.length === 0 && lastKnownGoodBookings.length > 0) {
+            bookings = lastKnownGoodBookings;
+        }
+    }
     if (Array.isArray(payload.contacts)) {
-        // Safeguard: Keep local/backup contacts if remote is empty, to avoid data loss
         if (payload.contacts.length > 0) {
             contacts = payload.contacts;
             lastKnownGoodContacts = payload.contacts;  // Update backup on successful sync
         } else if (contacts.length === 0 && lastKnownGoodContacts.length > 0) {
-            // Remote is empty AND local is empty, but we had contacts before -> restore from backup
             contacts = lastKnownGoodContacts;
         }
     }
@@ -319,8 +358,14 @@ async function startRemoteSyncWithRetry() {
 // Load cars from localStorage
 function loadCarsFromStorage() {
     const stored = localStorage.getItem('urf_cars');
+    const backup = localStorage.getItem('urf_cars_backup');
+    lastKnownGoodCars = (backup ? JSON.parse(backup) : []);
     if (stored) {
         cars = JSON.parse(stored);
+        // If local is empty but backup has data, use backup as starting point
+        if (cars.length === 0 && lastKnownGoodCars.length > 0) {
+            cars = lastKnownGoodCars;
+        }
     } else {
         cars = createDefaultCars();
         saveLocalSnapshot();
@@ -335,8 +380,14 @@ function saveCarsToStorage() {
 // Load keys from localStorage
 function loadKeysFromStorage() {
     const stored = localStorage.getItem('urf_keys');
+    const backup = localStorage.getItem('urf_keys_backup');
+    lastKnownGoodKeys = (backup ? JSON.parse(backup) : []);
     if (stored) {
         keys = normalizeItems(JSON.parse(stored));
+        // If local is empty but backup has data, use backup as starting point
+        if (keys.length === 0 && lastKnownGoodKeys.length > 0) {
+            keys = normalizeItems(lastKnownGoodKeys);
+        }
         saveLocalSnapshot();
     } else {
         keys = createDefaultItems();
@@ -739,13 +790,23 @@ function saveBookingsToStorage() {
 
 function loadContactsFromStorage() {
     const stored = localStorage.getItem('urf_contacts');
-    contacts = stored ? JSON.parse(stored) : [];
-    // Load backup on startup
     const backup = localStorage.getItem('urf_contacts_backup');
     lastKnownGoodContacts = (backup ? JSON.parse(backup) : []);
+    contacts = stored ? JSON.parse(stored) : [];
     // If local is empty but backup has data, use backup as starting point
     if (contacts.length === 0 && lastKnownGoodContacts.length > 0) {
         contacts = lastKnownGoodContacts;
+    }
+}
+
+function loadBookingsFromStorage() {
+    const stored = localStorage.getItem('urf_bookings');
+    const backup = localStorage.getItem('urf_bookings_backup');
+    lastKnownGoodBookings = (backup ? JSON.parse(backup) : []);
+    bookings = stored ? JSON.parse(stored) : [];
+    // If local is empty but backup has data, use backup as starting point
+    if (bookings.length === 0 && lastKnownGoodBookings.length > 0) {
+        bookings = lastKnownGoodBookings;
     }
 }
 
