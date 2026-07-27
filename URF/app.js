@@ -433,6 +433,23 @@ function updateRegNumber(carId, newRegNumber) {
     }
 }
 
+function addCar() {
+    const nextId = cars.reduce((maxId, car) => Math.max(maxId, Number(car.id) || 0), 0) + 1;
+    const nextNumber = cars.length + 1;
+
+    cars.push({
+        id: nextId,
+        icon: '🚗',
+        regNumber: `URF-${String(nextNumber).padStart(3, '0')}`,
+        borrowed: false,
+        borrowerName: ''
+    });
+
+    saveCarsToStorage();
+    renderCars();
+    renderBookingGrid();
+}
+
 // Update key name
 function updateKeyName(keyId, newKeyName) {
     const key = keys.find(k => k.id === keyId);
@@ -441,6 +458,21 @@ function updateKeyName(keyId, newKeyName) {
         saveKeysToStorage();
         renderKeys();
     }
+}
+
+function addKeyItem() {
+    const nextId = keys.reduce((maxId, item) => Math.max(maxId, Number(item.id) || 0), 0) + 1;
+    const nextNumber = keys.length + 1;
+
+    keys.push({
+        id: nextId,
+        keyName: `Pryl ${nextNumber}`,
+        borrowed: false,
+        borrowerName: ''
+    });
+
+    saveKeysToStorage();
+    renderKeys();
 }
 
 // Render all keys
