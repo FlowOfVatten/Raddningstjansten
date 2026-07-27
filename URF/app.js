@@ -487,7 +487,7 @@ function getCurrentBookingForCar(carId) {
 function getCurrentScheduleContext() {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 5 = Friday, 6 = Saturday, 0 = Sunday
-    const hour = now.getHours();
+    let hour = now.getHours();
     let day = null;
 
     if (hour <= 2) {
