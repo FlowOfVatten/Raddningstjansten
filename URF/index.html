@@ -18,7 +18,7 @@
 
         <div class="tabs">
             <button class="tab-button active" onclick="switchTab('cars')">Bilar</button>
-            <button class="tab-button" onclick="switchTab('keys')">Nycklar</button>
+            <button class="tab-button" onclick="switchTab('keys')">Diverse</button>
             <button class="tab-button" onclick="switchTab('booking')">📅 Bokningar</button>
         </div>
 
@@ -73,10 +73,10 @@
         </div>
     </div>
 
-    <!-- Pop-up för att låna nyckel -->
+    <!-- Pop-up för att låna från diverse -->
     <div id="borrowKeyModal" class="modal">
         <div class="modal-content">
-            <h2>Låna nyckel</h2>
+            <h2>Låna pryl</h2>
             <p id="borrowKeyInfo"></p>
             <div class="form-group">
                 <label for="borrowKeyName">Namn:</label>
@@ -89,13 +89,13 @@
         </div>
     </div>
 
-    <!-- Pop-up för återlämning av nyckel -->
+    <!-- Pop-up för återlämning från diverse -->
     <div id="returnKeyModal" class="modal">
         <div class="modal-content">
-            <h2>Är nyckeln tillbaka?</h2>
+            <h2>Är prylen tillbaka?</h2>
             <p id="returnKeyInfo"></p>
             <div class="modal-buttons">
-                <button class="btn-ok" onclick="confirmReturnKey()">Ja, nyckeln är tillbaka</button>
+                <button class="btn-ok" onclick="confirmReturnKey()">Ja, prylen är tillbaka</button>
                 <button class="btn-cancel" onclick="closeModal()">Nej, håller på ännu</button>
             </div>
         </div>

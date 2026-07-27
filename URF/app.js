@@ -69,7 +69,7 @@ function loadKeysFromStorage() {
         // Initialize with default keys
         keys = KEYS_DATA.map(key => ({
             id: key.id,
-            keyName: `Nyckel ${key.id}`,
+            keyName: `Pryl ${key.id}`,
             borrowed: false,
             borrowerName: ''
         }));
@@ -201,7 +201,7 @@ function renderKeys() {
 
         card.innerHTML = `
             <div class="key-reg-container">
-                <label class="key-reg-label">Nyckel</label>
+                <label class="key-reg-label">Pryl</label>
                 <input 
                     type="text" 
                     class="key-reg-input" 
@@ -276,7 +276,7 @@ function showReturnModal(car) {
 // Show borrow key modal
 function showBorrowKeyModal(key) {
     const modal = document.getElementById('borrowKeyModal');
-    document.getElementById('borrowKeyInfo').textContent = `Nyckel: ${key.keyName}`;
+    document.getElementById('borrowKeyInfo').textContent = `Pryl: ${key.keyName}`;
     document.getElementById('borrowKeyName').value = '';
     modal.classList.add('show');
     currentModal = 'borrowKey';
@@ -286,7 +286,7 @@ function showBorrowKeyModal(key) {
 // Show return key modal
 function showReturnKeyModal(key) {
     const modal = document.getElementById('returnKeyModal');
-    document.getElementById('returnKeyInfo').textContent = `Nyckel: ${key.keyName} - Lånad av: ${key.borrowerName}`;
+    document.getElementById('returnKeyInfo').textContent = `Pryl: ${key.keyName} - Lånad av: ${key.borrowerName}`;
     modal.classList.add('show');
     currentModal = 'returnKey';
 }
