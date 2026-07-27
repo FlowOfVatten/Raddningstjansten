@@ -27,6 +27,7 @@ const REMOTE_BACKGROUND_SYNC_MS = 60000;
 let cars = [];
 let keys = [];
 let bookings = [];
+let contacts = [];
 let currentBookingDay = 'friday';
 let currentBookingHour = null;
 let currentBookingCarId = null;
@@ -62,10 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCarsFromStorage();
     loadKeysFromStorage();
     loadBookingsFromStorage();
+    loadContactsFromStorage();
 
     renderCars();
     renderKeys();
     renderBookingGrid();
+    renderContacts();
 
     const localUpdatedAt = getLocalUpdatedAt();
     updateSyncStatus(
@@ -145,7 +148,8 @@ function getStatePayload() {
         version: 1,
         cars,
         keys,
-        bookings
+        bookings,
+        contacts
     };
 }
 
@@ -153,6 +157,7 @@ function saveLocalSnapshot() {
     localStorage.setItem('urf_cars', JSON.stringify(cars));
     localStorage.setItem('urf_keys', JSON.stringify(keys));
     localStorage.setItem('urf_bookings', JSON.stringify(bookings));
+    localStorage.setItem('urf_contacts', JSON.stringify(contacts));
 }
 
 function scheduleRemoteSave() {
@@ -178,6 +183,12 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     cars = Array.isArray(payload.cars) && payload.cars.length ? payload.cars : cars;
     keys = normalizeItems(payload.keys);
     bookings = Array.isArray(payload.bookings) ? payload.bookings : bookings;
+    if (Array.isArray(payload.contacts)) {
+        // Keep local contacts if remote is empty, to avoid losing locally cached rows.
+        if (payload.contacts.length > 0 || contacts.length === 0) {
+            contacts = payload.contacts;
+        }
+    }
     saveLocalSnapshot();
     if (remoteUpdatedAt) {
         setLocalUpdatedAt(new Date(remoteUpdatedAt).toISOString());
@@ -185,6 +196,7 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     renderCars();
     renderKeys();
     renderBookingGrid();
+    renderContacts();
 }
 
 async function loadStateFromApi() {
@@ -670,7 +682,7 @@ function confirmReturnKey() {
 
 // Close modal
 function closeModal() {
-    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal'].forEach(id => {
+    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal'].forEach(id => {
         document.getElementById(id).classList.remove('show');
     });
     currentModal = null;
@@ -680,7 +692,7 @@ function closeModal() {
 
 // Switch between tabs
 function switchTab(tabName) {
-    ['cars-section','keys-section','booking-section'].forEach(id => {
+    ['cars-section','keys-section','booking-section','contacts-section'].forEach(id => {
         document.getElementById(id).classList.remove('active');
     });
     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -695,6 +707,10 @@ function switchTab(tabName) {
         document.getElementById('booking-section').classList.add('active');
         document.querySelectorAll('.tab-button')[2].classList.add('active');
         renderBookingGrid();
+    } else if (tabName === 'contacts') {
+        document.getElementById('contacts-section').classList.add('active');
+        document.querySelectorAll('.tab-button')[3].classList.add('active');
+        renderContacts();
     }
 }
 
@@ -707,6 +723,74 @@ function loadBookingsFromStorage() {
 
 function saveBookingsToStorage() {
     persistState();
+}
+
+function loadContactsFromStorage() {
+    const stored = localStorage.getItem('urf_contacts');
+    contacts = stored ? JSON.parse(stored) : [];
+}
+
+function saveContactsToStorage() {
+    persistState();
+}
+
+function renderContacts() {
+    const container = document.getElementById('contactsContainer');
+    if (!container) return;
+
+    if (!contacts.length) {
+        container.innerHTML = '<div class="contact-row"><div class="contact-col contact-empty">Inga kontakter ännu</div></div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    contacts.forEach(contact => {
+        const row = document.createElement('div');
+        row.className = 'contact-row';
+        row.innerHTML = `
+            <div class="contact-col contact-name">${contact.name || '-'}</div>
+            <div class="contact-col contact-phone">${contact.phone || '-'}</div>
+            <div class="contact-col contact-note">${contact.note || '-'}</div>
+            <button class="contact-delete-btn" onclick="removeContact(${contact.id})" aria-label="Ta bort kontakt">X</button>
+        `;
+        container.appendChild(row);
+    });
+}
+
+function openNewContactModal() {
+    document.getElementById('contactName').value = '';
+    document.getElementById('contactPhone').value = '';
+    document.getElementById('contactNote').value = '';
+    document.getElementById('newContactModal').classList.add('show');
+    document.getElementById('contactName').focus();
+}
+
+function confirmNewContact() {
+    const name = document.getElementById('contactName').value.trim();
+    const phone = document.getElementById('contactPhone').value.trim();
+    const note = document.getElementById('contactNote').value.trim();
+
+    if (!name) {
+        alert('Vänligen fyll i namn!');
+        return;
+    }
+
+    contacts.push({
+        id: Date.now(),
+        name,
+        phone,
+        note
+    });
+
+    saveContactsToStorage();
+    renderContacts();
+    closeModal();
+}
+
+function removeContact(contactId) {
+    contacts = contacts.filter(contact => contact.id !== contactId);
+    saveContactsToStorage();
+    renderContacts();
 }
 
 function switchBookingDay(day) {
@@ -855,7 +939,7 @@ document.addEventListener('click', (e) => {
     const borrowKeyModal = document.getElementById('borrowKeyModal');
     const returnKeyModal = document.getElementById('returnKeyModal');
     
-    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal'];
+    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal'];
     if (modalIds.some(id => e.target === document.getElementById(id))) {
         closeModal();
     }

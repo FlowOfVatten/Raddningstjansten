@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>URF - Uppsala Reggae Festival | Billånning</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,7 +16,8 @@
             <img src="URF2022_Logo_White_H-1-1024x604.webp" alt="URF Logo" class="header-logo">
             <div class="header-content">
                 <h1>🎶 URF 🎶</h1>
-                <p class="subtitle">Uppsala Reggae Festival - Utlåning</p>
+                <p class="subtitle subtitle-main">SAMBAND</p>
+                <p class="subtitle subtitle-tagline">One crew to rule them all</p>
             </div>
         </header>
 
@@ -21,6 +25,7 @@
             <button class="tab-button active" onclick="switchTab('cars')">Bilar</button>
             <button class="tab-button" onclick="switchTab('keys')">Diverse</button>
             <button class="tab-button" onclick="switchTab('booking')">📅 Bokningar</button>
+            <button class="tab-button" onclick="switchTab('contacts')">Kontakter</button>
         </div>
 
         <section id="cars-section" class="tab-section active">
@@ -48,6 +53,15 @@
             </div>
             <div class="booking-grid-container" id="bookingGrid">
                 <!-- Bokningstabell skapas dynamiskt med JavaScript -->
+            </div>
+        </section>
+
+        <section id="contacts-section" class="tab-section">
+            <main class="contacts-list" id="contactsContainer">
+                <!-- Kontakter skapas dynamiskt med JavaScript -->
+            </main>
+            <div class="list-actions">
+                <button class="add-row-button" onclick="openNewContactModal()">Ny kontakt</button>
             </div>
         </section>
     </div>
@@ -142,6 +156,29 @@
             <div class="modal-buttons">
                 <button class="btn-taken" style="flex:1;padding:12px;font-size:1.1em;font-weight:bold;border:none;border-radius:10px;cursor:pointer;text-transform:uppercase;" onclick="confirmCancelBooking()">Ta bort</button>
                 <button class="btn-cancel" onclick="closeModal()">Behåll</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för ny kontakt -->
+    <div id="newContactModal" class="modal">
+        <div class="modal-content">
+            <h2>Ny kontakt</h2>
+            <div class="form-group">
+                <label for="contactName">Namn:</label>
+                <input type="text" id="contactName" placeholder="Namn">
+            </div>
+            <div class="form-group">
+                <label for="contactPhone">Telefonnummer:</label>
+                <input type="text" id="contactPhone" placeholder="Telefonnummer">
+            </div>
+            <div class="form-group">
+                <label for="contactNote">Notering:</label>
+                <input type="text" id="contactNote" placeholder="Notering">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmNewContact()">Spara</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
             </div>
         </div>
     </div>
