@@ -1989,8 +1989,8 @@ function confirmBarOrder() {
         return;
     }
 
-    // Validate that at least one product is entered
-    const hasProducts = barProducts.some(p => p.product.trim() && p.quantity);
+    // Validate that at least one product is entered (quantity is optional, defaults to 1)
+    const hasProducts = barProducts.some(p => p.product.trim());
     if (!hasProducts) {
         alert('Vänligen lägg till minst en produkt!');
         return;
@@ -2001,10 +2001,13 @@ function confirmBarOrder() {
         return;
     }
 
-    // Build article text from products
+    // Build article text from products (quantity defaults to 1 if empty)
     const articleLines = barProducts
-        .filter(p => p.product.trim() && p.quantity)
-        .map(p => `${p.quantity}x ${p.product.trim()}`)
+        .filter(p => p.product.trim())
+        .map(p => {
+            const quantity = p.quantity && p.quantity.trim() ? p.quantity.trim() : '1';
+            return `${quantity}x ${p.product.trim()}`;
+        })
         .join('\n');
 
     if (!articleLines) {
@@ -2025,7 +2028,6 @@ function confirmBarOrder() {
 
     saveOrdersToStorage();
     renderOrders();
-    playOrderAddedSound();
     saveStateToApi();  // Immediate sync to database
     closeModal();
 }
