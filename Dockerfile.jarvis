@@ -1,0 +1,66 @@
+# Jarvis – AI Assistant Server
+# Runs on NUC with Whisper STT, Gemini LLM, Piper TTS
+# Pi connects via WebSocket for audio I/O
+
+FROM python:3.11-slim-bookworm
+
+RUN apt-get update && apt-get install -y \
+    git \
+    libopenblas-dev \
+    libopenblas0 \
+    libsndfile1 \
+    alsa-utils \
+    build-essential \
+    libc-dev \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy Jarvis source code
+COPY jarvis/main.py \
+     jarvis/gemini.py \
+     jarvis/listen.py \
+     jarvis/speak.py \
+     jarvis/wakeword.py \
+     jarvis/weather.py \
+     jarvis/image_tools.py \
+     jarvis/shopping_list.py \
+     jarvis/ha.py \
+     jarvis/hud_server.py \
+     jarvis/jarvis_context.yaml \
+     jarvis/.env \
+     ./
+
+# Create directories
+RUN mkdir -p /app/data /app/logs /app/hud
+
+# Copy Piper binary and voice models
+COPY jarvis/piper /app/piper
+COPY jarvis/voices /app/voices
+
+# Install requirements
+RUN pip install --no-cache-dir \
+    google-genai==1.73.1 \
+    google-generativeai==0.8.6 \
+    SpeechRecognition==3.16.0 \
+    faster-whisper==1.2.0 \
+    openWakeWord==0.4.3 \
+    websockets==16.0 \
+    pyyaml==6.0.1 \
+    numpy==2.0.0 \
+    pyaudio==0.2.13
+
+# Make Piper executable
+RUN chmod +x /app/piper/piper
+
+# Expose WebSocket port for Pi client
+EXPOSE 5555
+
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV TZ=Europe/Stockholm
+
+# Command
+CMD ["python", "main.py"]
