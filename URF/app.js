@@ -446,7 +446,8 @@ function getStatePayload() {
     const keysToSave = keys.length > 0 ? keys : (lastKnownGoodKeys.length > 0 ? lastKnownGoodKeys : []);
     const bookingsToSave = bookings.length > 0 ? bookings : (lastKnownGoodBookings.length > 0 ? lastKnownGoodBookings : []);
     const contactsToSave = contacts.length > 0 ? contacts : (lastKnownGoodContacts.length > 0 ? lastKnownGoodContacts : []);
-    const ordersToSave = orders.length > 0 ? orders : (lastKnownGoodOrders.length > 0 ? lastKnownGoodOrders : []);
+    // For orders, always save current state (including empty) to allow deletions to sync
+    const ordersToSave = orders;
     return {
         version: 1,
         cars: carsToSave,
@@ -558,7 +559,12 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
                 shouldPlayRemoteOrderSound = detectedNewOrderIds.length > 0;
             }
 
-            // Merge strategy: Keep local deletions, add new from remote, update existing
+            // Merge strategy: 
+            // 1. Add new from remote
+            // 2. Update existing (only if not completed locally)
+            // 3. Remove orders that exist locally but not in remote (unless completed)
+            
+            // Step 1 & 2: Process remote orders
             normalizedRemoteOrders.forEach(remoteOrder => {
                 const localIndex = orders.findIndex(o => String(o.id) === String(remoteOrder.id));
                 if (localIndex === -1) {
@@ -569,6 +575,18 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
                     orders[localIndex] = remoteOrder;
                 }
                 // If already completed locally, keep local version (don't override)
+            });
+            
+            // Step 3: Remove orders that were deleted from remote (but only if not completed)
+            orders = orders.filter(order => {
+                if (remoteOrderIds.has(String(order.id))) {
+                    return true;  // Keep - exists in remote
+                }
+                if (order.completed) {
+                    return true;  // Keep - it's completed, don't remove
+                }
+                // Remove - was deleted from remote and not completed locally
+                return false;
             });
 
             lastKnownGoodOrders = orders;  // Update backup on successful sync
