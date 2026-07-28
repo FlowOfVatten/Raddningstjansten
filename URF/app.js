@@ -163,20 +163,28 @@ function exportOrdersToExcel() {
     // Create workbook and worksheet
     const ws = XLSX.utils.aoa_to_sheet(data);
     
-    // Set column widths and wrap text
+    // Set column widths
     ws['!cols'] = [
-        { wch: 30, style: { alignment: { wrapText: true } } },  // Artikel
-        { wch: 20, style: { alignment: { wrapText: true } } },  // Plats
-        { wch: 15, style: { alignment: { wrapText: true } } },  // Beställare
+        { wch: 30 },  // Artikel
+        { wch: 20 },  // Plats
+        { wch: 15 },  // Beställare
         { wch: 20 },  // Beställtid
         { wch: 20 }   // Leveranstid
     ];
 
-    // Apply wrap text to all cells
-    for (let row in ws) {
-        if (row[0] === '!') continue;
-        if (!ws[row].s) ws[row].s = {};
-        ws[row].s.alignment = { wrapText: true, vertical: 'top' };
+    // Apply wrap text to all cells explicitly
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let row = range.s.r; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellRef = XLSX.utils.encode_col(col) + (row + 1);
+            if (!ws[cellRef]) ws[cellRef] = {};
+            if (!ws[cellRef].s) ws[cellRef].s = {};
+            ws[cellRef].s.alignment = { 
+                wrapText: true, 
+                vertical: 'top',
+                horizontal: 'left'
+            };
+        }
     }
 
     // Set header row height
