@@ -90,7 +90,7 @@
             <div id="borrowCarSuggestion" class="borrow-suggestion" style="display:none;"></div>
             <div class="form-group">
                 <label for="borrowName">Namn:</label>
-                <input type="text" id="borrowName" placeholder="Ditt namn">
+                <input type="text" id="borrowName" placeholder="Ditt namn" list="borrowerNamesList">
             </div>
             <div class="modal-buttons">
                 <button class="btn-ok" onclick="confirmBorrow()">OK</button>
@@ -118,7 +118,7 @@
             <p id="borrowKeyInfo"></p>
             <div class="form-group">
                 <label for="borrowKeyName">Namn:</label>
-                <input type="text" id="borrowKeyName" placeholder="Ditt namn">
+                <input type="text" id="borrowKeyName" placeholder="Ditt namn" list="borrowerNamesList">
             </div>
             <div class="modal-buttons">
                 <button class="btn-ok" onclick="confirmBorrowKey()">OK</button>
@@ -278,6 +278,10 @@
             </div>
         </div>
     </div>
+
+    <datalist id="borrowerNamesList">
+        <!-- Populated dynamically by JavaScript -->
+    </datalist>
 
     <script src="app.js"></script>
 </body>

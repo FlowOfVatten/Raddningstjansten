@@ -51,6 +51,38 @@ let lastKnownGoodBookings = [];
 let lastKnownGoodContacts = [];
 let lastKnownGoodOrders = [];
 
+// Get all unique borrower names from cars and keys history
+function getHistoricalBorrowerNames() {
+    const names = new Set();
+    
+    // Collect names from cars
+    cars.forEach(car => {
+        if (car.borrowerName && String(car.borrowerName).trim()) {
+            names.add(String(car.borrowerName).trim());
+        }
+    });
+    
+    // Collect names from keys
+    keys.forEach(key => {
+        if (key.borrowerName && String(key.borrowerName).trim()) {
+            names.add(String(key.borrowerName).trim());
+        }
+    });
+    
+    return Array.from(names).sort();
+}
+
+// Update the datalist with historical borrower names
+function updateBorrowerNamesList() {
+    const datalist = document.getElementById('borrowerNamesList');
+    if (!datalist) return;
+    
+    const names = getHistoricalBorrowerNames();
+    datalist.innerHTML = names
+        .map(name => `<option value="${name}"></option>`)
+        .join('');
+}
+
 function formatSyncTime(ts) {
     if (!ts) return '';
     const date = new Date(ts);
@@ -984,6 +1016,8 @@ function showBorrowModal(car, activeBooking) {
     // Prefill name from active booking if available
     document.getElementById('borrowName').value = activeBooking ? activeBooking.bookerName : '';
     currentBorrowBookingId = activeBooking && !activeBooking.isReturned ? String(activeBooking.id) : null;
+    // Update autocomplete suggestions
+    updateBorrowerNamesList();
 
     const nextBooking = getNextBookingForCar(car.id);
     if (nextBooking && sameCarId(nextBooking.carId, car.id)) {
@@ -1029,6 +1063,8 @@ function showBorrowKeyModal(key) {
     const modal = document.getElementById('borrowKeyModal');
     document.getElementById('borrowKeyInfo').textContent = `Pryl: ${key.keyName}`;
     document.getElementById('borrowKeyName').value = '';
+    // Update autocomplete suggestions
+    updateBorrowerNamesList();
     modal.classList.add('show');
     currentModal = 'borrowKey';
     document.getElementById('borrowKeyName').focus();
