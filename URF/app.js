@@ -1364,7 +1364,7 @@ function confirmReturnKey() {
 
 // Close modal
 function closeModal() {
-    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal','newOrderModal'].forEach(id => {
+    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal','newOrderModal','barOrderModal'].forEach(id => {
         document.getElementById(id).classList.remove('show');
     });
     const notice = document.getElementById('borrowCarNotice');
