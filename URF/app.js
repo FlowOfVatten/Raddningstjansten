@@ -51,21 +51,39 @@ let lastKnownGoodBookings = [];
 let lastKnownGoodContacts = [];
 let lastKnownGoodOrders = [];
 
-// Get all unique borrower names from cars and keys history
+// Get all unique borrower names from cars and keys history (including past borrowers)
 function getHistoricalBorrowerNames() {
     const names = new Set();
     
-    // Collect names from cars
+    // Collect names from current borrowers (active loans)
     cars.forEach(car => {
         if (car.borrowerName && String(car.borrowerName).trim()) {
             names.add(String(car.borrowerName).trim());
         }
     });
-    
-    // Collect names from keys
     keys.forEach(key => {
         if (key.borrowerName && String(key.borrowerName).trim()) {
             names.add(String(key.borrowerName).trim());
+        }
+    });
+    
+    // Collect names from borrow history (past borrowers)
+    cars.forEach(car => {
+        if (car.borrowHistory && Array.isArray(car.borrowHistory)) {
+            car.borrowHistory.forEach(name => {
+                if (name && String(name).trim()) {
+                    names.add(String(name).trim());
+                }
+            });
+        }
+    });
+    keys.forEach(key => {
+        if (key.borrowHistory && Array.isArray(key.borrowHistory)) {
+            key.borrowHistory.forEach(name => {
+                if (name && String(name).trim()) {
+                    names.add(String(name).trim());
+                }
+            });
         }
     });
     
@@ -1093,6 +1111,11 @@ function confirmBorrow() {
         car.borrowerName = name;
         car.borrowedAt = new Date().toISOString();
         car.borrowedFromBookingId = currentBorrowBookingId || '';
+        // Add to borrow history for autocomplete
+        if (!car.borrowHistory) car.borrowHistory = [];
+        if (!car.borrowHistory.includes(name)) {
+            car.borrowHistory.push(name);
+        }
         saveCarsToStorage();
         renderCars();
         closeModal();
@@ -1116,9 +1139,15 @@ function confirmReturn() {
             });
         }
         car.borrowed = false;
-        car.borrowerName = '';
+        // Keep borrowerName in borrowHistory, but clear current borrow info
         car.borrowedAt = '';
         car.borrowedFromBookingId = '';
+        // Don't clear borrowerName yet - we'll clear it after saving to history
+        if (!car.borrowHistory) car.borrowHistory = [];
+        if (car.borrowerName && !car.borrowHistory.includes(car.borrowerName)) {
+            car.borrowHistory.push(car.borrowerName);
+        }
+        car.borrowerName = '';
         saveCarsToStorage();
         renderCars();
         renderBookingGrid();
@@ -1140,6 +1169,11 @@ function confirmBorrowKey() {
         key.borrowed = true;
         key.borrowerName = name;
         key.borrowedAt = new Date().toISOString();
+        // Add to borrow history for autocomplete
+        if (!key.borrowHistory) key.borrowHistory = [];
+        if (!key.borrowHistory.includes(name)) {
+            key.borrowHistory.push(name);
+        }
         saveKeysToStorage();
         renderKeys();
         closeModal();
@@ -1151,6 +1185,11 @@ function confirmReturnKey() {
     const key = keys.find(k => k.id === currentItemId);
     if (key) {
         key.borrowed = false;
+        // Keep borrowerName in borrowHistory, but clear current borrow info
+        if (!key.borrowHistory) key.borrowHistory = [];
+        if (key.borrowerName && !key.borrowHistory.includes(key.borrowerName)) {
+            key.borrowHistory.push(key.borrowerName);
+        }
         key.borrowerName = '';
         key.borrowedAt = '';
         saveKeysToStorage();
