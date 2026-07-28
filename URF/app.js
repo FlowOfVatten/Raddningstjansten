@@ -150,9 +150,15 @@ function exportOrdersToExcel() {
         });
 
         // Escape quotes and handle multiline content
-        const article = String(order.article || '').replace(/"/g, '""');
-        const location = String(order.location || '').replace(/"/g, '""');
-        const orderer = String(order.orderer || '').replace(/"/g, '""');
+        const article = String(order.article || '')
+            .replace(/"/g, '""')           // Escape quotes for CSV
+            .replace(/\r?\n/g, '\r\n');     // Convert to Windows line breaks
+        const location = String(order.location || '')
+            .replace(/"/g, '""')
+            .replace(/\r?\n/g, '\r\n');
+        const orderer = String(order.orderer || '')
+            .replace(/"/g, '""')
+            .replace(/\r?\n/g, '\r\n');
 
         return [
             `"${article}"`,
@@ -167,7 +173,7 @@ function exportOrdersToExcel() {
     const csvContent = [
         headers.join(','),
         ...rows
-    ].join('\n');
+    ].join('\r\n');
 
     // Create and download file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
