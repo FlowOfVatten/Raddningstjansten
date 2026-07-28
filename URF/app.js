@@ -128,8 +128,9 @@ function exportOrdersToExcel() {
         return;
     }
 
-    // Prepare CSV data
+    // Prepare HTML table for Excel (preserves line breaks)
     const headers = ['Artikel', 'Plats', 'Beställare', 'Beställtid', 'Leveranstid'];
+    
     const rows = completedOrdersHistory.map(order => {
         const createdDate = new Date(order.createdAt);
         const createdTime = createdDate.toLocaleString('sv-SE', {
@@ -149,38 +150,58 @@ function exportOrdersToExcel() {
             year: 'numeric'
         });
 
-        // Escape quotes and handle multiline content
-        const article = String(order.article || '')
-            .replace(/"/g, '""')           // Escape quotes for CSV
-            .replace(/\r?\n/g, '\r\n');     // Convert to Windows line breaks
-        const location = String(order.location || '')
-            .replace(/"/g, '""')
-            .replace(/\r?\n/g, '\r\n');
-        const orderer = String(order.orderer || '')
-            .replace(/"/g, '""')
-            .replace(/\r?\n/g, '\r\n');
+        // Keep newlines as they are for HTML
+        const article = String(order.article || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const location = String(order.location || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const orderer = String(order.orderer || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        return [
-            `"${article}"`,
-            `"${location}"`,
-            `"${orderer}"`,
-            `"${createdTime}"`,
-            `"${completedTime}"`
-        ].join(',');
-    });
+        return `
+            <tr>
+                <td style="white-space: pre-wrap; border: 1px solid #ccc; padding: 8px;">${article}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${location}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${orderer}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${createdTime}</td>
+                <td style="border: 1px solid #ccc; padding: 8px;">${completedTime}</td>
+            </tr>
+        `;
+    }).join('');
 
-    // Create CSV content
-    const csvContent = [
-        headers.join(','),
-        ...rows
-    ].join('\r\n');
+    // Create HTML table that Excel can open directly
+    const htmlContent = `<html xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; }
+        table { border-collapse: collapse; margin: 20px 0; }
+        th { background-color: #007a5e; color: white; border: 1px solid #ccc; padding: 10px; text-align: left; font-weight: bold; }
+        td { border: 1px solid #ccc; padding: 8px; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <table>
+        <thead>
+            <tr>
+                <th>${headers[0]}</th>
+                <th>${headers[1]}</th>
+                <th>${headers[2]}</th>
+                <th>${headers[3]}</th>
+                <th>${headers[4]}</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows}
+        </tbody>
+    </table>
+</body>
+</html>`;
 
     // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     const now = new Date();
-    const filename = `Beställningslogg_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.csv`;
+    const filename = `Beställningslogg_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.xls`;
     
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
