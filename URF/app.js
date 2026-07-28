@@ -1875,6 +1875,9 @@ function deleteOrder(orderId) {
     orders = orders.filter(order => order.id !== orderId);
     saveOrdersToStorage();
     renderOrders();
+    
+    // Trigger immediate API sync to ensure deletion syncs to database
+    saveStateToApi();
 }
 
 // Close modal when clicking outside
