@@ -128,11 +128,33 @@ function exportOrdersToExcel() {
         return;
     }
 
-    // Prepare data for Excel
-    const headers = ['Artikel', 'Plats', 'Beställare', 'Beställtid', 'Leveranstid'];
-    const data = [headers];
+    const ExcelJS = window.ExcelJS;
+    if (!ExcelJS) {
+        alert('Excel bibliotek inte laddat ännu. Försök igen om en sekund.');
+        return;
+    }
 
-    completedOrdersHistory.forEach(order => {
+    // Create workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Beställningar');
+
+    // Define columns
+    worksheet.columns = [
+        { header: 'Artikel', key: 'article', width: 35 },
+        { header: 'Plats', key: 'location', width: 20 },
+        { header: 'Beställare', key: 'orderer', width: 15 },
+        { header: 'Beställtid', key: 'createdTime', width: 20 },
+        { header: 'Leveranstid', key: 'completedTime', width: 20 }
+    ];
+
+    // Style header row
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF007a5e' } };
+    worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+    worksheet.getRow(1).height = 30;
+
+    // Add data rows
+    completedOrdersHistory.forEach((order, index) => {
         const createdDate = new Date(order.createdAt);
         const createdTime = createdDate.toLocaleString('sv-SE', {
             hour: '2-digit',
@@ -151,73 +173,62 @@ function exportOrdersToExcel() {
             year: 'numeric'
         });
 
-        data.push([
-            order.article || '',
-            order.location || '',
-            order.orderer || '',
-            createdTime,
-            completedTime
-        ]);
-    });
+        const row = worksheet.addRow({
+            article: order.article || '',
+            location: order.location || '',
+            orderer: order.orderer || '',
+            createdTime: createdTime,
+            completedTime: completedTime
+        });
 
-    // Create workbook and worksheet
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    
-    // Set column widths
-    ws['!cols'] = [
-        { wch: 30 },  // Artikel
-        { wch: 20 },  // Plats
-        { wch: 15 },  // Beställare
-        { wch: 20 },  // Beställtid
-        { wch: 20 }   // Leveranstid
-    ];
+        // Calculate row height based on content
+        const articleLines = (order.article || '').split('\n').length;
+        const baseHeight = 20;
+        const height = Math.max(baseHeight, articleLines * 15);
+        row.height = height;
 
-    // Track row heights - need to expand rows with wrapped text
-    const rowHeights = [{ hpx: 30 }];  // Header row
-
-    // Apply wrap text to all cells and calculate row heights
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let row = range.s.r; row <= range.e.r; row++) {
-        let maxLines = 1;
-        
-        for (let col = range.s.c; col <= range.e.c; col++) {
-            const cellRef = XLSX.utils.encode_col(col) + (row + 1);
-            if (!ws[cellRef]) ws[cellRef] = {};
-            
-            // Ensure it's treated as text
-            if (ws[cellRef].v !== undefined) {
-                const cellValue = String(ws[cellRef].v || '');
-                const lines = cellValue.split('\n').length;
-                maxLines = Math.max(maxLines, lines);
-            }
-            
-            // Set cell formatting
-            if (!ws[cellRef].s) ws[cellRef].s = {};
-            ws[cellRef].s.alignment = { 
-                wrapText: true, 
-                vertical: 'top',
-                horizontal: 'left'
+        // Apply formatting to all cells in the row
+        row.eachCell((cell) => {
+            cell.alignment = { 
+                vertical: 'top', 
+                horizontal: 'left', 
+                wrapText: true
             };
-        }
-        
-        // Set row height based on number of lines (skip header row)
-        if (row > 0) {
-            const height = Math.max(15, maxLines * 15);  // 15 pixels per line
-            rowHeights.push({ hpx: height });
-        }
-    }
-    
-    ws['!rows'] = rowHeights;
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF999999' } },
+                left: { style: 'thin', color: { argb: 'FF999999' } },
+                bottom: { style: 'thin', color: { argb: 'FF999999' } },
+                right: { style: 'thin', color: { argb: 'FF999999' } }
+            };
+        });
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Beställningar');
+        // Alternate row colors
+        if ((index + 1) % 2 === 0) {
+            row.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } };
+            });
+        }
+    });
 
     // Generate filename
     const now = new Date();
     const filename = `Beställningslogg_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.xlsx`;
     
     // Write file
-    XLSX.writeFile(wb, filename);
+    workbook.xlsx.writeBuffer().then(buffer => {
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }).catch(err => {
+        alert('Fel vid export: ' + err.message);
+    });
 }
 
 function formatSyncTime(ts) {
