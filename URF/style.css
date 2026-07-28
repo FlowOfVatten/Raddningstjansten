@@ -1233,3 +1233,187 @@ header .subtitle.subtitle-tagline {
     }
 }
 
+/* ---- Phone-only responsive overrides ---- */
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        max-width: 100%;
+    }
+
+    header {
+        margin-bottom: 20px;
+        padding: 18px 12px;
+        border-radius: 14px;
+        gap: 10px;
+    }
+
+    .header-logo {
+        width: 76px;
+    }
+
+    .subtitle-main {
+        font-size: clamp(2rem, 10vw, 2.6rem);
+        letter-spacing: 1px;
+    }
+
+    header .subtitle.subtitle-tagline {
+        font-size: 0.62rem;
+        letter-spacing: 0.9px;
+    }
+
+    .tabs {
+        gap: 6px;
+        margin-bottom: 18px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    .tab-button {
+        flex: 0 0 auto;
+        padding: 10px 14px;
+        font-size: 0.88em;
+        letter-spacing: 0.4px;
+        border-width: 2px;
+        white-space: nowrap;
+    }
+
+    .car-card,
+    .key-card {
+        padding: 12px;
+        border-width: 3px;
+        border-radius: 14px;
+        gap: 10px;
+    }
+
+    .car-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 1.45em;
+        border-radius: 10px;
+    }
+
+    .car-reg-container,
+    .key-reg-container,
+    .car-content {
+        flex: 1 1 100%;
+    }
+
+    .car-reg-value {
+        font-size: 0.98em;
+        letter-spacing: 1.8px;
+        min-height: 38px;
+        padding-left: 42px;
+    }
+
+    .car-reg-value::before {
+        width: 32px;
+        font-size: 0.5em;
+    }
+
+    .car-model-value {
+        font-size: 0.8em;
+        margin-top: 6px;
+        padding: 6px 8px;
+    }
+
+    .action-button {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 0.96em;
+        letter-spacing: 1px;
+        border-width: 3px;
+    }
+
+    .borrower-info {
+        width: 100%;
+        padding: 8px 10px;
+    }
+
+    .contact-row {
+        padding: 10px;
+        border-width: 2px;
+    }
+
+    .order-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .order-location,
+    .order-orderer,
+    .order-delivery,
+    .order-created {
+        display: block;
+        font-size: 0.88em;
+    }
+
+    .order-actions {
+        justify-self: start;
+    }
+
+    .modal-content {
+        width: calc(100vw - 20px);
+        max-width: none;
+        padding: 20px 14px;
+        border-width: 3px;
+        border-radius: 14px;
+    }
+
+    .modal-content h2 {
+        font-size: 1.3em;
+        margin-bottom: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 14px;
+    }
+
+    .form-group input,
+    .form-group select {
+        padding: 10px;
+        font-size: 0.95em;
+    }
+
+    .modal-buttons {
+        flex-direction: column;
+        margin-top: 14px;
+    }
+
+    .btn-ok,
+    .btn-cancel {
+        width: 100%;
+        font-size: 1em;
+        padding: 11px;
+    }
+
+    .booking-day-selector {
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .day-btn {
+        flex: 1;
+        padding: 10px 8px;
+        font-size: 0.9em;
+    }
+
+    .booking-table thead th,
+    .booking-cell,
+    .hour-cell {
+        padding: 8px 6px;
+        font-size: 0.78em;
+    }
+
+    .booking-cell small,
+    .booking-comment {
+        font-size: 0.72em;
+    }
+}
+
