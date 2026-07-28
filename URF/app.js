@@ -1609,7 +1609,6 @@ function confirmNewOrder() {
 
     saveOrdersToStorage();
     renderOrders();
-    playOrderAddedSound();
     closeModal();
 }
 
