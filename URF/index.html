@@ -142,7 +142,7 @@
     <!-- Pop-up för ny bokning -->
     <div id="newCarModal" class="modal">
         <div class="modal-content">
-            <h2>Ny bil / minibuss</h2>
+            <h2 id="newCarModalTitle">Ny bil / minibuss</h2>
             <div class="form-group">
                 <label for="newCarModel">Modell:</label>
                 <input type="text" id="newCarModel" placeholder="Ex: Volkswagen Transporter">
@@ -159,7 +159,8 @@
                 </select>
             </div>
             <div class="modal-buttons">
-                <button class="btn-ok" onclick="confirmNewCar()">Lägg till</button>
+                <button id="saveCarButton" class="btn-ok" onclick="confirmNewCar()">Lägg till</button>
+                <button id="deleteCarFromEditButton" class="btn-taken" style="display:none;flex:1;padding:12px;font-size:1.1em;font-weight:bold;border:none;border-radius:10px;cursor:pointer;text-transform:uppercase;" onclick="deleteEditedCar()">Radera</button>
                 <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
             </div>
         </div>

@@ -37,6 +37,7 @@ let currentItemId = null;
 let currentItemType = null;
 let currentBorrowBookingId = null;
 let currentDeleteCarId = null;
+let currentEditCarId = null;
 let saveDebounceTimer = null;
 let pendingRemoteSave = false;
 let isRemoteSyncInProgress = false;
@@ -677,7 +678,7 @@ function renderCars() {
         }
 
         card.innerHTML = `
-            <div class="car-icon">${car.icon || getVehicleIcon(car.vehicleType)}</div>
+            <button type="button" class="car-icon car-icon-button" onclick="openEditCarModal(${car.id})" aria-label="Redigera fordon ${car.regNumber || car.id}">${car.icon || getVehicleIcon(car.vehicleType)}</button>
             <div class="car-reg-container">
                 <div class="car-reg-label">${getVehicleTypeLabel(car.vehicleType)}</div>
                 <div class="car-reg-value">${car.regNumber}</div>
@@ -688,7 +689,6 @@ function renderCars() {
                     ${buttonText}
                 </button>
                 ${borrowerHTML}
-                <button class="car-delete-btn" onclick="openDeleteCarModal(${car.id})" aria-label="Ta bort fordon">X</button>
             </div>
         `;
 
@@ -710,11 +710,41 @@ function openNewCarModal() {
     const modelInput = document.getElementById('newCarModel');
     const regInput = document.getElementById('newCarReg');
     const typeSelect = document.getElementById('newCarType');
+    const title = document.getElementById('newCarModalTitle');
+    const saveButton = document.getElementById('saveCarButton');
+    const deleteButton = document.getElementById('deleteCarFromEditButton');
     if (!modelInput || !regInput || !typeSelect) return;
 
+    currentEditCarId = null;
     modelInput.value = '';
     regInput.value = '';
     typeSelect.value = 'car';
+    if (title) title.textContent = 'Ny bil / minibuss';
+    if (saveButton) saveButton.textContent = 'Lägg till';
+    if (deleteButton) deleteButton.style.display = 'none';
+    document.getElementById('newCarModal').classList.add('show');
+    modelInput.focus();
+}
+
+function openEditCarModal(carId) {
+    const car = cars.find(c => sameCarId(c.id, carId));
+    if (!car) return;
+
+    const modelInput = document.getElementById('newCarModel');
+    const regInput = document.getElementById('newCarReg');
+    const typeSelect = document.getElementById('newCarType');
+    const title = document.getElementById('newCarModalTitle');
+    const saveButton = document.getElementById('saveCarButton');
+    const deleteButton = document.getElementById('deleteCarFromEditButton');
+    if (!modelInput || !regInput || !typeSelect) return;
+
+    currentEditCarId = car.id;
+    modelInput.value = String(car.modelName || '');
+    regInput.value = String(car.regNumber || '');
+    typeSelect.value = car.vehicleType === 'minibus' ? 'minibus' : 'car';
+    if (title) title.textContent = 'Redigera fordon';
+    if (saveButton) saveButton.textContent = 'Spara';
+    if (deleteButton) deleteButton.style.display = 'block';
     document.getElementById('newCarModal').classList.add('show');
     modelInput.focus();
 }
@@ -733,21 +763,51 @@ function confirmNewCar() {
         return;
     }
 
-    const nextId = cars.reduce((maxId, car) => Math.max(maxId, Number(car.id) || 0), 0) + 1;
+    if (currentEditCarId !== null) {
+        cars = cars.map(car => {
+            if (!sameCarId(car.id, currentEditCarId)) return car;
+            return {
+                ...car,
+                icon: getVehicleIcon(vehicleType),
+                vehicleType,
+                modelName,
+                regNumber
+            };
+        });
+    } else {
+        const nextId = cars.reduce((maxId, car) => Math.max(maxId, Number(car.id) || 0), 0) + 1;
 
-    cars.push({
-        id: nextId,
-        icon: getVehicleIcon(vehicleType),
-        vehicleType,
-        modelName,
-        regNumber,
-        borrowed: false,
-        borrowerName: '',
-        borrowedAt: '',
-        borrowedFromBookingId: ''
-    });
+        cars.push({
+            id: nextId,
+            icon: getVehicleIcon(vehicleType),
+            vehicleType,
+            modelName,
+            regNumber,
+            borrowed: false,
+            borrowerName: '',
+            borrowedAt: '',
+            borrowedFromBookingId: ''
+        });
+    }
 
     saveCarsToStorage();
+    renderCars();
+    renderBookingGrid();
+    closeModal();
+}
+
+function deleteEditedCar() {
+    if (currentEditCarId === null) return;
+    const car = cars.find(c => sameCarId(c.id, currentEditCarId));
+    if (!car) return;
+
+    const confirmed = window.confirm(`Ta bort fordon ${car.regNumber} (${car.modelName || getVehicleTypeLabel(car.vehicleType)})?`);
+    if (!confirmed) return;
+
+    cars = cars.filter(item => !sameCarId(item.id, currentEditCarId));
+    bookings = bookings.filter(booking => !sameCarId(booking.carId, currentEditCarId));
+
+    persistState();
     renderCars();
     renderBookingGrid();
     closeModal();
@@ -1055,6 +1115,7 @@ function closeModal() {
     currentItemType = null;
     currentBorrowBookingId = null;
     currentDeleteCarId = null;
+    currentEditCarId = null;
 }
 
 // Switch between tabs
