@@ -128,10 +128,11 @@ function exportOrdersToExcel() {
         return;
     }
 
-    // Prepare HTML table for Excel (preserves line breaks)
+    // Prepare data for Excel
     const headers = ['Artikel', 'Plats', 'Beställare', 'Beställtid', 'Leveranstid'];
-    
-    const rows = completedOrdersHistory.map(order => {
+    const data = [headers];
+
+    completedOrdersHistory.forEach(order => {
         const createdDate = new Date(order.createdAt);
         const createdTime = createdDate.toLocaleString('sv-SE', {
             hour: '2-digit',
@@ -150,65 +151,46 @@ function exportOrdersToExcel() {
             year: 'numeric'
         });
 
-        // Keep newlines as they are for HTML
-        const article = String(order.article || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const location = String(order.location || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const orderer = String(order.orderer || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        data.push([
+            order.article || '',
+            order.location || '',
+            order.orderer || '',
+            createdTime,
+            completedTime
+        ]);
+    });
 
-        return `
-            <tr>
-                <td style="white-space: pre-wrap; border: 1px solid #ccc; padding: 8px;">${article}</td>
-                <td style="border: 1px solid #ccc; padding: 8px;">${location}</td>
-                <td style="border: 1px solid #ccc; padding: 8px;">${orderer}</td>
-                <td style="border: 1px solid #ccc; padding: 8px;">${createdTime}</td>
-                <td style="border: 1px solid #ccc; padding: 8px;">${completedTime}</td>
-            </tr>
-        `;
-    }).join('');
-
-    // Create HTML table that Excel can open directly
-    const htmlContent = `<html xmlns:x="urn:schemas-microsoft-com:office:excel">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; }
-        table { border-collapse: collapse; margin: 20px 0; }
-        th { background-color: #007a5e; color: white; border: 1px solid #ccc; padding: 10px; text-align: left; font-weight: bold; }
-        td { border: 1px solid #ccc; padding: 8px; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-    </style>
-</head>
-<body>
-    <table>
-        <thead>
-            <tr>
-                <th>${headers[0]}</th>
-                <th>${headers[1]}</th>
-                <th>${headers[2]}</th>
-                <th>${headers[3]}</th>
-                <th>${headers[4]}</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${rows}
-        </tbody>
-    </table>
-</body>
-</html>`;
-
-    // Create and download file
-    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    const now = new Date();
-    const filename = `Beställningslogg_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.xls`;
+    // Create workbook and worksheet
+    const ws = XLSX.utils.aoa_to_sheet(data);
     
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Set column widths and wrap text
+    ws['!cols'] = [
+        { wch: 30, style: { alignment: { wrapText: true } } },  // Artikel
+        { wch: 20, style: { alignment: { wrapText: true } } },  // Plats
+        { wch: 15, style: { alignment: { wrapText: true } } },  // Beställare
+        { wch: 20 },  // Beställtid
+        { wch: 20 }   // Leveranstid
+    ];
+
+    // Apply wrap text to all cells
+    for (let row in ws) {
+        if (row[0] === '!') continue;
+        if (!ws[row].s) ws[row].s = {};
+        ws[row].s.alignment = { wrapText: true, vertical: 'top' };
+    }
+
+    // Set header row height
+    ws['!rows'] = [{ hpx: 30 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Beställningar');
+
+    // Generate filename
+    const now = new Date();
+    const filename = `Beställningslogg_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.xlsx`;
+    
+    // Write file
+    XLSX.writeFile(wb, filename);
 }
 
 function formatSyncTime(ts) {
