@@ -1119,6 +1119,20 @@ header .subtitle.subtitle-tagline {
     color: #1a472a;
 }
 
+.order-new-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #ce1126;
+    color: #fff;
+    font-size: 0.72em;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    vertical-align: middle;
+}
+
 .order-location {
     color: #2d5a3d;
     font-size: 0.95em;

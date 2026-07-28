@@ -43,6 +43,7 @@ let saveDebounceTimer = null;
 let pendingRemoteSave = false;
 let isRemoteSyncInProgress = false;
 let hasInitializedRemoteOrderNotifications = false;
+let newlySyncedOrderIds = new Set();
 // Backups to prevent losing non-empty data via empty overwrites
 let lastKnownGoodCars = [];
 let lastKnownGoodKeys = [];
@@ -363,18 +364,23 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
         if (payload.orders.length > 0) {
             const existingOrderIds = new Set(orders.map(order => String(order.id)));
             const normalizedRemoteOrders = normalizeOrders(payload.orders);
+            const detectedNewOrderIds = normalizedRemoteOrders
+                .filter(order => !existingOrderIds.has(String(order.id)))
+                .map(order => String(order.id));
+
+            newlySyncedOrderIds = new Set(detectedNewOrderIds);
 
             if (hasInitializedRemoteOrderNotifications) {
-                const newRemoteOrdersCount = normalizedRemoteOrders.reduce((count, order) => {
-                    return existingOrderIds.has(String(order.id)) ? count : count + 1;
-                }, 0);
-                shouldPlayRemoteOrderSound = newRemoteOrdersCount > 0;
+                shouldPlayRemoteOrderSound = detectedNewOrderIds.length > 0;
             }
 
             orders = normalizedRemoteOrders;
             lastKnownGoodOrders = orders;  // Update backup on successful sync
         } else if (orders.length === 0 && lastKnownGoodOrders.length > 0) {
             orders = lastKnownGoodOrders;
+            newlySyncedOrderIds = new Set();
+        } else {
+            newlySyncedOrderIds = new Set();
         }
 
         if (!hasInitializedRemoteOrderNotifications) {
@@ -1497,6 +1503,7 @@ function renderOrders() {
     orders.forEach(order => {
         const row = document.createElement('div');
         row.className = `order-row${order.completed ? ' order-completed' : ''}`;
+        const isNewSyncedOrder = newlySyncedOrderIds.has(String(order.id));
         
         const deliveryText = order.deliveryType === 'asap' 
             ? 'Levereras snarast'
@@ -1513,7 +1520,7 @@ function renderOrders() {
         const completedClass = order.completed ? ' order-completed-text' : '';
         
         row.innerHTML = `
-            <div class="order-col order-article"><strong>${order.article}</strong></div>
+            <div class="order-col order-article"><strong>${order.article}</strong>${isNewSyncedOrder ? '<span class="order-new-badge">Ny</span>' : ''}</div>
             <div class="order-col order-location">${order.location}</div>
             <div class="order-col order-orderer">${order.orderer}</div>
             <div class="order-col order-delivery">${deliveryText}</div>
