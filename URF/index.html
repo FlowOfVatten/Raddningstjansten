@@ -31,6 +31,7 @@
             <button class="tab-button" onclick="switchTab('keys')">Diverse</button>
             <button class="tab-button" onclick="switchTab('booking')">📅 Bokningar</button>
             <button class="tab-button" onclick="switchTab('contacts')">Kontakter</button>
+            <button class="tab-button" onclick="switchTab('orders')">🛒 Inköp</button>
         </div>
 
         <section id="cars-section" class="tab-section active">
@@ -67,6 +68,15 @@
             </main>
             <div class="list-actions">
                 <button class="add-row-button" onclick="openNewContactModal()">Ny kontakt</button>
+            </div>
+        </section>
+
+        <section id="orders-section" class="tab-section">
+            <main class="orders-list" id="ordersContainer">
+                <!-- Beställningar skapas dynamiskt med JavaScript -->
+            </main>
+            <div class="list-actions">
+                <button class="add-row-button" onclick="openNewOrderModal()">Ny beställning</button>
             </div>
         </section>
     </div>
@@ -223,6 +233,46 @@
             </div>
             <div class="modal-buttons">
                 <button class="btn-ok" onclick="confirmNewContact()">Spara</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för ny beställning -->
+    <div id="newOrderModal" class="modal">
+        <div class="modal-content">
+            <h2>Ny beställning</h2>
+            <div class="form-group">
+                <label for="orderArticle">Artikel:</label>
+                <input type="text" id="orderArticle" placeholder="Vad ska beställas?">
+            </div>
+            <div class="form-group">
+                <label for="orderLocation">Levereras till plats:</label>
+                <input type="text" id="orderLocation" placeholder="Var ska det levereras?">
+            </div>
+            <div class="form-group">
+                <label for="orderOrderer">Beställare:</label>
+                <input type="text" id="orderOrderer" placeholder="Vem beställer?">
+            </div>
+            <div class="form-group">
+                <label>Leverans:</label>
+                <div class="order-delivery-options">
+                    <label class="radio-option">
+                        <input type="radio" name="deliveryType" value="asap" checked onchange="toggleDeliveryTime()">
+                        Levereras snarast
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="deliveryType" value="scheduled" onchange="toggleDeliveryTime()">
+                        Före klockslag
+                    </label>
+                </div>
+            </div>
+            <div id="deliveryTimeGroup" class="form-group" style="display:none;">
+                <label for="orderDeliveryTime">Klockslag:</label>
+                <input type="time" id="orderDeliveryTime" placeholder="HH:MM">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmNewOrder()">Lägg till</button>
                 <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
             </div>
         </div>

@@ -28,6 +28,7 @@ let cars = [];
 let keys = [];
 let bookings = [];
 let contacts = [];
+let orders = [];
 let currentBookingDay = 'friday';
 let currentBookingHour = null;
 let currentBookingCarId = null;
@@ -44,6 +45,7 @@ let lastKnownGoodCars = [];
 let lastKnownGoodKeys = [];
 let lastKnownGoodBookings = [];
 let lastKnownGoodContacts = [];
+let lastKnownGoodOrders = [];
 
 function formatSyncTime(ts) {
     if (!ts) return '';
@@ -137,11 +139,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadKeysFromStorage();
     loadBookingsFromStorage();
     loadContactsFromStorage();
+    loadOrdersFromStorage();
 
     renderCars();
     renderKeys();
     renderBookingGrid();
     renderContacts();
+    renderOrders();
 
     const localUpdatedAt = getLocalUpdatedAt();
     updateSyncStatus(
@@ -234,18 +238,37 @@ function normalizeItems(items) {
     });
 }
 
+function normalizeOrders(ordersList) {
+    if (!Array.isArray(ordersList)) {
+        return [];
+    }
+
+    return ordersList.map((order, index) => ({
+        id: order?.id ?? Date.now() + index,
+        article: String(order?.article || ''),
+        location: String(order?.location || ''),
+        orderer: String(order?.orderer || ''),
+        deliveryType: (order?.deliveryType === 'asap' || order?.deliveryType === 'scheduled') ? order.deliveryType : 'asap',
+        deliveryTime: String(order?.deliveryTime || ''),
+        createdAt: String(order?.createdAt || new Date().toISOString()),
+        completed: Boolean(order?.completed)
+    }));
+}
+
 function getStatePayload() {
     // Safeguard: Never overwrite DB with empty data if we had non-empty data before
     const carsToSave = cars.length > 0 ? cars : (lastKnownGoodCars.length > 0 ? lastKnownGoodCars : []);
     const keysToSave = keys.length > 0 ? keys : (lastKnownGoodKeys.length > 0 ? lastKnownGoodKeys : []);
     const bookingsToSave = bookings.length > 0 ? bookings : (lastKnownGoodBookings.length > 0 ? lastKnownGoodBookings : []);
     const contactsToSave = contacts.length > 0 ? contacts : (lastKnownGoodContacts.length > 0 ? lastKnownGoodContacts : []);
+    const ordersToSave = orders.length > 0 ? orders : (lastKnownGoodOrders.length > 0 ? lastKnownGoodOrders : []);
     return {
         version: 1,
         cars: carsToSave,
         keys: keysToSave,
         bookings: bookingsToSave,
-        contacts: contactsToSave
+        contacts: contactsToSave,
+        orders: ordersToSave
     };
 }
 
@@ -254,6 +277,7 @@ function saveLocalSnapshot() {
     localStorage.setItem('urf_keys', JSON.stringify(keys));
     localStorage.setItem('urf_bookings', JSON.stringify(bookings));
     localStorage.setItem('urf_contacts', JSON.stringify(contacts));
+    localStorage.setItem('urf_orders', JSON.stringify(orders));
     // Always keep backups of non-empty data
     if (cars.length > 0) {
         localStorage.setItem('urf_cars_backup', JSON.stringify(cars));
@@ -270,6 +294,10 @@ function saveLocalSnapshot() {
     if (contacts.length > 0) {
         localStorage.setItem('urf_contacts_backup', JSON.stringify(contacts));
         lastKnownGoodContacts = contacts;
+    }
+    if (orders.length > 0) {
+        localStorage.setItem('urf_orders_backup', JSON.stringify(orders));
+        lastKnownGoodOrders = orders;
     }
 }
 
@@ -326,6 +354,14 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
             contacts = lastKnownGoodContacts;
         }
     }
+    if (Array.isArray(payload.orders)) {
+        if (payload.orders.length > 0) {
+            orders = normalizeOrders(payload.orders);
+            lastKnownGoodOrders = orders;  // Update backup on successful sync
+        } else if (orders.length === 0 && lastKnownGoodOrders.length > 0) {
+            orders = lastKnownGoodOrders;
+        }
+    }
     saveLocalSnapshot();
     if (remoteUpdatedAt) {
         setLocalUpdatedAt(new Date(remoteUpdatedAt).toISOString());
@@ -334,6 +370,7 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     renderKeys();
     renderBookingGrid();
     renderContacts();
+    renderOrders();
 }
 
 async function loadStateFromApi() {
@@ -1000,7 +1037,7 @@ function confirmReturnKey() {
 
 // Close modal
 function closeModal() {
-    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal'].forEach(id => {
+    ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal','newOrderModal'].forEach(id => {
         document.getElementById(id).classList.remove('show');
     });
     const notice = document.getElementById('borrowCarNotice');
@@ -1022,7 +1059,7 @@ function closeModal() {
 
 // Switch between tabs
 function switchTab(tabName) {
-    ['cars-section','keys-section','booking-section','contacts-section'].forEach(id => {
+    ['cars-section','keys-section','booking-section','contacts-section','orders-section'].forEach(id => {
         document.getElementById(id).classList.remove('active');
     });
     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -1041,6 +1078,10 @@ function switchTab(tabName) {
         document.getElementById('contacts-section').classList.add('active');
         document.querySelectorAll('.tab-button')[3].classList.add('active');
         renderContacts();
+    } else if (tabName === 'orders') {
+        document.getElementById('orders-section').classList.add('active');
+        document.querySelectorAll('.tab-button')[4].classList.add('active');
+        renderOrders();
     }
 }
 
@@ -1078,6 +1119,21 @@ function loadBookingsFromStorage() {
 }
 
 function saveContactsToStorage() {
+    persistState();
+}
+
+function loadOrdersFromStorage() {
+    const stored = localStorage.getItem('urf_orders');
+    const backup = localStorage.getItem('urf_orders_backup');
+    lastKnownGoodOrders = (backup ? normalizeOrders(JSON.parse(backup)) : []);
+    orders = stored ? normalizeOrders(JSON.parse(stored)) : [];
+    // If local is empty but backup has data, use backup as starting point
+    if (orders.length === 0 && lastKnownGoodOrders.length > 0) {
+        orders = lastKnownGoodOrders;
+    }
+}
+
+function saveOrdersToStorage() {
     persistState();
 }
 
@@ -1343,6 +1399,134 @@ function confirmCancelBooking() {
     closeModal();
 }
 
+// ---- Order (Inköpslista) functions ----
+
+function renderOrders() {
+    const container = document.getElementById('ordersContainer');
+    if (!container) return;
+
+    if (!orders.length) {
+        container.innerHTML = '<div class="order-row"><div class="order-col order-empty">Ingen beställning än</div></div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    orders.forEach(order => {
+        const row = document.createElement('div');
+        row.className = `order-row${order.completed ? ' order-completed' : ''}`;
+        
+        const deliveryText = order.deliveryType === 'asap' 
+            ? 'Levereras snarast'
+            : `Före ${order.deliveryTime}`;
+        
+        const createdDate = new Date(order.createdAt);
+        const createdTime = createdDate.toLocaleString('sv-SE', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit'
+        });
+
+        const completedClass = order.completed ? ' order-completed-text' : '';
+        
+        row.innerHTML = `
+            <div class="order-col order-article"><strong>${order.article}</strong></div>
+            <div class="order-col order-location">${order.location}</div>
+            <div class="order-col order-orderer">${order.orderer}</div>
+            <div class="order-col order-delivery">${deliveryText}</div>
+            <div class="order-col order-created">${createdTime}</div>
+            <div class="order-actions">
+                ${order.completed 
+                    ? '<span class="order-status-completed">✓ Levererad</span>' 
+                    : `<button class="order-complete-btn" onclick="markOrderCompleted(${order.id})">Markera</button>`
+                }
+                <button class="order-delete-btn" onclick="deleteOrder(${order.id})" aria-label="Ta bort beställning">X</button>
+            </div>
+        `;
+        container.appendChild(row);
+    });
+}
+
+function openNewOrderModal() {
+    document.getElementById('orderArticle').value = '';
+    document.getElementById('orderLocation').value = '';
+    document.getElementById('orderOrderer').value = '';
+    document.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
+        radio.checked = radio.value === 'asap';
+    });
+    document.getElementById('deliveryTimeGroup').style.display = 'none';
+    document.getElementById('orderDeliveryTime').value = '';
+    document.getElementById('newOrderModal').classList.add('show');
+    document.getElementById('orderArticle').focus();
+}
+
+function toggleDeliveryTime() {
+    const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
+    const timeGroup = document.getElementById('deliveryTimeGroup');
+    if (deliveryType === 'scheduled') {
+        timeGroup.style.display = 'block';
+        document.getElementById('orderDeliveryTime').focus();
+    } else {
+        timeGroup.style.display = 'none';
+        document.getElementById('orderDeliveryTime').value = '';
+    }
+}
+
+function confirmNewOrder() {
+    const article = document.getElementById('orderArticle').value.trim();
+    const location = document.getElementById('orderLocation').value.trim();
+    const orderer = document.getElementById('orderOrderer').value.trim();
+    const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
+    const deliveryTime = document.getElementById('orderDeliveryTime').value.trim();
+
+    if (!article) {
+        alert('Vänligen fyll i artikel!');
+        return;
+    }
+    if (!location) {
+        alert('Vänligen fyll i leveransplats!');
+        return;
+    }
+    if (!orderer) {
+        alert('Vänligen fyll i beställare!');
+        return;
+    }
+    if (deliveryType === 'scheduled' && !deliveryTime) {
+        alert('Vänligen fyll i klockslag!');
+        return;
+    }
+
+    orders.push({
+        id: Date.now(),
+        article,
+        location,
+        orderer,
+        deliveryType,
+        deliveryTime: deliveryType === 'scheduled' ? deliveryTime : '',
+        createdAt: new Date().toISOString(),
+        completed: false
+    });
+
+    saveOrdersToStorage();
+    renderOrders();
+    closeModal();
+}
+
+function markOrderCompleted(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+        order.completed = true;
+        saveOrdersToStorage();
+        renderOrders();
+    }
+}
+
+function deleteOrder(orderId) {
+    orders = orders.filter(order => order.id !== orderId);
+    saveOrdersToStorage();
+    renderOrders();
+}
+
 // Close modal when clicking outside
 document.addEventListener('click', (e) => {
     const borrowModal = document.getElementById('borrowModal');
@@ -1350,7 +1534,7 @@ document.addEventListener('click', (e) => {
     const borrowKeyModal = document.getElementById('borrowKeyModal');
     const returnKeyModal = document.getElementById('returnKeyModal');
     
-    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal'];
+    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal','newOrderModal'];
     if (modalIds.some(id => e.target === document.getElementById(id))) {
         closeModal();
     }
