@@ -543,10 +543,13 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     }
     if (Array.isArray(payload.orders)) {
         if (payload.orders.length > 0) {
-            const existingOrderIds = new Set(orders.map(order => String(order.id)));
             const normalizedRemoteOrders = normalizeOrders(payload.orders);
+            const localOrderIds = new Set(orders.map(order => String(order.id)));
+            const remoteOrderIds = new Set(normalizedRemoteOrders.map(order => String(order.id)));
+            
+            // Detect NEW orders from remote (not in local)
             const detectedNewOrderIds = normalizedRemoteOrders
-                .filter(order => !existingOrderIds.has(String(order.id)))
+                .filter(order => !localOrderIds.has(String(order.id)))
                 .map(order => String(order.id));
 
             newlySyncedOrderIds = new Set(detectedNewOrderIds);
@@ -555,7 +558,19 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
                 shouldPlayRemoteOrderSound = detectedNewOrderIds.length > 0;
             }
 
-            orders = normalizedRemoteOrders;
+            // Merge strategy: Keep local deletions, add new from remote, update existing
+            normalizedRemoteOrders.forEach(remoteOrder => {
+                const localIndex = orders.findIndex(o => String(o.id) === String(remoteOrder.id));
+                if (localIndex === -1) {
+                    // New order from remote - add it
+                    orders.push(remoteOrder);
+                } else if (!orders[localIndex].completed) {
+                    // Order exists locally and not completed - update with remote version
+                    orders[localIndex] = remoteOrder;
+                }
+                // If already completed locally, keep local version (don't override)
+            });
+
             lastKnownGoodOrders = orders;  // Update backup on successful sync
         } else if (orders.length === 0 && lastKnownGoodOrders.length > 0) {
             orders = lastKnownGoodOrders;
