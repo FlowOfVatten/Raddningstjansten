@@ -42,6 +42,7 @@ let currentEditCarId = null;
 let saveDebounceTimer = null;
 let pendingRemoteSave = false;
 let isRemoteSyncInProgress = false;
+let hasInitializedRemoteOrderNotifications = false;
 // Backups to prevent losing non-empty data via empty overwrites
 let lastKnownGoodCars = [];
 let lastKnownGoodKeys = [];
@@ -323,6 +324,8 @@ function persistState() {
 }
 
 function applyRemotePayload(payload, remoteUpdatedAt) {
+    let shouldPlayRemoteOrderSound = false;
+
     // Safeguard: Keep local/backup data if remote is empty, to avoid data loss
     if (Array.isArray(payload.cars)) {
         if (payload.cars.length > 0) {
@@ -358,10 +361,24 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     }
     if (Array.isArray(payload.orders)) {
         if (payload.orders.length > 0) {
-            orders = normalizeOrders(payload.orders);
+            const existingOrderIds = new Set(orders.map(order => String(order.id)));
+            const normalizedRemoteOrders = normalizeOrders(payload.orders);
+
+            if (hasInitializedRemoteOrderNotifications) {
+                const newRemoteOrdersCount = normalizedRemoteOrders.reduce((count, order) => {
+                    return existingOrderIds.has(String(order.id)) ? count : count + 1;
+                }, 0);
+                shouldPlayRemoteOrderSound = newRemoteOrdersCount > 0;
+            }
+
+            orders = normalizedRemoteOrders;
             lastKnownGoodOrders = orders;  // Update backup on successful sync
         } else if (orders.length === 0 && lastKnownGoodOrders.length > 0) {
             orders = lastKnownGoodOrders;
+        }
+
+        if (!hasInitializedRemoteOrderNotifications) {
+            hasInitializedRemoteOrderNotifications = true;
         }
     }
     saveLocalSnapshot();
@@ -373,6 +390,10 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     renderBookingGrid();
     renderContacts();
     renderOrders();
+
+    if (shouldPlayRemoteOrderSound) {
+        playOrderAddedSound();
+    }
 }
 
 async function loadStateFromApi() {
