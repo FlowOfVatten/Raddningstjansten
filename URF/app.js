@@ -172,12 +172,26 @@ function exportOrdersToExcel() {
         { wch: 20 }   // Leveranstid
     ];
 
-    // Apply wrap text to all cells explicitly
+    // Track row heights - need to expand rows with wrapped text
+    const rowHeights = [{ hpx: 30 }];  // Header row
+
+    // Apply wrap text to all cells and calculate row heights
     const range = XLSX.utils.decode_range(ws['!ref']);
     for (let row = range.s.r; row <= range.e.r; row++) {
+        let maxLines = 1;
+        
         for (let col = range.s.c; col <= range.e.c; col++) {
             const cellRef = XLSX.utils.encode_col(col) + (row + 1);
             if (!ws[cellRef]) ws[cellRef] = {};
+            
+            // Ensure it's treated as text
+            if (ws[cellRef].v !== undefined) {
+                const cellValue = String(ws[cellRef].v || '');
+                const lines = cellValue.split('\n').length;
+                maxLines = Math.max(maxLines, lines);
+            }
+            
+            // Set cell formatting
             if (!ws[cellRef].s) ws[cellRef].s = {};
             ws[cellRef].s.alignment = { 
                 wrapText: true, 
@@ -185,10 +199,15 @@ function exportOrdersToExcel() {
                 horizontal: 'left'
             };
         }
+        
+        // Set row height based on number of lines (skip header row)
+        if (row > 0) {
+            const height = Math.max(15, maxLines * 15);  // 15 pixels per line
+            rowHeights.push({ hpx: height });
+        }
     }
-
-    // Set header row height
-    ws['!rows'] = [{ hpx: 30 }];
+    
+    ws['!rows'] = rowHeights;
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Beställningar');
@@ -1756,7 +1775,9 @@ function playOrderAddedSound() {
 }
 
 function confirmNewOrder() {
-    const article = document.getElementById('orderArticle').value.trim();
+    // For article, only trim leading/trailing whitespace but preserve internal line breaks
+    const article = document.getElementById('orderArticle').value
+        .replace(/^\s+|\s+$/g, '');  // Remove only leading/trailing whitespace, keep internal newlines
     const location = document.getElementById('orderLocation').value.trim();
     const orderer = document.getElementById('orderOrderer').value.trim();
     const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
