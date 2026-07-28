@@ -23,6 +23,7 @@ const REMOTE_REQUEST_TIMEOUT_MS = 8000;
 const REMOTE_STARTUP_RETRIES = 8;
 const REMOTE_RETRY_DELAY_MS = 5000;
 const REMOTE_BACKGROUND_SYNC_MS = 60000;
+const ORDER_ADDED_SOUND_URL = window.URF_ORDER_SOUND_URL || 'https://cdn.freesound.org/previews/44/44703_14771-lq.mp3';
 
 let cars = [];
 let keys = [];
@@ -1533,6 +1534,23 @@ function toggleDeliveryTime() {
     }
 }
 
+function playOrderAddedSound() {
+    if (!ORDER_ADDED_SOUND_URL) return;
+
+    try {
+        const audio = new Audio(ORDER_ADDED_SOUND_URL);
+        audio.volume = 0.9;
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(error => {
+                console.warn('URF: kunde inte spela upp beställningsljud.', error);
+            });
+        }
+    } catch (error) {
+        console.warn('URF: kunde inte initiera beställningsljud.', error);
+    }
+}
+
 function confirmNewOrder() {
     const article = document.getElementById('orderArticle').value.trim();
     const location = document.getElementById('orderLocation').value.trim();
@@ -1570,6 +1588,7 @@ function confirmNewOrder() {
 
     saveOrdersToStorage();
     renderOrders();
+    playOrderAddedSound();
     closeModal();
 }
 
