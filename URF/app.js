@@ -1898,6 +1898,138 @@ function deleteOrder(orderId) {
     saveStateToApi();
 }
 
+// ===== BAR ORDER FUNCTIONS =====
+let barProducts = [];  // Store bar products while modal is open
+
+function openBarOrderModal() {
+    document.getElementById('barOrderer').value = '';
+    document.getElementById('barLocation').value = '';
+    barProducts = [{ product: '', quantity: '' }];  // Start with one empty row
+    document.querySelectorAll('input[name="barDeliveryType"]').forEach(radio => {
+        radio.checked = radio.value === 'asap';
+    });
+    document.getElementById('barDeliveryTimeGroup').style.display = 'none';
+    document.getElementById('barDeliveryTime').value = '';
+    renderBarProductRows();
+    document.getElementById('barOrderModal').classList.add('show');
+    document.getElementById('barOrderer').focus();
+}
+
+function renderBarProductRows() {
+    const container = document.getElementById('barProductsContainer');
+    container.innerHTML = '';
+    
+    barProducts.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'bar-product-row';
+        row.innerHTML = `
+            <input 
+                type="text" 
+                class="bar-product-name" 
+                placeholder="Produkt (ex: Öl, Cider, Vin)" 
+                value="${item.product}"
+                onchange="barProducts[${index}].product = this.value"
+            >
+            <input 
+                type="number" 
+                class="bar-product-quantity" 
+                placeholder="Antal" 
+                value="${item.quantity}"
+                onchange="barProducts[${index}].quantity = this.value"
+                min="1"
+            >
+            <button type="button" class="btn-remove-product" onclick="removeBarProductRow(${index})">🗑️</button>
+        `;
+        container.appendChild(row);
+    });
+}
+
+function addBarProductRow() {
+    barProducts.push({ product: '', quantity: '' });
+    renderBarProductRows();
+    // Focus on the new product name input
+    const inputs = document.querySelectorAll('.bar-product-name');
+    if (inputs.length > 0) {
+        inputs[inputs.length - 1].focus();
+    }
+}
+
+function removeBarProductRow(index) {
+    barProducts.splice(index, 1);
+    if (barProducts.length === 0) {
+        barProducts.push({ product: '', quantity: '' });
+    }
+    renderBarProductRows();
+}
+
+function toggleBarDeliveryTime() {
+    const deliveryType = document.querySelector('input[name="barDeliveryType"]:checked').value;
+    const timeGroup = document.getElementById('barDeliveryTimeGroup');
+    if (deliveryType === 'scheduled') {
+        timeGroup.style.display = 'block';
+        document.getElementById('barDeliveryTime').focus();
+    } else {
+        timeGroup.style.display = 'none';
+        document.getElementById('barDeliveryTime').value = '';
+    }
+}
+
+function confirmBarOrder() {
+    const orderer = document.getElementById('barOrderer').value.trim();
+    const location = document.getElementById('barLocation').value.trim();
+    const deliveryType = document.querySelector('input[name="barDeliveryType"]:checked').value;
+    const deliveryTime = document.getElementById('barDeliveryTime').value.trim();
+
+    if (!orderer) {
+        alert('Vänligen fyll i beställare!');
+        return;
+    }
+    if (!location) {
+        alert('Vänligen fyll i leveransplats!');
+        return;
+    }
+
+    // Validate that at least one product is entered
+    const hasProducts = barProducts.some(p => p.product.trim() && p.quantity);
+    if (!hasProducts) {
+        alert('Vänligen lägg till minst en produkt!');
+        return;
+    }
+
+    if (deliveryType === 'scheduled' && !deliveryTime) {
+        alert('Vänligen fyll i klockslag!');
+        return;
+    }
+
+    // Build article text from products
+    const articleLines = barProducts
+        .filter(p => p.product.trim() && p.quantity)
+        .map(p => `${p.quantity}x ${p.product.trim()}`)
+        .join('\n');
+
+    if (!articleLines) {
+        alert('Vänligen lägg till minst en produkt!');
+        return;
+    }
+
+    orders.push({
+        id: Date.now(),
+        article: articleLines,
+        location,
+        orderer,
+        deliveryType,
+        deliveryTime: deliveryType === 'scheduled' ? deliveryTime : '',
+        createdAt: new Date().toISOString(),
+        completed: false
+    });
+
+    saveOrdersToStorage();
+    renderOrders();
+    playOrderAddedSound();
+    saveStateToApi();  // Immediate sync to database
+    closeModal();
+}
+
 // Close modal when clicking outside
 document.addEventListener('click', (e) => {
     const borrowModal = document.getElementById('borrowModal');
@@ -1905,7 +2037,7 @@ document.addEventListener('click', (e) => {
     const borrowKeyModal = document.getElementById('borrowKeyModal');
     const returnKeyModal = document.getElementById('returnKeyModal');
     
-    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal','newOrderModal'];
+    const modalIds = ['borrowModal','returnModal','borrowKeyModal','returnKeyModal','newBookingModal','cancelBookingModal','newContactModal','newCarModal','deleteCarModal','newOrderModal','barOrderModal'];
     if (modalIds.some(id => e.target === document.getElementById(id))) {
         closeModal();
     }

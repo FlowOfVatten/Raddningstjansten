@@ -1256,6 +1256,88 @@ header .subtitle.subtitle-tagline {
     height: 18px;
 }
 
+/* ---- Bar Order Styles ---- */
+
+.bar-products-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.bar-product-row {
+    display: grid;
+    grid-template-columns: 1fr 100px auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.bar-product-name {
+    padding: 10px 12px;
+    border: 2px solid #ce1126;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+.bar-product-name:focus {
+    outline: none;
+    border-color: #007a5e;
+    background: #f0f8f5;
+}
+
+.bar-product-quantity {
+    padding: 10px 12px;
+    border: 2px solid #ce1126;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-family: Arial, sans-serif;
+    color: #333;
+    text-align: center;
+}
+
+.bar-product-quantity:focus {
+    outline: none;
+    border-color: #007a5e;
+    background: #f0f8f5;
+}
+
+.btn-remove-product {
+    width: 36px;
+    height: 36px;
+    border: 2px solid #ce1126;
+    border-radius: 6px;
+    background: #fff;
+    color: #ce1126;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-remove-product:hover {
+    background: #ce1126;
+    color: #fff;
+}
+
+.btn-add-product {
+    padding: 10px 16px;
+    border: 2px dashed #007a5e;
+    border-radius: 6px;
+    background: #f0f8f5;
+    color: #007a5e;
+    font-weight: bold;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-add-product:hover {
+    background: #007a5e;
+    color: #fff;
+    border-color: #007a5e;
+}
+
 @media (max-width: 1000px) {
     .order-row {
         grid-template-columns: 1fr 0.9fr auto;
@@ -1274,6 +1356,22 @@ header .subtitle.subtitle-tagline {
     .order-row {
         grid-template-columns: 1fr auto;
         gap: 8px;
+    }
+
+    .bar-product-row {
+        grid-template-columns: 1fr 60px auto;
+        gap: 8px;
+    }
+
+    .bar-product-name,
+    .bar-product-quantity {
+        font-size: 0.85em;
+        padding: 8px 10px;
+    }
+
+    .btn-remove-product {
+        width: 32px;
+        height: 32px;
     }
 }
 

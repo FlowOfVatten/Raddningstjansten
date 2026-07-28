@@ -77,6 +77,7 @@
             </main>
             <div class="list-actions">
                 <button class="add-row-button" onclick="openNewOrderModal()">Ny beställning</button>
+                <button class="add-row-button" onclick="openBarOrderModal()">🍺 Bar Beställning</button>
                 <!-- <button class="add-row-button" onclick="exportOrdersToExcel()">📋 Log</button> -->
             </div>
         </section>
@@ -275,6 +276,49 @@
             </div>
             <div class="modal-buttons">
                 <button class="btn-ok" onclick="confirmNewOrder()">Lägg till</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up för bar beställning -->
+    <div id="barOrderModal" class="modal">
+        <div class="modal-content">
+            <h2>🍺 Bar Beställning</h2>
+            <div class="form-group">
+                <label for="barOrderer">Beställare:</label>
+                <input type="text" id="barOrderer" placeholder="Vem beställer?">
+            </div>
+            <div class="form-group">
+                <label for="barLocation">Levereras till plats:</label>
+                <input type="text" id="barLocation" placeholder="Var ska det levereras?">
+            </div>
+            <div class="form-group">
+                <label>Produkter:</label>
+                <div id="barProductsContainer" class="bar-products-container">
+                    <!-- Produktrader läggs till här dynamiskt -->
+                </div>
+                <button type="button" class="btn-add-product" onclick="addBarProductRow()">+ Lägg till produkt</button>
+            </div>
+            <div class="form-group">
+                <label>Leverans:</label>
+                <div class="order-delivery-options">
+                    <label class="radio-option">
+                        <input type="radio" name="barDeliveryType" value="asap" checked onchange="toggleBarDeliveryTime()">
+                        Levereras snarast
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="barDeliveryType" value="scheduled" onchange="toggleBarDeliveryTime()">
+                        Före klockslag
+                    </label>
+                </div>
+            </div>
+            <div id="barDeliveryTimeGroup" class="form-group" style="display:none;">
+                <label for="barDeliveryTime">Klockslag:</label>
+                <input type="time" id="barDeliveryTime" placeholder="HH:MM">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmBarOrder()">Lägg till</button>
                 <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
             </div>
         </div>
