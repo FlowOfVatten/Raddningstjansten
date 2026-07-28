@@ -30,6 +30,7 @@ let keys = [];
 let bookings = [];
 let contacts = [];
 let orders = [];
+let completedOrdersHistory = [];
 let currentBookingDay = 'friday';
 let currentBookingHour = null;
 let currentBookingCarId = null;
@@ -99,6 +100,88 @@ function updateBorrowerNamesList() {
     datalist.innerHTML = names
         .map(name => `<option value="${name}"></option>`)
         .join('');
+}
+
+// Load completed orders history from localStorage
+function loadCompletedOrdersHistory() {
+    const stored = localStorage.getItem('urf_completed_orders_history');
+    if (stored) {
+        try {
+            completedOrdersHistory = JSON.parse(stored);
+        } catch (e) {
+            completedOrdersHistory = [];
+        }
+    } else {
+        completedOrdersHistory = [];
+    }
+}
+
+// Save completed orders history to localStorage
+function saveCompletedOrdersHistory() {
+    localStorage.setItem('urf_completed_orders_history', JSON.stringify(completedOrdersHistory));
+}
+
+// Export completed orders to CSV/Excel
+function exportOrdersToExcel() {
+    if (completedOrdersHistory.length === 0) {
+        alert('Ingen levererad beställning att exportera ännu.');
+        return;
+    }
+
+    // Prepare CSV data
+    const headers = ['Artikel', 'Plats', 'Beställare', 'Beställtid', 'Leveranstid'];
+    const rows = completedOrdersHistory.map(order => {
+        const createdDate = new Date(order.createdAt);
+        const createdTime = createdDate.toLocaleString('sv-SE', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        
+        const completedDate = new Date(order.completedAt || order.deletedAt);
+        const completedTime = completedDate.toLocaleString('sv-SE', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
+        // Escape quotes and handle multiline content
+        const article = String(order.article || '').replace(/"/g, '""');
+        const location = String(order.location || '').replace(/"/g, '""');
+        const orderer = String(order.orderer || '').replace(/"/g, '""');
+
+        return [
+            `"${article}"`,
+            `"${location}"`,
+            `"${orderer}"`,
+            `"${createdTime}"`,
+            `"${completedTime}"`
+        ].join(',');
+    });
+
+    // Create CSV content
+    const csvContent = [
+        headers.join(','),
+        ...rows
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const now = new Date();
+    const filename = `Beställningslogg_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.csv`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function formatSyncTime(ts) {
@@ -194,6 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBookingsFromStorage();
     loadContactsFromStorage();
     loadOrdersFromStorage();
+    loadCompletedOrdersHistory();
 
     renderCars();
     renderKeys();
@@ -1698,12 +1782,32 @@ function markOrderCompleted(orderId) {
     const order = orders.find(o => o.id === orderId);
     if (order) {
         order.completed = true;
+        order.completedAt = new Date().toISOString();
+        // Save to history
+        const historyEntry = {
+            ...order,
+            savedToHistoryAt: new Date().toISOString()
+        };
+        completedOrdersHistory.push(historyEntry);
         saveOrdersToStorage();
+        saveCompletedOrdersHistory();
         renderOrders();
     }
 }
 
 function deleteOrder(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    // If order is completed, save to history before deletion
+    if (order && order.completed) {
+        const historyEntry = {
+            ...order,
+            deletedAt: new Date().toISOString()
+        };
+        if (!completedOrdersHistory.find(h => h.id === order.id)) {
+            completedOrdersHistory.push(historyEntry);
+            saveCompletedOrdersHistory();
+        }
+    }
     orders = orders.filter(order => order.id !== orderId);
     saveOrdersToStorage();
     renderOrders();
