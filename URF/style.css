@@ -1138,6 +1138,13 @@ header .subtitle.subtitle-tagline {
     word-break: break-word;
 }
 
+.order-suggested-store {
+    margin-top: 6px;
+    color: #2d5a3d;
+    font-size: 0.9em;
+    font-style: italic;
+}
+
 .order-new-badge {
     display: inline-block;
     margin-left: 8px;

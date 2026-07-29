@@ -449,6 +449,7 @@ function normalizeOrders(ordersList) {
         article: String(order?.article || ''),
         location: String(order?.location || ''),
         orderer: String(order?.orderer || ''),
+        suggestedStore: String(order?.suggestedStore || ''),
         deliveryType: (order?.deliveryType === 'asap' || order?.deliveryType === 'scheduled') ? order.deliveryType : 'asap',
         deliveryTime: String(order?.deliveryTime || ''),
         createdAt: String(order?.createdAt || new Date().toISOString()),
@@ -1747,6 +1748,9 @@ function renderOrders() {
         const row = document.createElement('div');
         row.className = `order-row${order.completed ? ' order-completed' : ''}`;
         const isNewSyncedOrder = newlySyncedOrderIds.has(String(order.id));
+        const suggestedStoreHtml = order.suggestedStore
+            ? `<div class="order-suggested-store">Rek. inköpsställe: ${order.suggestedStore}</div>`
+            : '';
         
         const deliveryText = order.deliveryType === 'asap' 
             ? 'Levereras snarast'
@@ -1763,7 +1767,7 @@ function renderOrders() {
         const completedClass = order.completed ? ' order-completed-text' : '';
         
         row.innerHTML = `
-            <div class="order-col order-article"><strong>${order.article}</strong>${isNewSyncedOrder ? '<span class="order-new-badge">Ny</span>' : ''}</div>
+            <div class="order-col order-article"><strong>${order.article}</strong>${isNewSyncedOrder ? '<span class="order-new-badge">Ny</span>' : ''}${suggestedStoreHtml}</div>
             <div class="order-col order-location">${order.location}</div>
             <div class="order-col order-orderer">${order.orderer}</div>
             <div class="order-col order-delivery">${deliveryText}</div>
@@ -1784,6 +1788,7 @@ function openNewOrderModal() {
     document.getElementById('orderArticle').value = '';
     document.getElementById('orderLocation').value = '';
     document.getElementById('orderOrderer').value = '';
+    document.getElementById('orderSuggestedStore').value = '';
     document.querySelectorAll('input[name="deliveryType"]').forEach(radio => {
         radio.checked = radio.value === 'asap';
     });
@@ -1828,6 +1833,7 @@ function confirmNewOrder() {
         .replace(/^\s+|\s+$/g, '');  // Remove only leading/trailing whitespace, keep internal newlines
     const location = document.getElementById('orderLocation').value.trim();
     const orderer = document.getElementById('orderOrderer').value.trim();
+    const suggestedStore = document.getElementById('orderSuggestedStore').value.trim();
     const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
     const deliveryTime = document.getElementById('orderDeliveryTime').value.trim();
 
@@ -1853,6 +1859,7 @@ function confirmNewOrder() {
         article,
         location,
         orderer,
+        suggestedStore,
         deliveryType,
         deliveryTime: deliveryType === 'scheduled' ? deliveryTime : '',
         createdAt: new Date().toISOString(),
@@ -2024,6 +2031,7 @@ function confirmBarOrder() {
         article: articleLines,
         location,
         orderer,
+        suggestedStore: '',
         deliveryType,
         deliveryTime: deliveryType === 'scheduled' ? deliveryTime : '',
         createdAt: new Date().toISOString(),
