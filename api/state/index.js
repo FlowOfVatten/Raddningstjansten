@@ -11,6 +11,21 @@ function resolveConnectionString(secretName = 'SQL_CONNECTION_STRING') {
   ).trim();
 }
 
+function forceDatabaseInConnectionString(connectionString, databaseName) {
+  if (!connectionString) return '';
+
+  if (/Initial Catalog\s*=\s*[^;]+/i.test(connectionString)) {
+    return connectionString.replace(/Initial Catalog\s*=\s*[^;]+/i, `Initial Catalog=${databaseName}`);
+  }
+
+  if (/Database\s*=\s*[^;]+/i.test(connectionString)) {
+    return connectionString.replace(/Database\s*=\s*[^;]+/i, `Database=${databaseName}`);
+  }
+
+  const suffix = connectionString.endsWith(';') ? '' : ';';
+  return `${connectionString}${suffix}Initial Catalog=${databaseName};`;
+}
+
 function getPool() {
   const connectionString = resolveConnectionString();
   console.log('[URF-API] Attempting SQL connection. String length:', connectionString.length);
@@ -56,7 +71,8 @@ module.exports = async function (context, req) {
   // Debug endpoint
   if (req.query.debug === 'true') {
     const mainConnStr = resolveConnectionString('SQL_CONNECTION_STRING');
-    const urfConnStr = resolveConnectionString('SQL_CONNECTION_STRING_URF');
+    const urfConnStrFromSecret = resolveConnectionString('SQL_CONNECTION_STRING_URF');
+    const urfConnStr = urfConnStrFromSecret || forceDatabaseInConnectionString(mainConnStr, 'urf');
 
     const maskConnectionString = (connStr) => 
       connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
@@ -76,7 +92,8 @@ module.exports = async function (context, req) {
             probe: mainProbe
           },
           SQL_CONNECTION_STRING_URF: {
-            exists: !!process.env.SQL_CONNECTION_STRING_URF,
+            exists: !!urfConnStrFromSecret,
+            source: urfConnStrFromSecret ? 'SQL_CONNECTION_STRING_URF' : 'derived-from-SQL_CONNECTION_STRING',
             masked: maskConnectionString(urfConnStr),
             length: urfConnStr.length,
             probe: urfProbe
