@@ -15,10 +15,18 @@ function resolveConnectionString() {
 function getPool() {
   if (!poolPromise) {
     const connectionString = resolveConnectionString();
+    console.log('[URF-API] Attempting SQL connection. String length:', connectionString.length);
+    console.log('[URF-API] SQL_CONNECTION_STRING_URF exists:', !!process.env.SQL_CONNECTION_STRING_URF);
+    console.log('[URF-API] SQL_CONNECTION_STRING exists:', !!process.env.SQL_CONNECTION_STRING);
+    
     if (!connectionString) {
-      throw new Error('Missing SQL connection string. Set SQL_CONNECTION_STRING in Static Web App application settings.');
+      throw new Error('Missing SQL connection string. Set SQL_CONNECTION_STRING_URF or SQL_CONNECTION_STRING in Static Web App application settings.');
     }
-    poolPromise = sql.connect(connectionString);
+    
+    poolPromise = sql.connect(connectionString).catch(err => {
+      console.error('[URF-API] SQL Connection Error:', err.message);
+      throw err;
+    });
   }
   return poolPromise;
 }
