@@ -45,11 +45,13 @@ function getPool(stateId) {
   }
 
   if (!poolPromises.has(connectionString)) {
-    const promise = sql.connect(connectionString).catch(err => {
+    const promise = new sql.ConnectionPool(connectionString)
+      .connect()
+      .catch(err => {
       console.error('[URF-API] SQL Connection Error:', err.message);
       poolPromises.delete(connectionString);
       throw err;
-    });
+      });
     poolPromises.set(connectionString, promise);
   }
 
@@ -65,6 +67,18 @@ module.exports = async function (context, req) {
     const urfConnStr = resolveConnectionString('urf:lending:state:v1');
     const masked = connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
     const maskedUrf = urfConnStr ? urfConnStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
+
+    let urfProbe = { ok: false, message: 'not-run' };
+    if (req.query.probe === 'true') {
+      try {
+        const probePool = await getPool('urf:lending:state:v1');
+        await probePool.request().query('SELECT 1 AS ok');
+        urfProbe = { ok: true, message: 'connected' };
+      } catch (probeError) {
+        urfProbe = { ok: false, message: probeError.message };
+      }
+    }
+
     return {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -75,7 +89,8 @@ module.exports = async function (context, req) {
           maskedConnectionString: masked,
           connectionStringLength: connStr.length,
           maskedUrfConnectionString: maskedUrf,
-          urfConnectionStringLength: urfConnStr.length
+          urfConnectionStringLength: urfConnStr.length,
+          urfProbe
         }
       }
     };
