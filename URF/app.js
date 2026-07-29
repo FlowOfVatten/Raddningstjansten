@@ -1780,7 +1780,7 @@ function renderOrders() {
             <div class="order-actions">
                 ${order.completed 
                     ? '<span class="order-status-completed">✓ Levererad</span>' 
-                    : `<button class="order-complete-btn" onclick="markOrderCompleted(${order.id})">Markera</button><button class="order-claim-btn" onclick="openClaimOrderModal(${order.id})" ${order.claimedBy ? 'title="Kvitterat av ' + order.claimedBy + '"' : ''}>Kvittera</button>`
+                    : `<button class="order-complete-btn" onclick="markOrderCompleted(${order.id})">Levererad</button><button class="order-claim-btn" onclick="openClaimOrderModal(${order.id})" ${order.claimedBy ? 'title="Kvitterat av ' + order.claimedBy + '"' : ''}>Kvittera</button>`
                 }
                 <button class="order-delete-btn" onclick="deleteOrder(${order.id})" aria-label="Ta bort beställning">X</button>
             </div>
