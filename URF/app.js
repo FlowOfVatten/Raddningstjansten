@@ -52,7 +52,6 @@ let lastKnownGoodCars = [];
 let lastKnownGoodKeys = [];
 let lastKnownGoodBookings = [];
 let lastKnownGoodContacts = [];
-let lastKnownGoodOrders = [];
 
 function ensureLocalCacheSchema() {
     const currentSchema = localStorage.getItem(LOCAL_CACHE_SCHEMA_KEY);
@@ -498,10 +497,7 @@ function saveLocalSnapshot() {
         localStorage.setItem('urf_contacts_backup', JSON.stringify(contacts));
         lastKnownGoodContacts = contacts;
     }
-    if (orders.length > 0) {
-        localStorage.setItem('urf_orders_backup', JSON.stringify(orders));
-        lastKnownGoodOrders = orders;
-    }
+    localStorage.removeItem('urf_orders_backup');
 }
 
 function scheduleRemoteSave() {
@@ -605,12 +601,8 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
                 // Remove - was deleted from remote and not completed locally
                 return false;
             });
-
-            lastKnownGoodOrders = orders;  // Update backup on successful sync
-        } else if (orders.length === 0 && lastKnownGoodOrders.length > 0) {
-            orders = lastKnownGoodOrders;
-            newlySyncedOrderIds = new Set();
         } else {
+            orders = [];
             newlySyncedOrderIds = new Set();
         }
 
@@ -1469,13 +1461,8 @@ function saveContactsToStorage() {
 
 function loadOrdersFromStorage() {
     const stored = localStorage.getItem('urf_orders');
-    const backup = localStorage.getItem('urf_orders_backup');
-    lastKnownGoodOrders = (backup ? normalizeOrders(JSON.parse(backup)) : []);
     orders = stored ? normalizeOrders(JSON.parse(stored)) : [];
-    // If local is empty but backup has data, use backup as starting point
-    if (orders.length === 0 && lastKnownGoodOrders.length > 0) {
-        orders = lastKnownGoodOrders;
-    }
+    localStorage.removeItem('urf_orders_backup');
 }
 
 function saveOrdersToStorage() {
