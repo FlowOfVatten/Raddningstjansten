@@ -18,7 +18,9 @@ const KEYS_DATA = [
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2];
 const API_BASE_URL = (window.URF_API_BASE_URL || '').replace(/\/$/, '');
 const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
-const STATE_ID = 'urf:lending:state:v2';
+const STATE_ID = 'urf:lending:state:v3';
+const LOCAL_CACHE_SCHEMA_KEY = 'urfSchemaVersion';
+const LOCAL_CACHE_SCHEMA_VERSION = 'v3-clean-start';
 const REMOTE_REQUEST_TIMEOUT_MS = 8000;
 const REMOTE_STARTUP_RETRIES = 8;
 const REMOTE_RETRY_DELAY_MS = 5000;
@@ -51,6 +53,19 @@ let lastKnownGoodKeys = [];
 let lastKnownGoodBookings = [];
 let lastKnownGoodContacts = [];
 let lastKnownGoodOrders = [];
+
+function ensureLocalCacheSchema() {
+    const currentSchema = localStorage.getItem(LOCAL_CACHE_SCHEMA_KEY);
+    if (currentSchema === LOCAL_CACHE_SCHEMA_VERSION) {
+        return;
+    }
+
+    Object.keys(localStorage)
+        .filter(key => key.startsWith('urf_'))
+        .forEach(key => localStorage.removeItem(key));
+
+    localStorage.setItem(LOCAL_CACHE_SCHEMA_KEY, LOCAL_CACHE_SCHEMA_VERSION);
+}
 
 // Get all unique borrower names from cars and keys history (including past borrowers)
 function getHistoricalBorrowerNames() {
@@ -319,6 +334,8 @@ async function handleRefreshSync() {
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
+    ensureLocalCacheSchema();
+
     loadCarsFromStorage();
     loadKeysFromStorage();
     loadBookingsFromStorage();
