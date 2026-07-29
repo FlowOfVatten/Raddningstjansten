@@ -2,55 +2,31 @@ const sql = require('mssql');
 
 const poolPromises = new Map();
 
-function isUrfStateId(stateId) {
-  return typeof stateId === 'string' && stateId.startsWith('urf:');
-}
-
-function forceDatabaseInConnectionString(connectionString, databaseName) {
-  if (!connectionString) return '';
-
-  if (/Initial\s+Catalog\s*=/i.test(connectionString)) {
-    return connectionString.replace(/Initial\s+Catalog\s*=\s*[^;]*/i, `Initial Catalog=${databaseName}`);
-  }
-
-  return `${connectionString};Initial Catalog=${databaseName}`;
-}
-
-function resolveConnectionString(stateId) {
-  const baseConnectionString = (
-    process.env.SQL_CONNECTION_STRING_URF ||
+function resolveConnectionString() {
+  return (
     process.env.SQL_CONNECTION_STRING ||
     process.env.SQLAZURECONNSTR_SQL_CONNECTION_STRING ||
     process.env.SQLCONNSTR_SQL_CONNECTION_STRING ||
     ''
   ).trim();
-
-  // Keep other apps on default DB, but route URF state to the dedicated URF DB.
-  if (isUrfStateId(stateId)) {
-    return forceDatabaseInConnectionString(baseConnectionString, 'urf');
-  }
-
-  return baseConnectionString;
 }
 
-function getPool(stateId) {
-  const connectionString = resolveConnectionString(stateId);
+function getPool() {
+  const connectionString = resolveConnectionString();
   console.log('[URF-API] Attempting SQL connection. String length:', connectionString.length);
-  console.log('[URF-API] SQL_CONNECTION_STRING_URF exists:', !!process.env.SQL_CONNECTION_STRING_URF);
   console.log('[URF-API] SQL_CONNECTION_STRING exists:', !!process.env.SQL_CONNECTION_STRING);
-  console.log('[URF-API] Is URF state:', isUrfStateId(stateId));
 
   if (!connectionString) {
-    throw new Error('Missing SQL connection string. Set SQL_CONNECTION_STRING_URF or SQL_CONNECTION_STRING in Static Web App application settings.');
+    throw new Error('Missing SQL connection string. Set SQL_CONNECTION_STRING in Static Web App application settings.');
   }
 
   if (!poolPromises.has(connectionString)) {
     const promise = new sql.ConnectionPool(connectionString)
       .connect()
       .catch(err => {
-      console.error('[URF-API] SQL Connection Error:', err.message);
-      poolPromises.delete(connectionString);
-      throw err;
+        console.error('[URF-API] SQL Connection Error:', err.message);
+        poolPromises.delete(connectionString);
+        throw err;
       });
     poolPromises.set(connectionString, promise);
   }
@@ -63,18 +39,16 @@ module.exports = async function (context, req) {
 
   // Debug endpoint
   if (req.query.debug === 'true') {
-    const connStr = resolveConnectionString(req.query.id);
-    const urfConnStr = resolveConnectionString('urf:lending:state:v1');
+    const connStr = resolveConnectionString();
     const masked = connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
-    const maskedUrf = urfConnStr ? urfConnStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
 
-    let urfProbe;
+    let probe;
     try {
-      const probePool = await getPool('urf:lending:state:v1');
+      const probePool = await getPool();
       await probePool.request().query('SELECT 1 AS ok');
-      urfProbe = { ok: true, message: 'connected' };
+      probe = { ok: true, message: 'connected' };
     } catch (probeError) {
-      urfProbe = {
+      probe = {
         ok: false,
         message: probeError.message,
         code: probeError.code || null,
@@ -93,13 +67,10 @@ module.exports = async function (context, req) {
       headers: { 'Content-Type': 'application/json' },
       body: {
         debug: {
-          SQL_CONNECTION_STRING_URF: !!process.env.SQL_CONNECTION_STRING_URF,
           SQL_CONNECTION_STRING: !!process.env.SQL_CONNECTION_STRING,
           maskedConnectionString: masked,
           connectionStringLength: connStr.length,
-          maskedUrfConnectionString: maskedUrf,
-          urfConnectionStringLength: urfConnStr.length,
-          urfProbe
+          probe
         }
       }
     };
@@ -116,7 +87,7 @@ module.exports = async function (context, req) {
     }
 
     try {
-      const pool = await getPool(id);
+      const pool = await getPool();
       const result = await pool.request()
         .input('id', sql.NVarChar(200), id)
         .query('SELECT payload, updated_at FROM app_state WHERE id = @id');
@@ -161,7 +132,7 @@ module.exports = async function (context, req) {
     const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
 
     try {
-      const pool = await getPool(id);
+      const pool = await getPool();
       await pool.request()
         .input('id', sql.NVarChar(200), id)
         .input('payload', sql.NVarChar(sql.MAX), payloadStr)
