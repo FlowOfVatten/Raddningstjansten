@@ -450,6 +450,8 @@ function normalizeOrders(ordersList) {
         location: String(order?.location || ''),
         orderer: String(order?.orderer || ''),
         suggestedStore: String(order?.suggestedStore || ''),
+        claimedBy: String(order?.claimedBy || ''),
+        claimedAt: String(order?.claimedAt || ''),
         deliveryType: (order?.deliveryType === 'asap' || order?.deliveryType === 'scheduled') ? order.deliveryType : 'asap',
         deliveryTime: String(order?.deliveryTime || ''),
         createdAt: String(order?.createdAt || new Date().toISOString()),
@@ -1765,9 +1767,12 @@ function renderOrders() {
         });
 
         const completedClass = order.completed ? ' order-completed-text' : '';
+        const claimedStatusHtml = order.claimedBy
+            ? `<div class="order-claimed-status">${order.claimedBy} jobbar med denna</div>`
+            : '';
         
         row.innerHTML = `
-            <div class="order-col order-article"><strong>${order.article}</strong>${isNewSyncedOrder ? '<span class="order-new-badge">Ny</span>' : ''}${suggestedStoreHtml}</div>
+            <div class="order-col order-article"><strong>${order.article}</strong>${isNewSyncedOrder ? '<span class="order-new-badge">Ny</span>' : ''}${suggestedStoreHtml}${claimedStatusHtml}</div>
             <div class="order-col order-location">${order.location}</div>
             <div class="order-col order-orderer">${order.orderer}</div>
             <div class="order-col order-delivery">${deliveryText}</div>
@@ -1775,7 +1780,7 @@ function renderOrders() {
             <div class="order-actions">
                 ${order.completed 
                     ? '<span class="order-status-completed">✓ Levererad</span>' 
-                    : `<button class="order-complete-btn" onclick="markOrderCompleted(${order.id})">Markera</button>`
+                    : `<button class="order-complete-btn" onclick="markOrderCompleted(${order.id})">Markera</button><button class="order-claim-btn" onclick="openClaimOrderModal(${order.id})" ${order.claimedBy ? 'title="Kvitterat av ' + order.claimedBy + '"' : ''}>Kvittera</button>`
                 }
                 <button class="order-delete-btn" onclick="deleteOrder(${order.id})" aria-label="Ta bort beställning">X</button>
             </div>
@@ -1869,6 +1874,56 @@ function confirmNewOrder() {
     saveOrdersToStorage();
     renderOrders();
     closeModal();
+}
+
+function openClaimOrderModal(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    document.getElementById('claimedOrderId').value = orderId;
+    document.getElementById('claimOrderName').value = order.claimedBy || '';
+    updateClaimerNamesList();
+    document.getElementById('claimOrderModal').classList.add('show');
+    document.getElementById('claimOrderName').focus();
+}
+
+function getHistoricalClaimerNames() {
+    const names = new Set();
+    orders.forEach(order => {
+        if (order.claimedBy && String(order.claimedBy).trim()) {
+            names.add(String(order.claimedBy).trim());
+        }
+    });
+    return Array.from(names).sort();
+}
+
+function updateClaimerNamesList() {
+    const datalist = document.getElementById('claimerNamesList');
+    if (!datalist) return;
+    
+    const names = getHistoricalClaimerNames();
+    datalist.innerHTML = names
+        .map(name => `<option value="${name}"></option>`)
+        .join('');
+}
+
+function confirmClaimOrder() {
+    const orderId = Number(document.getElementById('claimedOrderId').value);
+    const claimerName = document.getElementById('claimOrderName').value.trim();
+
+    if (!claimerName) {
+        alert('Vänligen fyll i ditt namn!');
+        return;
+    }
+
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+        order.claimedBy = claimerName;
+        order.claimedAt = new Date().toISOString();
+        saveOrdersToStorage();
+        renderOrders();
+        closeModal();
+    }
 }
 
 function markOrderCompleted(orderId) {

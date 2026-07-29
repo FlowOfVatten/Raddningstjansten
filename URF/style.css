@@ -1145,6 +1145,13 @@ header .subtitle.subtitle-tagline {
     font-style: italic;
 }
 
+.order-claimed-status {
+    margin-top: 6px;
+    color: #005a40;
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
 .order-new-badge {
     display: inline-block;
     margin-left: 8px;
@@ -1214,6 +1221,24 @@ header .subtitle.subtitle-tagline {
 
 .order-complete-btn:hover {
     background: #007a5e;
+    color: #fff;
+}
+
+.order-claim-btn {
+    padding: 6px 10px;
+    border: 2px solid #0066cc;
+    border-radius: 6px;
+    background: #e6f2ff;
+    color: #0052a3;
+    font-weight: 600;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.order-claim-btn:hover {
+    background: #0066cc;
     color: #fff;
 }
 

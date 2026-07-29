@@ -285,6 +285,28 @@
         </div>
     </div>
 
+    <!-- Pop-up för kvittera beställning -->
+    <div id="claimOrderModal" class="modal">
+        <div class="modal-content">
+            <h2>Kvittera Beställning</h2>
+            <input type="hidden" id="claimedOrderId">
+            <div class="form-group">
+                <label for="claimOrderName">Ditt namn:</label>
+                <input 
+                    type="text" 
+                    id="claimOrderName" 
+                    placeholder="Skriv ditt namn"
+                    list="claimerNamesList"
+                >
+                <datalist id="claimerNamesList"></datalist>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-ok" onclick="confirmClaimOrder()">Kvittera</button>
+                <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Pop-up för bar beställning -->
     <div id="barOrderModal" class="modal">
         <div class="modal-content">
