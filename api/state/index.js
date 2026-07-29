@@ -2,11 +2,11 @@ const sql = require('mssql');
 
 const poolPromises = new Map();
 
-function resolveConnectionString() {
+function resolveConnectionString(secretName = 'SQL_CONNECTION_STRING') {
   return (
-    process.env.SQL_CONNECTION_STRING ||
-    process.env.SQLAZURECONNSTR_SQL_CONNECTION_STRING ||
-    process.env.SQLCONNSTR_SQL_CONNECTION_STRING ||
+    process.env[secretName] ||
+    process.env[`SQLAZURECONNSTR_${secretName}`] ||
+    process.env[`SQLCONNSTR_${secretName}`] ||
     ''
   ).trim();
 }
@@ -34,43 +34,53 @@ function getPool() {
   return poolPromises.get(connectionString);
 }
 
+async function testConnection(connectionString) {
+  try {
+    const pool = new sql.ConnectionPool(connectionString);
+    await pool.connect();
+    await pool.request().query('SELECT 1 AS ok');
+    await pool.close();
+    return { ok: true, message: 'connected' };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err.message,
+      code: err.code || null
+    };
+  }
+}
+
 module.exports = async function (context, req) {
   const method = (req.method || '').toUpperCase();
 
   // Debug endpoint
   if (req.query.debug === 'true') {
-    const connStr = resolveConnectionString();
-    const masked = connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
+    const mainConnStr = resolveConnectionString('SQL_CONNECTION_STRING');
+    const urfConnStr = resolveConnectionString('SQL_CONNECTION_STRING_URF');
 
-    let probe;
-    try {
-      const probePool = await getPool();
-      await probePool.request().query('SELECT 1 AS ok');
-      probe = { ok: true, message: 'connected' };
-    } catch (probeError) {
-      probe = {
-        ok: false,
-        message: probeError.message,
-        code: probeError.code || null,
-        number: probeError.number || null,
-        state: probeError.state || null,
-        class: probeError.class || null,
-        serverName: probeError.serverName || null,
-        procName: probeError.procName || null,
-        lineNumber: probeError.lineNumber || null,
-        originalMessage: probeError.originalError && probeError.originalError.message ? probeError.originalError.message : null
-      };
-    }
+    const maskConnectionString = (connStr) => 
+      connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
+
+    const mainProbe = await testConnection(mainConnStr);
+    const urfProbe = await testConnection(urfConnStr);
 
     return {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
       body: {
         debug: {
-          SQL_CONNECTION_STRING: !!process.env.SQL_CONNECTION_STRING,
-          maskedConnectionString: masked,
-          connectionStringLength: connStr.length,
-          probe
+          SQL_CONNECTION_STRING: {
+            exists: !!process.env.SQL_CONNECTION_STRING,
+            masked: maskConnectionString(mainConnStr),
+            length: mainConnStr.length,
+            probe: mainProbe
+          },
+          SQL_CONNECTION_STRING_URF: {
+            exists: !!process.env.SQL_CONNECTION_STRING_URF,
+            masked: maskConnectionString(urfConnStr),
+            length: urfConnStr.length,
+            probe: urfProbe
+          }
         }
       }
     };
