@@ -34,6 +34,24 @@ function getPool() {
 module.exports = async function (context, req) {
   const method = (req.method || '').toUpperCase();
 
+  // Debug endpoint
+  if (req.query.debug === 'true') {
+    const connStr = resolveConnectionString();
+    const masked = connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        debug: {
+          SQL_CONNECTION_STRING_URF: !!process.env.SQL_CONNECTION_STRING_URF,
+          SQL_CONNECTION_STRING: !!process.env.SQL_CONNECTION_STRING,
+          maskedConnectionString: masked,
+          connectionStringLength: connStr.length
+        }
+      }
+    };
+  }
+
   if (method === 'GET') {
     const id = req.query.id;
     if (!id) {
