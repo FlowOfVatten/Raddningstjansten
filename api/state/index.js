@@ -26,8 +26,17 @@ function forceDatabaseInConnectionString(connectionString, databaseName) {
   return `${connectionString}${suffix}Initial Catalog=${databaseName};`;
 }
 
-function getPool() {
-  const connectionString = resolveConnectionString();
+function resolveUrfConnectionString() {
+  const urfConnStrFromSecret = resolveConnectionString('SQL_CONNECTION_STRING_URF');
+  if (urfConnStrFromSecret) return urfConnStrFromSecret;
+  return forceDatabaseInConnectionString(resolveConnectionString('SQL_CONNECTION_STRING'), 'urf');
+}
+
+function isUrfStateId(id) {
+  return typeof id === 'string' && id.startsWith('urf:');
+}
+
+function getPool(connectionString = resolveConnectionString()) {
   console.log('[URF-API] Attempting SQL connection. String length:', connectionString.length);
   console.log('[URF-API] SQL_CONNECTION_STRING exists:', !!process.env.SQL_CONNECTION_STRING);
 
@@ -72,7 +81,7 @@ module.exports = async function (context, req) {
   if (req.query.debug === 'true') {
     const mainConnStr = resolveConnectionString('SQL_CONNECTION_STRING');
     const urfConnStrFromSecret = resolveConnectionString('SQL_CONNECTION_STRING_URF');
-    const urfConnStr = urfConnStrFromSecret || forceDatabaseInConnectionString(mainConnStr, 'urf');
+    const urfConnStr = resolveUrfConnectionString();
 
     const maskConnectionString = (connStr) => 
       connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
@@ -114,7 +123,8 @@ module.exports = async function (context, req) {
     }
 
     try {
-      const pool = await getPool();
+      const connectionString = isUrfStateId(id) ? resolveUrfConnectionString() : resolveConnectionString();
+      const pool = await getPool(connectionString);
       const result = await pool.request()
         .input('id', sql.NVarChar(200), id)
         .query('SELECT payload, updated_at FROM app_state WHERE id = @id');
@@ -159,7 +169,8 @@ module.exports = async function (context, req) {
     const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
 
     try {
-      const pool = await getPool();
+      const connectionString = isUrfStateId(id) ? resolveUrfConnectionString() : resolveConnectionString();
+      const pool = await getPool(connectionString);
       await pool.request()
         .input('id', sql.NVarChar(200), id)
         .input('payload', sql.NVarChar(sql.MAX), payloadStr)
