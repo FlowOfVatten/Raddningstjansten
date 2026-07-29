@@ -74,7 +74,18 @@ module.exports = async function (context, req) {
       await probePool.request().query('SELECT 1 AS ok');
       urfProbe = { ok: true, message: 'connected' };
     } catch (probeError) {
-      urfProbe = { ok: false, message: probeError.message };
+      urfProbe = {
+        ok: false,
+        message: probeError.message,
+        code: probeError.code || null,
+        number: probeError.number || null,
+        state: probeError.state || null,
+        class: probeError.class || null,
+        serverName: probeError.serverName || null,
+        procName: probeError.procName || null,
+        lineNumber: probeError.lineNumber || null,
+        originalMessage: probeError.originalError && probeError.originalError.message ? probeError.originalError.message : null
+      };
     }
 
     return {
