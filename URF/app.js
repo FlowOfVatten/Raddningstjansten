@@ -1768,7 +1768,7 @@ function renderOrders() {
 
         const completedClass = order.completed ? ' order-completed-text' : '';
         const claimedStatusHtml = order.claimedBy
-            ? `<div class="order-claimed-status">${order.claimedBy} jobbar med denna</div>`
+            ? `<div class="order-claimed-status">Kvitterad av ${order.claimedBy}</div>`
             : '';
         
         row.innerHTML = `
