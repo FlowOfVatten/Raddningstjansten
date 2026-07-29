@@ -68,15 +68,13 @@ module.exports = async function (context, req) {
     const masked = connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
     const maskedUrf = urfConnStr ? urfConnStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
 
-    let urfProbe = { ok: false, message: 'not-run' };
-    if (req.query.probe === 'true') {
-      try {
-        const probePool = await getPool('urf:lending:state:v1');
-        await probePool.request().query('SELECT 1 AS ok');
-        urfProbe = { ok: true, message: 'connected' };
-      } catch (probeError) {
-        urfProbe = { ok: false, message: probeError.message };
-      }
+    let urfProbe;
+    try {
+      const probePool = await getPool('urf:lending:state:v1');
+      await probePool.request().query('SELECT 1 AS ok');
+      urfProbe = { ok: true, message: 'connected' };
+    } catch (probeError) {
+      urfProbe = { ok: false, message: probeError.message };
     }
 
     return {
