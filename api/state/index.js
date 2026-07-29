@@ -82,12 +82,16 @@ module.exports = async function (context, req) {
     const mainConnStr = resolveConnectionString('SQL_CONNECTION_STRING');
     const urfConnStrFromSecret = resolveConnectionString('SQL_CONNECTION_STRING_URF');
     const urfConnStr = resolveUrfConnectionString();
+    const debugId = req.query.id || '';
 
     const maskConnectionString = (connStr) => 
       connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
 
     const mainProbe = await testConnection(mainConnStr);
     const urfProbe = await testConnection(urfConnStr);
+    const routeIsUrf = isUrfStateId(debugId);
+    const selectedConnStr = routeIsUrf ? urfConnStr : mainConnStr;
+    const selectedProbe = await testConnection(selectedConnStr);
 
     return {
       status: 200,
@@ -106,6 +110,12 @@ module.exports = async function (context, req) {
             masked: maskConnectionString(urfConnStr),
             length: urfConnStr.length,
             probe: urfProbe
+          },
+          selectedRoute: {
+            id: debugId || null,
+            route: debugId ? (routeIsUrf ? 'URF_DATABASE' : 'DEFAULT_DATABASE') : null,
+            maskedConnectionString: maskConnectionString(selectedConnStr),
+            probe: selectedProbe
           }
         }
       }
