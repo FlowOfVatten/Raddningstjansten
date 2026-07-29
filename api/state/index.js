@@ -4,6 +4,7 @@ let poolPromise = null;
 
 function resolveConnectionString() {
   return (
+    process.env.SQL_CONNECTION_STRING_URF ||
     process.env.SQL_CONNECTION_STRING ||
     process.env.SQLAZURECONNSTR_SQL_CONNECTION_STRING ||
     process.env.SQLCONNSTR_SQL_CONNECTION_STRING ||
