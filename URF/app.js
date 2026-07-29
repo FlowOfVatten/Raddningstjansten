@@ -1945,6 +1945,13 @@ function markOrderCompleted(orderId) {
 
 function deleteOrder(orderId) {
     const order = orders.find(o => o.id === orderId);
+    
+    // Prevent deletion of incomplete orders
+    if (order && !order.completed) {
+        alert('Denna beställning är inte levererad än. Markera den som levererad innan du raderar.');
+        return;
+    }
+    
     // If order is completed, save to history before deletion
     if (order && order.completed) {
         const historyEntry = {
