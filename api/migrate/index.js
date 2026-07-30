@@ -45,12 +45,21 @@ async function ensureTable(pool) {
 
 module.exports = async function (context, req) {
   const log = [];
-  const srcConnStr = resolveConnectionString('SQL_CONNECTION_STRING_URF')
-    || forceDatabaseInConnectionString(resolveConnectionString('SQL_CONNECTION_STRING'), 'urf');
+
+  const rawUrf    = resolveConnectionString('SQL_CONNECTION_STRING_URF');
+  const rawMain   = resolveConnectionString('SQL_CONNECTION_STRING');
+  const srcConnStr = rawUrf || forceDatabaseInConnectionString(rawMain, 'urf');
   const dstConnStr = forceDatabaseInConnectionString(srcConnStr, 'urf2026');
 
+  // Debug info always included in response
+  log.push(`SQL_CONNECTION_STRING_URF exists: ${!!rawUrf}`);
+  log.push(`SQL_CONNECTION_STRING exists: ${!!rawMain}`);
+  log.push(`srcConnStr length: ${srcConnStr.length}`);
+  log.push(`dstConnStr preview: ...${dstConnStr.slice(-60)}`);
+
   if (!srcConnStr) {
-    return context.res = { status: 500, body: 'Missing SQL_CONNECTION_STRING_URF' };
+    context.res = { status: 500, headers: { 'Content-Type': 'application/json' }, body: { ok: false, log, error: 'Missing connection string' } };
+    return;
   }
 
   let srcPool, dstPool;
