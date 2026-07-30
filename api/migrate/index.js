@@ -45,25 +45,25 @@ async function ensureTable(pool) {
 
 module.exports = async function (context, req) {
   const log = [];
-
-  const rawUrf    = resolveConnectionString('SQL_CONNECTION_STRING_URF');
-  const rawMain   = resolveConnectionString('SQL_CONNECTION_STRING');
-  const srcConnStr = rawUrf || forceDatabaseInConnectionString(rawMain, 'urf');
-  const dstConnStr = forceDatabaseInConnectionString(srcConnStr, 'urf2026');
-
-  // Debug info always included in response
-  log.push(`SQL_CONNECTION_STRING_URF exists: ${!!rawUrf}`);
-  log.push(`SQL_CONNECTION_STRING exists: ${!!rawMain}`);
-  log.push(`srcConnStr length: ${srcConnStr.length}`);
-  log.push(`dstConnStr preview: ...${dstConnStr.slice(-60)}`);
-
-  if (!srcConnStr) {
-    context.res = { status: 500, headers: { 'Content-Type': 'application/json' }, body: { ok: false, log, error: 'Missing connection string' } };
-    return;
-  }
-
   let srcPool, dstPool;
+
   try {
+    const rawUrf    = resolveConnectionString('SQL_CONNECTION_STRING_URF');
+    const rawMain   = resolveConnectionString('SQL_CONNECTION_STRING');
+    const srcConnStr = rawUrf || forceDatabaseInConnectionString(rawMain, 'urf');
+    const dstConnStr = forceDatabaseInConnectionString(srcConnStr, 'urf2026');
+
+    // Debug info always included in response
+    log.push(`SQL_CONNECTION_STRING_URF exists: ${!!rawUrf}`);
+    log.push(`SQL_CONNECTION_STRING exists: ${!!rawMain}`);
+    log.push(`srcConnStr length: ${srcConnStr.length}`);
+    log.push(`dstConnStr preview: ...${dstConnStr.slice(-60)}`);
+
+    if (!srcConnStr) {
+      context.res = { status: 500, headers: { 'Content-Type': 'application/json' }, body: { ok: false, log, error: 'Missing connection string' } };
+      return;
+    }
+
     log.push('Connecting to source (urf)...');
     srcPool = await new sql.ConnectionPool(srcConnStr).connect();
 
@@ -106,7 +106,8 @@ module.exports = async function (context, req) {
 
   } catch (err) {
     log.push(`ERROR: ${err.message}`);
-    context.res = { status: 500, headers: { 'Content-Type': 'application/json' }, body: { ok: false, log, error: err.message } };
+    log.push(`Stack: ${err.stack}`);
+    context.res = { status: 500, headers: { 'Content-Type': 'application/json' }, body: { ok: false, log, error: err.message, stack: err.stack } };
   } finally {
     try { if (srcPool) await srcPool.close(); } catch (_) {}
     try { if (dstPool) await dstPool.close(); } catch (_) {}
