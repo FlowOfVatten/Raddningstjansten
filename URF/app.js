@@ -1,10 +1,10 @@
 // Cars data
 const CARS_DATA = [
-    { id: 1, icon: '🚗', color: 'red' },
-    { id: 2, icon: '🚙', color: 'blue' },
-    { id: 3, icon: '🚕', color: 'yellow' },
-    { id: 4, icon: '🚐', color: 'green' },
-    { id: 5, icon: '🚌', color: 'purple' }
+    { id: 1, icon: '[BIL]', color: 'red' },
+    { id: 2, icon: '[BIL]', color: 'blue' },
+    { id: 3, icon: '[BIL]', color: 'yellow' },
+    { id: 4, icon: '[BIL]', color: 'green' },
+    { id: 5, icon: '[BUSS]', color: 'purple' }
 ];
 
 const KEYS_DATA = [
@@ -271,7 +271,7 @@ function formatBorrowedTime(ts) {
 }
 
 function getVehicleIcon(type) {
-    return type === 'minibus' ? '🚌' : '🚗';
+    return type === 'minibus' ? '[BUSS]' : '[BIL]';
 }
 
 function getVehicleTypeLabel(type) {
