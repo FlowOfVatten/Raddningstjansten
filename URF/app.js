@@ -1,10 +1,10 @@
 // Cars data
 const CARS_DATA = [
-    { id: 1, icon: '[BIL]', color: 'red' },
-    { id: 2, icon: '[BIL]', color: 'blue' },
-    { id: 3, icon: '[BIL]', color: 'yellow' },
-    { id: 4, icon: '[BIL]', color: 'green' },
-    { id: 5, icon: '[BUSS]', color: 'purple' }
+    { id: 1, icon: '🚗', color: 'red' },
+    { id: 2, icon: '🚙', color: 'blue' },
+    { id: 3, icon: '🚕', color: 'yellow' },
+    { id: 4, icon: '🚐', color: 'green' },
+    { id: 5, icon: '🚌', color: 'purple' }
 ];
 
 const KEYS_DATA = [
@@ -271,7 +271,25 @@ function formatBorrowedTime(ts) {
 }
 
 function getVehicleIcon(type) {
-    return type === 'minibus' ? '[BUSS]' : '[BIL]';
+    return type === 'minibus' ? '🚌' : '🚗';
+}
+
+function normalizeVehicleIcon(icon, type) {
+    const raw = String(icon || '').trim();
+    if (!raw) return getVehicleIcon(type);
+
+    const upper = raw.toUpperCase();
+    if (upper === '[BIL]' || upper === 'BIL' || upper === '[CAR]' || upper === 'CAR') {
+        return '🚗';
+    }
+    if (upper === '[BUSS]' || upper === 'BUSS' || upper === '[MINIBUSS]' || upper === 'MINIBUSS') {
+        return '🚌';
+    }
+    if (raw === '?' || raw === '??' || raw.includes('�')) {
+        return getVehicleIcon(type);
+    }
+
+    return raw;
 }
 
 function getVehicleTypeLabel(type) {
@@ -407,7 +425,7 @@ function normalizeCars(carItems) {
         const normalizedType = car?.vehicleType === 'minibus' ? 'minibus' : 'car';
         return {
         id: car?.id ?? index + 1,
-        icon: car?.icon || getVehicleIcon(normalizedType),
+        icon: normalizeVehicleIcon(car?.icon, normalizedType),
         vehicleType: normalizedType,
         modelName: String(car?.modelName || ''),
         regNumber: String(car?.regNumber || `URF-${String(index + 1).padStart(3, '0')}`),
@@ -932,7 +950,7 @@ function renderCars() {
         }
 
         card.innerHTML = `
-            <button type="button" class="car-icon car-icon-button" onclick="openEditCarModal(${car.id})" aria-label="Redigera fordon ${car.regNumber || car.id}">${car.icon || getVehicleIcon(car.vehicleType)}</button>
+            <button type="button" class="car-icon car-icon-button" onclick="openEditCarModal(${car.id})" aria-label="Redigera fordon ${car.regNumber || car.id}">${normalizeVehicleIcon(car.icon, car.vehicleType)}</button>
             <div class="car-reg-container">
                 <div class="car-reg-label">${getVehicleTypeLabel(car.vehicleType)}</div>
                 <div class="car-reg-value">${car.regNumber}</div>
