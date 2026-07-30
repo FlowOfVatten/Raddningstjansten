@@ -24,7 +24,7 @@ const LOCAL_CACHE_SCHEMA_VERSION = 'v3-clean-start';
 const REMOTE_REQUEST_TIMEOUT_MS = 8000;
 const REMOTE_STARTUP_RETRIES = 8;
 const REMOTE_RETRY_DELAY_MS = 5000;
-const REMOTE_BACKGROUND_SYNC_MS = 60000;
+const REMOTE_BACKGROUND_SYNC_MS = 3600000; // 1 hour to reduce SQL wakeups and save DTU credits
 const ORDER_ADDED_SOUND_URL = window.URF_ORDER_SOUND_URL || 'https://cdn.freesound.org/previews/44/44703_14771-lq.mp3';
 
 let cars = [];
