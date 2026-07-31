@@ -15,6 +15,52 @@ const KEYS_DATA = [
     { id: 5 }
 ];
 
+const FOOD_COUPON_TEMPLATE = {
+    friday: [
+        { id: 'ackreditering', area: 'Ackreditering', pickupBy: 'Esther B./William', lunch: 4, dinner: 4 },
+        { id: 'backstage', area: 'Backstage', pickupBy: 'Hala/Emil', lunch: 4, dinner: 4 },
+        { id: 'bar', area: 'Bar', pickupBy: 'Gabi/Seb', lunch: 6, dinner: 15 },
+        { id: 'base-camp', area: 'Base camp', pickupBy: 'Bjarne/Loobo', lunch: 15, dinner: 15 },
+        { id: 'crew', area: 'Crew', pickupBy: 'Samband', lunch: 10, dinner: 10 },
+        { id: 'entre', area: 'Entre', pickupBy: 'Sinit/Rami', lunch: 12, dinner: 10 },
+        { id: 'grind', area: 'Grind', pickupBy: 'Erik/Hogir/Tenaye', lunch: 5, dinner: 26 },
+        { id: 'kiosk', area: 'Kiosk', pickupBy: 'Jassi', lunch: 5, dinner: 5 },
+        { id: 'kravall', area: 'Kravall', pickupBy: 'Gabbe/Wille', lunch: 2, dinner: 6 },
+        { id: 'mat', area: 'Mat', pickupBy: 'Walter', lunch: 2, dinner: 2 },
+        { id: 'material', area: 'Material', pickupBy: 'Gurra/Walter', lunch: 10, dinner: 10 },
+        { id: 'resurs', area: 'Resurs', pickupBy: 'Samband', lunch: 5, dinner: 5 },
+        { id: 'samband', area: 'Samband', pickupBy: 'Samband', lunch: 10, dinner: 10 },
+        { id: 'scen', area: 'Scen', pickupBy: 'Hising', lunch: 7, dinner: 7 },
+        { id: 'sjukvard', area: 'Sjukvard', pickupBy: 'Jocke', lunch: 5, dinner: 5 },
+        { id: 'stad', area: 'Stad', pickupBy: 'Matthew', lunch: 2, dinner: 8 },
+        { id: 'transport', area: 'Transport', pickupBy: 'Daniel', lunch: 9, dinner: 6 },
+        { id: 'utsmyckning', area: 'Utsmyckning', pickupBy: 'Esther R.', lunch: 15, dinner: 0 },
+        { id: 'vakter', area: 'Vakter', pickupBy: 'Conny', lunch: 10, dinner: 10 },
+        { id: 'visitering', area: 'Visitering', pickupBy: 'Pati', lunch: 6, dinner: 6 }
+    ],
+    saturday: [
+        { id: 'entre', area: 'Entre', pickupBy: 'Sinit/Rami', lunch: 12, dinner: 9 },
+        { id: 'visitering', area: 'Visitering', pickupBy: 'Pati', lunch: 6, dinner: 6 },
+        { id: 'ackreditering', area: 'Ackreditering', pickupBy: 'Esther B./William', lunch: 4, dinner: 4 },
+        { id: 'stad', area: 'Stad', pickupBy: 'Matthew', lunch: 6, dinner: 8 },
+        { id: 'kravall', area: 'Kravall', pickupBy: 'Gabbe/Wille', lunch: 2, dinner: 6 },
+        { id: 'transport', area: 'Transport', pickupBy: 'Daniel', lunch: 9, dinner: 6 },
+        { id: 'grind', area: 'Grind', pickupBy: 'Erik/Hogir/Tenaye', lunch: 5, dinner: 26 },
+        { id: 'vakter', area: 'Vakter', pickupBy: 'Conny', lunch: 10, dinner: 10 },
+        { id: 'bar', area: 'Bar', pickupBy: 'Gabi/Seb', lunch: 15, dinner: 15 },
+        { id: 'scen', area: 'Scen', pickupBy: 'Hising', lunch: 5, dinner: 5 },
+        { id: 'base-camp', area: 'Base camp', pickupBy: 'Bjarne/Loobo', lunch: 15, dinner: 15 },
+        { id: 'samband', area: 'Samband', pickupBy: 'Samband', lunch: 10, dinner: 10 },
+        { id: 'resurs', area: 'Resurs', pickupBy: 'Samband', lunch: 5, dinner: 5 },
+        { id: 'mat', area: 'Mat', pickupBy: 'Walter', lunch: 2, dinner: 2 },
+        { id: 'crew', area: 'Crew', pickupBy: 'Samband', lunch: 10, dinner: 10 },
+        { id: 'material', area: 'Material', pickupBy: 'Gurra/Walter', lunch: 10, dinner: 10 },
+        { id: 'backstage', area: 'Backstage', pickupBy: 'Hala/Emil', lunch: 4, dinner: 4 },
+        { id: 'sjukvard', area: 'Sjukvard', pickupBy: 'Jocke', lunch: 5, dinner: 5 },
+        { id: 'kiosk', area: 'Kiosk', pickupBy: 'Jassi', lunch: 5, dinner: 5 }
+    ]
+};
+
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2];
 const API_BASE_URL = (window.URF_API_BASE_URL || '').replace(/\/$/, '');
 const STATE_ENDPOINT = `${API_BASE_URL}/api/state`;
@@ -32,8 +78,10 @@ let keys = [];
 let bookings = [];
 let contacts = [];
 let orders = [];
+let foodCoupons = { friday: [], saturday: [] };
 let completedOrdersHistory = [];
 let currentBookingDay = 'friday';
+let currentCouponDay = 'friday';
 let currentBookingHour = null;
 let currentBookingCarId = null;
 let currentModal = null;
@@ -358,11 +406,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBookingsFromStorage();
     loadContactsFromStorage();
     loadOrdersFromStorage();
+    loadFoodCouponsFromStorage();
     loadCompletedOrdersHistory();
 
     renderCars();
     renderKeys();
     renderBookingGrid();
+    renderFoodCoupons();
     renderContacts();
     renderOrders();
 
@@ -477,6 +527,39 @@ function normalizeOrders(ordersList) {
     }));
 }
 
+function cloneFoodCouponTemplate() {
+    return JSON.parse(JSON.stringify(FOOD_COUPON_TEMPLATE));
+}
+
+function clampCouponCount(value, maxValue) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return Math.min(parsed, maxValue);
+}
+
+function normalizeFoodCoupons(couponPayload) {
+    const normalized = cloneFoodCouponTemplate();
+    if (!couponPayload || typeof couponPayload !== 'object') {
+        return normalized;
+    }
+
+    ['friday', 'saturday'].forEach(day => {
+        const rows = Array.isArray(couponPayload[day]) ? couponPayload[day] : [];
+        const byId = new Map(rows.map(row => [String(row?.id || ''), row]));
+
+        normalized[day] = normalized[day].map(templateRow => {
+            const incoming = byId.get(templateRow.id) || {};
+            return {
+                ...templateRow,
+                lunchCollected: clampCouponCount(incoming.lunchCollected, templateRow.lunch),
+                dinnerCollected: clampCouponCount(incoming.dinnerCollected, templateRow.dinner)
+            };
+        });
+    });
+
+    return normalized;
+}
+
 function getStatePayload() {
     // Safeguard: Never overwrite DB with empty data if we had non-empty data before
     const carsToSave = cars.length > 0 ? cars : (lastKnownGoodCars.length > 0 ? lastKnownGoodCars : []);
@@ -491,7 +574,8 @@ function getStatePayload() {
         keys: keysToSave,
         bookings: bookingsToSave,
         contacts: contactsToSave,
-        orders: ordersToSave
+        orders: ordersToSave,
+        foodCoupons
     };
 }
 
@@ -501,6 +585,7 @@ function saveLocalSnapshot() {
     localStorage.setItem('urf_bookings', JSON.stringify(bookings));
     localStorage.setItem('urf_contacts', JSON.stringify(contacts));
     localStorage.setItem('urf_orders', JSON.stringify(orders));
+    localStorage.setItem('urf_food_coupons', JSON.stringify(foodCoupons));
     // Always keep backups of non-empty data
     if (cars.length > 0) {
         localStorage.setItem('urf_cars_backup', JSON.stringify(cars));
@@ -631,6 +716,9 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
             hasInitializedRemoteOrderNotifications = true;
         }
     }
+    if (payload.foodCoupons && typeof payload.foodCoupons === 'object') {
+        foodCoupons = normalizeFoodCoupons(payload.foodCoupons);
+    }
     saveLocalSnapshot();
     if (remoteUpdatedAt) {
         setLocalUpdatedAt(new Date(remoteUpdatedAt).toISOString());
@@ -638,6 +726,7 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     renderCars();
     renderKeys();
     renderBookingGrid();
+    renderFoodCoupons();
     renderContacts();
     renderOrders();
 
@@ -1417,28 +1506,33 @@ function closeModal() {
 
 // Switch between tabs
 function switchTab(tabName) {
-    ['cars-section','keys-section','booking-section','contacts-section','orders-section'].forEach(id => {
+    ['cars-section','keys-section','booking-section','coupons-section','contacts-section','orders-section'].forEach(id => {
         document.getElementById(id).classList.remove('active');
     });
     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    const tabButtons = document.querySelectorAll('.tab-button');
 
     if (tabName === 'cars') {
         document.getElementById('cars-section').classList.add('active');
-        document.querySelectorAll('.tab-button')[0].classList.add('active');
+        tabButtons[0].classList.add('active');
     } else if (tabName === 'keys') {
         document.getElementById('keys-section').classList.add('active');
-        document.querySelectorAll('.tab-button')[1].classList.add('active');
+        tabButtons[1].classList.add('active');
     } else if (tabName === 'booking') {
         document.getElementById('booking-section').classList.add('active');
-        document.querySelectorAll('.tab-button')[2].classList.add('active');
+        tabButtons[2].classList.add('active');
         renderBookingGrid();
+    } else if (tabName === 'coupons') {
+        document.getElementById('coupons-section').classList.add('active');
+        tabButtons[3].classList.add('active');
+        renderFoodCoupons();
     } else if (tabName === 'contacts') {
         document.getElementById('contacts-section').classList.add('active');
-        document.querySelectorAll('.tab-button')[3].classList.add('active');
+        tabButtons[4].classList.add('active');
         renderContacts();
     } else if (tabName === 'orders') {
         document.getElementById('orders-section').classList.add('active');
-        document.querySelectorAll('.tab-button')[4].classList.add('active');
+        tabButtons[5].classList.add('active');
         renderOrders();
     }
 }
@@ -1487,6 +1581,23 @@ function loadOrdersFromStorage() {
 }
 
 function saveOrdersToStorage() {
+    persistState();
+}
+
+function loadFoodCouponsFromStorage() {
+    const stored = localStorage.getItem('urf_food_coupons');
+    if (stored) {
+        try {
+            foodCoupons = normalizeFoodCoupons(JSON.parse(stored));
+            return;
+        } catch (error) {
+            console.warn('URF: kunde inte lasa matkuponger fran localStorage, anvander mall.', error);
+        }
+    }
+    foodCoupons = cloneFoodCouponTemplate();
+}
+
+function saveFoodCouponsToStorage() {
     persistState();
 }
 
@@ -1564,10 +1675,101 @@ function removeContact(contactId) {
 
 function switchBookingDay(day) {
     currentBookingDay = day;
-    document.querySelectorAll('.day-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#booking-section .day-btn').forEach(btn => btn.classList.remove('active'));
     const idx = day === 'friday' ? 0 : 1;
-    document.querySelectorAll('.day-btn')[idx].classList.add('active');
+    document.querySelectorAll('#booking-section .day-btn')[idx].classList.add('active');
     renderBookingGrid();
+}
+
+function switchCouponDay(day) {
+    currentCouponDay = day;
+    document.querySelectorAll('.coupon-day-btn').forEach(btn => btn.classList.remove('active'));
+    const idx = day === 'friday' ? 0 : 1;
+    document.querySelectorAll('.coupon-day-btn')[idx].classList.add('active');
+    renderFoodCoupons();
+}
+
+function updateCouponCount(day, rowId, mealType, delta) {
+    const dayRows = Array.isArray(foodCoupons[day]) ? foodCoupons[day] : [];
+    const rowIndex = dayRows.findIndex(row => row.id === rowId);
+    if (rowIndex === -1) return;
+
+    const row = dayRows[rowIndex];
+    if (mealType === 'lunch') {
+        row.lunchCollected = clampCouponCount((row.lunchCollected || 0) + delta, row.lunch);
+    } else if (mealType === 'dinner') {
+        row.dinnerCollected = clampCouponCount((row.dinnerCollected || 0) + delta, row.dinner);
+    } else {
+        return;
+    }
+
+    saveFoodCouponsToStorage();
+    renderFoodCoupons();
+}
+
+function renderFoodCoupons() {
+    const container = document.getElementById('couponGrid');
+    if (!container) return;
+
+    const rows = Array.isArray(foodCoupons[currentCouponDay]) ? foodCoupons[currentCouponDay] : [];
+    if (!rows.length) {
+        container.innerHTML = '<div class="empty-state-card">Inga matkuponger hittades.</div>';
+        return;
+    }
+
+    let totalLunch = 0;
+    let totalDinner = 0;
+    let totalLunchCollected = 0;
+    let totalDinnerCollected = 0;
+
+    let html = '<div class="coupon-table-wrapper"><table class="coupon-table"><thead><tr><th>Omrade</th><th>Hamtas av</th><th>Lunch</th><th>Uthamtade</th><th>Middag</th><th>Uthamtade</th><th>Totalt</th></tr></thead><tbody>';
+
+    rows.forEach(row => {
+        totalLunch += row.lunch;
+        totalDinner += row.dinner;
+        totalLunchCollected += row.lunchCollected || 0;
+        totalDinnerCollected += row.dinnerCollected || 0;
+        const rowTotal = row.lunch + row.dinner;
+
+        html += `
+            <tr>
+                <td class="coupon-area">${row.area}</td>
+                <td>${row.pickupBy}</td>
+                <td class="coupon-number">${row.lunch}</td>
+                <td>
+                    <div class="coupon-stepper">
+                        <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'lunch', -1)">-</button>
+                        <span class="coupon-count-value">${row.lunchCollected || 0}</span>
+                        <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'lunch', 1)">+</button>
+                    </div>
+                </td>
+                <td class="coupon-number">${row.dinner}</td>
+                <td>
+                    <div class="coupon-stepper">
+                        <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'dinner', -1)">-</button>
+                        <span class="coupon-count-value">${row.dinnerCollected || 0}</span>
+                        <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'dinner', 1)">+</button>
+                    </div>
+                </td>
+                <td class="coupon-number"><strong>${rowTotal}</strong></td>
+            </tr>
+        `;
+    });
+
+    html += `
+        <tr class="coupon-total-row">
+            <td><strong>Total</strong></td>
+            <td></td>
+            <td class="coupon-number"><strong>${totalLunch}</strong></td>
+            <td class="coupon-number"><strong>${totalLunchCollected}</strong></td>
+            <td class="coupon-number"><strong>${totalDinner}</strong></td>
+            <td class="coupon-number"><strong>${totalDinnerCollected}</strong></td>
+            <td class="coupon-number"><strong>${totalLunch + totalDinner}</strong></td>
+        </tr>
+    `;
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
 }
 
 function renderBookingGrid() {

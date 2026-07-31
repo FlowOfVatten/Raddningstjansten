@@ -964,6 +964,113 @@ header .subtitle.subtitle-tagline {
     border-color: #333;
 }
 
+.coupon-day-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.coupon-day-btn {
+    padding: 12px 30px;
+    font-size: 1.1em;
+    font-weight: bold;
+    background: #fcd116;
+    border: 3px solid #ce1126;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    color: #333;
+}
+
+.coupon-day-btn:hover {
+    background: #ffeb3b;
+}
+
+.coupon-day-btn.active {
+    background: linear-gradient(135deg, #007a5e, #005a40);
+    color: white;
+    border-color: #333;
+}
+
+.coupon-table-wrapper {
+    overflow-x: auto;
+}
+
+.coupon-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.coupon-table th {
+    background: linear-gradient(to right, #1a472a 0%, #007a5e 100%);
+    color: #fff;
+    padding: 12px 8px;
+    text-align: left;
+    font-size: 0.95em;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.coupon-table td {
+    padding: 10px 8px;
+    border: 1px solid #d6d6d6;
+    color: #222;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.coupon-table tbody tr:nth-child(even) td {
+    background: rgba(248, 248, 248, 0.95);
+}
+
+.coupon-area {
+    font-weight: 800;
+    color: #7a111e;
+}
+
+.coupon-number {
+    text-align: center;
+    min-width: 60px;
+}
+
+.coupon-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.coupon-step-btn {
+    width: 28px;
+    height: 28px;
+    border: 2px solid #1a472a;
+    border-radius: 999px;
+    background: #f3fff9;
+    color: #1a472a;
+    font-size: 1.05em;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.coupon-step-btn:hover {
+    background: #1a472a;
+    color: #fff;
+}
+
+.coupon-count-value {
+    min-width: 26px;
+    text-align: center;
+    font-weight: 800;
+}
+
+.coupon-total-row td {
+    background: #fff3b8;
+}
+
 .booking-table-wrapper {
     overflow-x: auto;
 }
@@ -1572,7 +1679,18 @@ header .subtitle.subtitle-tagline {
         margin-bottom: 14px;
     }
 
+    .coupon-day-selector {
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
     .day-btn {
+        flex: 1;
+        padding: 10px 8px;
+        font-size: 0.9em;
+    }
+
+    .coupon-day-btn {
         flex: 1;
         padding: 10px 8px;
         font-size: 0.9em;
@@ -1583,6 +1701,18 @@ header .subtitle.subtitle-tagline {
     .hour-cell {
         padding: 8px 6px;
         font-size: 0.78em;
+    }
+
+    .coupon-table th,
+    .coupon-table td {
+        padding: 8px 6px;
+        font-size: 0.78em;
+    }
+
+    .coupon-step-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 0.95em;
     }
 
     .booking-cell small,
