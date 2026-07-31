@@ -614,6 +614,10 @@ function saveLocalSnapshot() {
         localStorage.setItem('urf_orders_backup', JSON.stringify(orders));
         lastKnownGoodOrders = orders;
     }
+    if (foodCoupons && typeof foodCoupons === 'object') {
+        localStorage.setItem('urf_food_coupons_backup', JSON.stringify(foodCoupons));
+        lastKnownGoodFoodCoupons = foodCoupons;
+    }
 }
 
 function scheduleRemoteSave() {
@@ -731,7 +735,16 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
         }
     }
     if (payload.foodCoupons && typeof payload.foodCoupons === 'object') {
-        foodCoupons = normalizeFoodCoupons(payload.foodCoupons);
+        const isRemoteCouponsEmpty = (!Array.isArray(payload.foodCoupons.friday) || payload.foodCoupons.friday.length === 0)
+            && (!Array.isArray(payload.foodCoupons.saturday) || payload.foodCoupons.saturday.length === 0);
+
+        if (isRemoteCouponsEmpty && lastKnownGoodFoodCoupons) {
+            console.warn('URF: tom eller ofullständig remote matkupongspayload, bevarar lokala matkuponger.');
+            foodCoupons = lastKnownGoodFoodCoupons;
+        } else {
+            foodCoupons = normalizeFoodCoupons(payload.foodCoupons);
+            lastKnownGoodFoodCoupons = foodCoupons;
+        }
     }
     saveLocalSnapshot();
     if (remoteUpdatedAt) {
@@ -1604,14 +1617,27 @@ function saveOrdersToStorage() {
 
 function loadFoodCouponsFromStorage() {
     const stored = localStorage.getItem('urf_food_coupons');
+    const backup = localStorage.getItem('urf_food_coupons_backup');
+    lastKnownGoodFoodCoupons = (backup ? normalizeFoodCoupons(JSON.parse(backup)) : null);
+
     if (stored) {
         try {
             foodCoupons = normalizeFoodCoupons(JSON.parse(stored));
             return;
         } catch (error) {
-            console.warn('URF: kunde inte lasa matkuponger fran localStorage, anvander mall.', error);
+            console.warn('URF: kunde inte lasa matkuponger fran localStorage, anvander backup.', error);
+            if (lastKnownGoodFoodCoupons) {
+                foodCoupons = lastKnownGoodFoodCoupons;
+                return;
+            }
         }
     }
+
+    if (lastKnownGoodFoodCoupons) {
+        foodCoupons = lastKnownGoodFoodCoupons;
+        return;
+    }
+
     foodCoupons = cloneFoodCouponTemplate();
 }
 
