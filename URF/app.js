@@ -534,7 +534,13 @@ function cloneFoodCouponTemplate() {
 function clampCouponCount(value, maxValue) {
     const parsed = Number.parseInt(value, 10);
     if (!Number.isFinite(parsed) || parsed <= 0) return 0;
-    return Math.min(parsed, maxValue);
+    return parsed;
+}
+
+function getCouponCountState(collected, planned) {
+    if (collected > planned) return 'is-over';
+    if (collected === planned) return 'is-match';
+    return 'is-under';
 }
 
 function normalizeFoodCoupons(couponPayload) {
@@ -1730,6 +1736,10 @@ function renderFoodCoupons() {
         totalLunchCollected += row.lunchCollected || 0;
         totalDinnerCollected += row.dinnerCollected || 0;
         const rowTotal = row.lunch + row.dinner;
+        const lunchCollected = row.lunchCollected || 0;
+        const dinnerCollected = row.dinnerCollected || 0;
+        const lunchStateClass = getCouponCountState(lunchCollected, row.lunch);
+        const dinnerStateClass = getCouponCountState(dinnerCollected, row.dinner);
 
         html += `
             <tr>
@@ -1739,7 +1749,7 @@ function renderFoodCoupons() {
                 <td>
                     <div class="coupon-stepper">
                         <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'lunch', -1)">-</button>
-                        <span class="coupon-count-value">${row.lunchCollected || 0}</span>
+                        <span class="coupon-count-value ${lunchStateClass}">${lunchCollected}</span>
                         <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'lunch', 1)">+</button>
                     </div>
                 </td>
@@ -1747,7 +1757,7 @@ function renderFoodCoupons() {
                 <td>
                     <div class="coupon-stepper">
                         <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'dinner', -1)">-</button>
-                        <span class="coupon-count-value">${row.dinnerCollected || 0}</span>
+                        <span class="coupon-count-value ${dinnerStateClass}">${dinnerCollected}</span>
                         <button class="coupon-step-btn" type="button" onclick="updateCouponCount('${currentCouponDay}', '${row.id}', 'dinner', 1)">+</button>
                     </div>
                 </td>
@@ -1765,6 +1775,15 @@ function renderFoodCoupons() {
             <td class="coupon-number"><strong>${totalDinner}</strong></td>
             <td class="coupon-number"><strong>${totalDinnerCollected}</strong></td>
             <td class="coupon-number"><strong>${totalLunch + totalDinner}</strong></td>
+        </tr>
+        <tr class="coupon-total-collected-row">
+            <td><strong>Total uthamtat</strong></td>
+            <td></td>
+            <td class="coupon-number"></td>
+            <td class="coupon-number"><strong>${totalLunchCollected}</strong></td>
+            <td class="coupon-number"></td>
+            <td class="coupon-number"><strong>${totalDinnerCollected}</strong></td>
+            <td class="coupon-number"><strong>${totalLunchCollected + totalDinnerCollected}</strong></td>
         </tr>
     `;
 

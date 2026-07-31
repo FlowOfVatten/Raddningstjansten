@@ -1067,8 +1067,24 @@ header .subtitle.subtitle-tagline {
     font-weight: 800;
 }
 
+.coupon-count-value.is-under {
+    color: #222;
+}
+
+.coupon-count-value.is-match {
+    color: #007a5e;
+}
+
+.coupon-count-value.is-over {
+    color: #ce1126;
+}
+
 .coupon-total-row td {
     background: #fff3b8;
+}
+
+.coupon-total-collected-row td {
+    background: #e8f8f0;
 }
 
 .booking-table-wrapper {
