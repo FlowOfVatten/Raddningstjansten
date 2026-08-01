@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utlägg Revisor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Utlägg Revisor</h1>
+            <div class="header-stats">
+                <span id="totalExpenses">Totalt: 0 kr</span>
+                <span id="expenseCount">Antalet: 0</span>
+            </div>
+        </header>
+
+        <div class="add-expense-section">
+            <button id="addExpenseBtn" class="btn btn-primary">➕ Lägg till utlägg</button>
+        </div>
+
+        <div id="expenseList" class="expense-list">
+            <p class="empty-message">Inga utlägg ännu</p>
+        </div>
+    </div>
+
+    <!-- Modal för att lägga till utlägg -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Lägg till utlägg</h2>
+            
+            <div class="form-group">
+                <label for="expenseDate">Datum för inköp:</label>
+                <input type="date" id="expenseDate" required>
+            </div>
+
+            <div class="form-group">
+                <label for="expenseStore">Affär/Butik:</label>
+                <input type="text" id="expenseStore" placeholder="T.ex. ICA, Bauhaus" required>
+            </div>
+
+            <div class="form-group">
+                <label for="expenseAmount">Belopp (kr):</label>
+                <input type="number" id="expenseAmount" min="0" step="0.01" placeholder="0.00" required>
+            </div>
+
+            <div class="form-group">
+                <label for="expenseDescription">Beskrivning (valfritt):</label>
+                <textarea id="expenseDescription" placeholder="Vad köptes?"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="receiptImage">Kvittobild:</label>
+                <input type="file" id="receiptImage" accept="image/*" required>
+                <div id="imagePreview" class="image-preview"></div>
+            </div>
+
+            <div class="modal-buttons">
+                <button id="cancelBtn" class="btn btn-secondary">Avbryt</button>
+                <button id="saveBtn" class="btn btn-primary">Spara utlägg</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal för att visa detaljer -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close">&times;</span>
+            <div id="expenseDetails" class="expense-details">
+                <!-- Fylls dynamiskt -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
