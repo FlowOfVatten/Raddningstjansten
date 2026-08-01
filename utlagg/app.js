@@ -308,7 +308,7 @@ function editExpense(id) {
             resetForm();
         }
     });
-});
+}
 
 // Radera utlägg
 function deleteExpense(id) {
