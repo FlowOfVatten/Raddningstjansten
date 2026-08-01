@@ -88,50 +88,86 @@ function normalizeText(text) {
     return text.replace(/\r/g, ' ').replace(/\n+/g, '\n').trim();
 }
 
+function parseReceiptDate(line) {
+    const monthNames = {
+        jan: '01', feb: '02', mar: '03', apr: '04', maj: '05', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', okt: '10', oct: '10', nov: '11', dec: '12'
+    };
+
+    let match = line.match(/\b(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})\b/);
+    if (match) {
+        const [_, year, month, day] = match;
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    match = line.match(/\b(\d{1,2})[\-\/.](\d{1,2})[\-\/.](\d{2,4})\b/);
+    if (match) {
+        let [_, day, month, year] = match;
+        if (year.length === 2) {
+            year = `20${year}`;
+        }
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    match = line.match(new RegExp(`\b(\d{1,2})\s+(${Object.keys(monthNames).join('|')})\s+(\d{4})\b`, 'i'));
+    if (match) {
+        const [_, day, monthName, year] = match;
+        const month = monthNames[monthName.toLowerCase()];
+        return `${year}-${month}-${String(day).padStart(2, '0')}`;
+    }
+
+    return '';
+}
+
 function parseReceiptText(text) {
     const lines = normalizeText(text).split('\n').map(line => line.trim()).filter(Boolean);
     let store = '';
     let date = '';
     let amount = '';
 
-    // Förslag: första vettiga raden som inte är pris eller datum
+    const skipHeader = line => {
+        return /\b(kvitto|receipt|org\.?nr|orgnr|org\s*nr|telefon|tel|faktnr|faktura|invoice|summa|totalt|total|moms|betalt|kontant|kort|retur|betalningssätt|payment|adress)\b/i.test(line);
+    };
+
+    const candidateStoreLines = lines.filter(line => {
+        return !skipHeader(line) && !/^\d[\d\s.,:-]*$/.test(line) && line.length > 2;
+    });
+
+    if (candidateStoreLines.length) {
+        store = candidateStoreLines[0];
+    }
+
     for (const line of lines) {
-        if (!store && !/\b(summa|totalt|total|moms|betalt|kort|kontant|retur)\b/i.test(line)) {
-            const maybeAmount = line.match(/\b\d+[\s\d,.]*\d\b/);
-            const maybeDate = line.match(/\b\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\b/);
-            if (!maybeAmount && !maybeDate) {
+        if (!date) {
+            const parsed = parseReceiptDate(line);
+            if (parsed) {
+                date = parsed;
+            }
+        }
+
+        if (!amount) {
+            const amountMatch = line.match(/(?:summa|totalt|total|belopp|att betala|kr|betala)\s*[:\-]?\s*([0-9]+[.,][0-9]{2})/i);
+            if (amountMatch) {
+                amount = amountMatch[1].replace(',', '.');
+            }
+        }
+    }
+
+    if (!amount) {
+        const amountMatches = Array.from(text.matchAll(/\b([0-9]+[.,][0-9]{2})\b/g)).map(m => m[1].replace(',', '.'));
+        if (amountMatches.length) {
+            amount = amountMatches[amountMatches.length - 1];
+        }
+    }
+
+    if (!store) {
+        for (const line of lines) {
+            if (!skipHeader(line) && !parseReceiptDate(line) && !/\b([0-9]+[.,][0-9]{2})\b/.test(line)) {
                 store = line;
                 break;
             }
         }
     }
 
-    // Datum
-    const dateMatch = text.match(/\b(\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2})\b|\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})\b/);
-    if (dateMatch) {
-        date = dateMatch[0];
-        const parsed = Date.parse(date.replace(/\./g, '/').replace(/-/g, '/'));
-        if (!Number.isNaN(parsed)) {
-            const d = new Date(parsed);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            date = `${year}-${month}-${day}`;
-        }
-    }
-
-    // Belopp
-    const amountMatches = Array.from(text.matchAll(/(?:summa|totalt|total|belopp|att betala|kr)\s*[:\-]?\s*([0-9]+[.,][0-9]{2})/gi));
-    if (amountMatches.length) {
-        amount = amountMatches[amountMatches.length - 1][1].replace(',', '.');
-    } else {
-        const numbers = Array.from(text.matchAll(/\b([0-9]+[.,][0-9]{2})\b/g)).map(m => m[1].replace(',', '.'));
-        if (numbers.length) {
-            amount = numbers[numbers.length - 1];
-        }
-    }
-
-    // Fallback för butik: första raden
     if (!store && lines.length) {
         store = lines[0];
     }
