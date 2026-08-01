@@ -544,6 +544,19 @@ function getCouponCountState(collected, planned) {
     return 'is-under';
 }
 
+function countTotalCollected(coupons) {
+    if (!coupons || typeof coupons !== 'object') return 0;
+    let total = 0;
+    ['friday', 'saturday'].forEach(day => {
+        if (Array.isArray(coupons[day])) {
+            coupons[day].forEach(row => {
+                total += (row.lunchCollected || 0) + (row.dinnerCollected || 0);
+            });
+        }
+    });
+    return total;
+}
+
 function normalizeFoodCoupons(couponPayload) {
     const normalized = cloneFoodCouponTemplate();
     if (!couponPayload || typeof couponPayload !== 'object') {
@@ -737,10 +750,17 @@ function applyRemotePayload(payload, remoteUpdatedAt) {
     if (payload.foodCoupons && typeof payload.foodCoupons === 'object') {
         const isRemoteCouponsEmpty = (!Array.isArray(payload.foodCoupons.friday) || payload.foodCoupons.friday.length === 0)
             && (!Array.isArray(payload.foodCoupons.saturday) || payload.foodCoupons.saturday.length === 0);
+        
+        const remoteTotal = countTotalCollected(payload.foodCoupons);
+        const localTotal = countTotalCollected(foodCoupons);
 
         if (isRemoteCouponsEmpty && lastKnownGoodFoodCoupons) {
             console.warn('URF: tom eller ofullständig remote matkupongspayload, bevarar lokala matkuponger.');
             foodCoupons = lastKnownGoodFoodCoupons;
+        } else if (remoteTotal === 0 && localTotal > 0) {
+            // Remote är helt nollad men lokalt har upphämtningar → bevara lokalt
+            console.warn('URF: remote matkuponger är helt nollad (' + remoteTotal + ') men lokalt finns upphämtningar (' + localTotal + '), bevarar lokala värden.');
+            // Behål foodCoupons oförändrat
         } else {
             foodCoupons = normalizeFoodCoupons(payload.foodCoupons);
             lastKnownGoodFoodCoupons = foodCoupons;
