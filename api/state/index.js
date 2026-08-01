@@ -36,6 +36,19 @@ function isUrfStateId(id) {
   return typeof id === 'string' && id.startsWith('urf:');
 }
 
+function countTotalCollected(foodCoupons) {
+  if (!foodCoupons || typeof foodCoupons !== 'object') return 0;
+  let total = 0;
+  ['friday', 'saturday'].forEach(day => {
+    if (Array.isArray(foodCoupons[day])) {
+      foodCoupons[day].forEach(row => {
+        total += (row.lunchCollected || 0) + (row.dinnerCollected || 0);
+      });
+    }
+  });
+  return total;
+}
+
 function getPool(connectionString = resolveConnectionString()) {
   console.log('[URF-API] Attempting SQL connection. String length:', connectionString.length);
   console.log('[URF-API] SQL_CONNECTION_STRING exists:', !!process.env.SQL_CONNECTION_STRING);
@@ -177,10 +190,38 @@ module.exports = async function (context, req) {
 
     const timestamp = updated_at || new Date().toISOString();
     const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const payloadObj = typeof payload === 'string' ? JSON.parse(payload) : payload;
 
     try {
       const connectionString = isUrfStateId(id) ? resolveUrfConnectionString() : resolveConnectionString();
       const pool = await getPool(connectionString);
+
+      // URF-specific validation: prevent wipeout of foodCoupons
+      if (isUrfStateId(id) && payloadObj.foodCoupons) {
+        const existingResult = await pool.request()
+          .input('id', sql.NVarChar(200), id)
+          .query('SELECT payload FROM app_state WHERE id = @id');
+
+        if (existingResult.recordset.length > 0) {
+          const existingPayload = JSON.parse(existingResult.recordset[0].payload);
+          const existingTotal = countTotalCollected(existingPayload.foodCoupons);
+          const newTotal = countTotalCollected(payloadObj.foodCoupons);
+
+          // Reject if new total is 0 but existing had data
+          if (newTotal === 0 && existingTotal > 0) {
+            context.log.warn(`[URF-API] Blocking wipeout: existing total=${existingTotal}, new total=${newTotal}`);
+            return {
+              status: 409,
+              headers: { 'Content-Type': 'application/json' },
+              body: { 
+                error: 'Cannot wipe out foodCoupons data',
+                details: `Existing total=${existingTotal}, new total=${newTotal}`
+              }
+            };
+          }
+        }
+      }
+
       await pool.request()
         .input('id', sql.NVarChar(200), id)
         .input('payload', sql.NVarChar(sql.MAX), payloadStr)
