@@ -53,8 +53,24 @@
 
             <div class="form-group">
                 <label for="receiptImage">Kvittobild:</label>
-                <input type="file" id="receiptImage" accept="image/*" required>
+                <div class="camera-controls">
+                    <input type="file" id="receiptImage" accept="image/*" capture="environment" required>
+                    <button type="button" id="cameraBtn" class="btn btn-primary">📷 Öppna kamera</button>
+                </div>
                 <div id="imagePreview" class="image-preview"></div>
+            </div>
+
+            <!-- Dolt video element för kamera -->
+            <div id="cameraContainer" class="camera-container" style="display:none;">
+                <div class="camera-modal">
+                    <h3>Ta foto av kvitto</h3>
+                    <video id="cameraFeed" playsinline autoplay></video>
+                    <canvas id="photoCanvas" style="display:none;"></canvas>
+                    <div class="camera-buttons">
+                        <button type="button" id="captureBtn" class="btn btn-primary">📸 Ta foto</button>
+                        <button type="button" id="closeCameraBtn" class="btn btn-secondary">Avbryt</button>
+                    </div>
+                </div>
             </div>
 
             <div class="modal-buttons">

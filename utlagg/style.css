@@ -256,6 +256,63 @@ header h1 {
     transition: border-color 0.3s;
 }
 
+.camera-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.camera-controls input[type="file"] {
+    flex: 1;
+}
+
+.camera-controls .btn {
+    white-space: nowrap;
+    padding: 10px 16px;
+}
+
+/* Kamera container */
+.camera-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.camera-modal {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    width: 90%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.camera-modal h3 {
+    margin: 0;
+    color: #333;
+}
+
+#cameraFeed {
+    width: 100%;
+    border-radius: 8px;
+    background: #000;
+}
+
+.camera-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
 .form-group input:focus,
 .form-group textarea:focus {
     outline: none;

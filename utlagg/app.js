@@ -14,8 +14,17 @@ const imagePreview = document.getElementById('imagePreview');
 const cancelBtn = document.getElementById('cancelBtn');
 const saveBtn = document.getElementById('saveBtn');
 
+// Kamera-element
+const cameraBtn = document.getElementById('cameraBtn');
+const cameraContainer = document.getElementById('cameraContainer');
+const cameraFeed = document.getElementById('cameraFeed');
+const photoCanvas = document.getElementById('photoCanvas');
+const captureBtn = document.getElementById('captureBtn');
+const closeCameraBtn = document.getElementById('closeCameraBtn');
+
 let expenses = [];
 let selectedImageData = null;
+let cameraStream = null;
 
 // Läs in sparade utlägg från localStorage
 function loadExpenses() {
@@ -86,16 +95,33 @@ addExpenseBtn.addEventListener('click', () => {
 // Stäng modaler
 document.querySelectorAll('.close').forEach(btn => {
     btn.addEventListener('click', (e) => {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+        cameraContainer.style.display = 'none';
         e.target.closest('.modal').style.display = 'none';
     });
 });
 
 cancelBtn.addEventListener('click', () => {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    cameraContainer.style.display = 'none';
     expenseModal.style.display = 'none';
 });
 
 window.addEventListener('click', (e) => {
-    if (e.target === expenseModal) expenseModal.style.display = 'none';
+    if (e.target === expenseModal) {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+        cameraContainer.style.display = 'none';
+        expenseModal.style.display = 'none';
+    }
     if (e.target === detailsModal) detailsModal.style.display = 'none';
 });
 
@@ -110,6 +136,51 @@ receiptImage.addEventListener('change', (e) => {
         };
         reader.readAsDataURL(file);
     }
+});
+
+// Kamera - öppna
+cameraBtn.addEventListener('click', async () => {
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+        });
+        
+        cameraFeed.srcObject = cameraStream;
+        cameraContainer.style.display = 'flex';
+    } catch (err) {
+        console.error('Kameraåtkomst nekad:', err);
+        alert('Kunde inte öppna kamera. Kontrollera behörigheter och försök igen.');
+    }
+});
+
+// Kamera - ta foto
+captureBtn.addEventListener('click', () => {
+    if (!cameraStream) return;
+
+    // Ställ canvas till samma storlek som video
+    photoCanvas.width = cameraFeed.videoWidth;
+    photoCanvas.height = cameraFeed.videoHeight;
+
+    // Rita video frame till canvas
+    const ctx = photoCanvas.getContext('2d');
+    ctx.drawImage(cameraFeed, 0, 0);
+
+    // Konvertera canvas till base64
+    selectedImageData = photoCanvas.toDataURL('image/jpeg', 0.9);
+    imagePreview.innerHTML = `<img src="${selectedImageData}" alt="Taget foto">`;
+
+    // Stäng kamera
+    closeCameraBtn.click();
+});
+
+// Kamera - stäng
+closeCameraBtn.addEventListener('click', () => {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    cameraContainer.style.display = 'none';
 });
 
 // Sätt dagens datum som default
