@@ -16,6 +16,8 @@ const saveBtn = document.getElementById('saveBtn');
 
 // Kamera-element
 const cameraBtn = document.getElementById('cameraBtn');
+const scanReceiptBtn = document.getElementById('scanReceiptBtn');
+const ocrStatus = document.getElementById('ocrStatus');
 const cameraContainer = document.getElementById('cameraContainer');
 const cameraFeed = document.getElementById('cameraFeed');
 const photoCanvas = document.getElementById('photoCanvas');
@@ -25,6 +27,7 @@ const closeCameraBtn = document.getElementById('closeCameraBtn');
 let expenses = [];
 let selectedImageData = null;
 let cameraStream = null;
+let lastRecognizedText = '';
 
 // Läs in sparade utlägg från localStorage
 function loadExpenses() {
@@ -81,6 +84,87 @@ function formatDate(dateStr) {
     return date.toLocaleDateString('sv-SE');
 }
 
+function normalizeText(text) {
+    return text.replace(/\r/g, ' ').replace(/\n+/g, '\n').trim();
+}
+
+function parseReceiptText(text) {
+    const lines = normalizeText(text).split('\n').map(line => line.trim()).filter(Boolean);
+    let store = '';
+    let date = '';
+    let amount = '';
+
+    // Förslag: första vettiga raden som inte är pris eller datum
+    for (const line of lines) {
+        if (!store && !/\b(summa|totalt|total|moms|betalt|kort|kontant|retur)\b/i.test(line)) {
+            const maybeAmount = line.match(/\b\d+[\s\d,.]*\d\b/);
+            const maybeDate = line.match(/\b\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\b/);
+            if (!maybeAmount && !maybeDate) {
+                store = line;
+                break;
+            }
+        }
+    }
+
+    // Datum
+    const dateMatch = text.match(/\b(\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2})\b|\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})\b/);
+    if (dateMatch) {
+        date = dateMatch[0];
+        const parsed = Date.parse(date.replace(/\./g, '/').replace(/-/g, '/'));
+        if (!Number.isNaN(parsed)) {
+            const d = new Date(parsed);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            date = `${year}-${month}-${day}`;
+        }
+    }
+
+    // Belopp
+    const amountMatches = Array.from(text.matchAll(/(?:summa|totalt|total|belopp|att betala|kr)\s*[:\-]?\s*([0-9]+[.,][0-9]{2})/gi));
+    if (amountMatches.length) {
+        amount = amountMatches[amountMatches.length - 1][1].replace(',', '.');
+    } else {
+        const numbers = Array.from(text.matchAll(/\b([0-9]+[.,][0-9]{2})\b/g)).map(m => m[1].replace(',', '.'));
+        if (numbers.length) {
+            amount = numbers[numbers.length - 1];
+        }
+    }
+
+    // Fallback för butik: första raden
+    if (!store && lines.length) {
+        store = lines[0];
+    }
+
+    return { store, date, amount };
+}
+
+async function recognizeReceipt(imageData) {
+    if (!imageData) {
+        throw new Error('Ingen bild vald');
+    }
+
+    setOcrStatus('Scanning kvitto...', 'scanning');
+    const result = await Tesseract.recognize(imageData, 'swe', {
+        logger: m => {
+            if (m.status === 'recognizing text') {
+                setOcrStatus(`Skannar... ${Math.round(m.progress * 100)}%`, 'scanning');
+            }
+        }
+    });
+
+    lastRecognizedText = result.data.text;
+    const parsed = parseReceiptText(lastRecognizedText);
+    setOcrStatus('Skanning klar', 'success');
+    return parsed;
+}
+
+function setOcrStatus(message, statusClass = '') {
+    ocrStatus.textContent = message;
+    ocrStatus.className = 'ocr-status';
+    if (statusClass) ocrStatus.classList.add(statusClass);
+}
+
 // Generera ID
 function generateId() {
     return 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -133,8 +217,29 @@ receiptImage.addEventListener('change', (e) => {
         reader.onload = (event) => {
             selectedImageData = event.target.result;
             imagePreview.innerHTML = `<img src="${selectedImageData}" alt="Preview">`;
+            setOcrStatus('Bild vald. Klicka på Skanna kvitto för att autofylla.', '');
         };
         reader.readAsDataURL(file);
+    }
+});
+
+scanReceiptBtn.addEventListener('click', async () => {
+    if (!selectedImageData) {
+        alert('Välj en kvittobild först.');
+        return;
+    }
+
+    try {
+        const parsed = await recognizeReceipt(selectedImageData);
+        if (parsed.store) expenseStore.value = parsed.store;
+        if (parsed.date) expenseDate.value = parsed.date;
+        if (parsed.amount) expenseAmount.value = parseFloat(parsed.amount);
+        if (!parsed.store && !parsed.date && !parsed.amount) {
+            setOcrStatus('Kunde inte hitta affär, datum eller belopp. Kontrollera bilden.', 'error');
+        }
+    } catch (err) {
+        console.error('OCR-fel:', err);
+        setOcrStatus('OCR misslyckades: ' + err.message, 'error');
     }
 });
 
@@ -169,6 +274,7 @@ captureBtn.addEventListener('click', () => {
     // Konvertera canvas till base64
     selectedImageData = photoCanvas.toDataURL('image/jpeg', 0.9);
     imagePreview.innerHTML = `<img src="${selectedImageData}" alt="Taget foto">`;
+    setOcrStatus('Bild tagen. Klicka på Skanna kvitto för att autofylla.');
 
     // Stäng kamera
     closeCameraBtn.click();

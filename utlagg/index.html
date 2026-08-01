@@ -56,7 +56,9 @@
                 <div class="camera-controls">
                     <input type="file" id="receiptImage" accept="image/*" capture="environment" required>
                     <button type="button" id="cameraBtn" class="btn btn-primary">📷 Öppna kamera</button>
+                    <button type="button" id="scanReceiptBtn" class="btn btn-secondary">🔎 Skanna kvitto</button>
                 </div>
+                <div id="ocrStatus" class="ocr-status">Ingen skanning ännu</div>
                 <div id="imagePreview" class="image-preview"></div>
             </div>
 
@@ -90,6 +92,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

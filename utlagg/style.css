@@ -259,11 +259,30 @@ header h1 {
 .camera-controls {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
     align-items: center;
 }
 
 .camera-controls input[type="file"] {
-    flex: 1;
+    flex: 1 1 180px;
+}
+
+.ocr-status {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #333;
+}
+
+.ocr-status.scanning {
+    color: #667eea;
+}
+
+.ocr-status.success {
+    color: #22aa22;
+}
+
+.ocr-status.error {
+    color: #d33;
 }
 
 .camera-controls .btn {
