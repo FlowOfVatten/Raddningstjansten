@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ackreditering</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>Ackreditering</h1>
+        <p>Sök person, checka in och markera utdelning av T-shirt och matbiljett.</p>
+      </div>
+      <div class="header-actions">
+        <input type="text" id="adminInput" placeholder="Adminnamn" class="admin-box" />
+        <input type="text" id="accreditationSearch" placeholder="Sök namn eller telefon..." class="search-box" />
+        <a href="index.html" class="header-link-btn">Till schema</a>
+      </div>
+    </header>
+
+    <section class="toolbar-panel">
+      <div class="meta-row">
+        <span id="accreditationMeta">Laddar...</span>
+      </div>
+    </section>
+
+    <main id="accreditationList" class="accreditation-layout"></main>
+    <input id="photoCaptureInput" type="file" accept="image/*" capture="environment" class="hidden" />
+  </div>
+
+  <script src="ackreditering.js"></script>
+</body>
+</html>

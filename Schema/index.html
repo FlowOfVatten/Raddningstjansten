@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schema / Mobilisering</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>Schema & mobilisering</h1>
+        <p>Exempelapp för scheman med incheckning, på plats-status och drag‑och‑släpp mellan grupper.</p>
+      </div>
+      <div class="header-actions">
+        <input type="text" id="adminInput" placeholder="Adminnamn" class="admin-box" />
+        <input type="text" id="searchInput" placeholder="Sök person..." class="search-box" />
+        <a href="ackreditering.html" class="header-link-btn">Ackreditering</a>
+        <button id="exportBtn">Exportera CSV</button>
+        <button id="resetBtn">Återställ exempeldata</button>
+      </div>
+    </header>
+
+    <section class="toolbar-panel">
+      <div class="filter-bar" id="filterBar">
+        <button class="filter-chip active" data-filter="all">Alla</button>
+        <button class="filter-chip" data-filter="scheduled">Ej incheckade</button>
+        <button class="filter-chip" data-filter="checkedIn">Incheckade</button>
+        <button class="filter-chip" data-filter="blocked">Blockerade</button>
+        <button class="filter-chip" data-filter="missingTshirt">Saknar T-shirt</button>
+        <button class="filter-chip" data-filter="missingFood">Saknar Mat</button>
+      </div>
+      <div class="meta-row">
+        <span id="lastSavedInfo">Senast sparad lokalt: -</span>
+      </div>
+    </section>
+
+    <main id="scheduleContainer" class="schedule-grid"></main>
+
+    <section class="audit-panel">
+      <h3>Händelselogg</h3>
+      <ul id="auditLogList" class="audit-log-list"></ul>
+    </section>
+  </div>
+
+  <div id="personModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="personModalName">
+    <div class="modal-card">
+      <button id="closeModalBtn" class="modal-close" aria-label="Stäng personfönster">×</button>
+      <div class="modal-photo-wrapper">
+        <img id="personPhoto" src="" alt="Personfoto" />
+      </div>
+      <div class="modal-details">
+        <h3 id="personModalName"></h3>
+        <p class="modal-meta" id="personModalRole"></p>
+        <p class="modal-meta"><strong>Telefon:</strong> <span id="personModalPhone"></span></p>
+        <p class="modal-meta"><strong>Tilldelad tid:</strong> <span id="personModalAssignedTime"></span></p>
+        <p class="modal-meta"><strong>Radio:</strong> <span id="personModalRadio">Ej tilldelad</span></p>
+        <p class="modal-meta"><strong>Ackreditering:</strong> <span id="personModalAccreditation" class="accreditation-icons">-</span></p>
+        <p class="modal-meta"><strong>Status:</strong> <span id="personModalStatus"></span></p>
+        <p class="modal-meta"><strong>Senast ändrad:</strong> <span id="personModalUpdatedAt">-</span></p>
+        <p class="modal-meta"><strong>Ändrad av:</strong> <span id="personModalUpdatedBy">-</span></p>
+        <div class="modal-actions">
+          <button class="modal-action-btn" id="radioBtn" title="Radio">📻 Radio</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="barcodeModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <button id="closeBarcodeBtn" class="modal-close" aria-label="Stäng barcode scanner">×</button>
+      <div class="modal-details">
+        <h3>Scanna Radiokod</h3>
+        <video id="barcodeVideo" style="width: 100%; max-width: 500px; border: 1px solid #ccc; border-radius: 8px;"></video>
+        <p class="modal-meta"><strong>Skannresultat:</strong> <span id="barcodeResult">Väntar på kod...</span></p>
+        <button id="closeScanBtn" class="modal-action-btn">Stäng Scanner</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="reservePickerModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reservePickerTitle">
+    <div class="modal-card">
+      <button id="closeReservePickerBtn" class="modal-close" aria-label="Stäng personväljare">×</button>
+      <div class="modal-details">
+        <h3 id="reservePickerTitle">Välj person för lucka</h3>
+        <p class="modal-meta" id="reservePickerTarget"></p>
+        <input type="text" id="reservePickerSearch" class="search-box reserve-search" placeholder="Sök person i listan..." />
+        <div id="reservePickerList" class="reserve-picker-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
