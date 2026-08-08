@@ -670,6 +670,55 @@ function isPlausibleTemplateCorrection(ocrVal, tmVal) {
   return false;
 }
 
+function shouldAcceptDigitSwap(ocrDigit, tmDigit, score) {
+  if (!ocrDigit || !tmDigit || ocrDigit === tmDigit) {
+    return false;
+  }
+
+  // Only allow known ambiguous OCR pairs.
+  return isAmbiguousDigitPair(ocrDigit, tmDigit) && score >= 0.78;
+}
+
+function decodeTroopsFromTemplateMatrix(matrix, expectedLens, minScore = 0.78) {
+  if (!Array.isArray(matrix)) {
+    return { troops: Array(5).fill(null), completeRows: 0 };
+  }
+
+  const out = [];
+  let completeRows = 0;
+
+  for (let i = 0; i < 5; i += 1) {
+    const row = matrix[i];
+    const expLen = expectedLens[i] || 13;
+    if (!row || row.length !== expLen) {
+      out.push(null);
+      continue;
+    }
+
+    let digits = "";
+    let ok = true;
+    for (let j = 0; j < expLen; j += 1) {
+      const pred = row[j];
+      if (!pred?.digit || typeof pred.score !== "number" || pred.score < minScore) {
+        ok = false;
+        break;
+      }
+      digits += pred.digit;
+    }
+
+    if (!ok || digits.length !== expLen) {
+      out.push(null);
+      continue;
+    }
+
+    out.push(digits);
+    completeRows += 1;
+  }
+
+  return { troops: out, completeRows };
+}
+
+
 function repairTroopsWithTotalPower(result) {
   if (!result.rawTotalPowerDigits || result.rawTroopDigits.length !== 5) {
     return result;
@@ -936,6 +985,7 @@ async function extractTextFromImage(imageSrc) {
   return result.data.text;
 }
 
+// ─── Banner-read for single-troop-tab screenshots ─────────────────────────
 function setPreview(src, fileName = "") {
   selectedImageSrc = src;
   selectedImageName = fileName;
@@ -943,12 +993,60 @@ function setPreview(src, fileName = "") {
   preview.style.display = "block";
 }
 
+async function readTroopBannerDigits(imageSrc) {
+  const img = await loadImageElement(imageSrc);
+  // The troop count banner sits roughly at y 11-19%, x 15-88% of the image.
+  const boxes = [
+    { x: 0.15, y: 0.11, w: 0.73, h: 0.08 },
+    { x: 0.10, y: 0.09, w: 0.80, h: 0.10 },
+  ];
+  for (const box of boxes) {
+    const crop = cropImageToDataUrl(img, box, 3,
+      "grayscale(100%) contrast(300%) brightness(120%)");
+    const result = await Tesseract.recognize(crop, "eng", {
+      tessedit_char_whitelist: "0123456789,."
+    });
+    const raw = result.data.text;
+    // Strip everything except digits, look for a 12-14 digit run.
+    const matches = raw.match(/[0-9][0-9,\.]{9,}/g) || [];
+    for (const m of matches) {
+      const digits = m.replace(/[^0-9]/g, "");
+      if (digits.length >= 12 && digits.length <= 15) {
+        // Trim to 13-14 if longer (leading icon pixel artifacts).
+        return digits.length > 14 ? digits.slice(-14) : digits;
+      }
+    }
+  }
+  return null;
+}
+
+// ─── Mode state ─────────────────────────────────────────────────────────────
+let currentMode = "overview"; // "overview" | "troops"
+const troopImageSrcs = {}; // { 1: objectUrl, 2: ..., ... }
+let nameImageSrc = null;
+
+// ─── Mode tab switching ──────────────────────────────────────────────────────
+document.querySelectorAll(".mode-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".mode-tab").forEach((t) => {
+      t.classList.remove("active");
+      t.setAttribute("aria-selected", "false");
+    });
+    tab.classList.add("active");
+    tab.setAttribute("aria-selected", "true");
+    currentMode = tab.dataset.mode;
+    document.getElementById("modeOverview").hidden = currentMode !== "overview";
+    document.getElementById("modeTroops").hidden = currentMode !== "troops";
+    document.getElementById("previewPanel").hidden = currentMode !== "overview";
+    setStatus("Väntar på bild...");
+    setProgress(0);
+  });
+});
+
+// ─── Overview mode: single image ────────────────────────────────────────────
 imageInput.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
-  if (!file) {
-    return;
-  }
-
+  if (!file) return;
   const objectUrl = URL.createObjectURL(file);
   setPreview(objectUrl, file.name);
   setStatus(`Vald bild: ${file.name}`);
@@ -959,14 +1057,40 @@ useSampleBtn.addEventListener("click", () => {
   setStatus("Exempelbild laddad.");
 });
 
-analyzeBtn.addEventListener("click", async () => {
-  if (!selectedImageSrc) {
-    setStatus("Välj en bild först.");
-    return;
-  }
+// ─── Troops mode: 5 individual images ───────────────────────────────────────
+document.querySelectorAll(".troop-input").forEach((input) => {
+  input.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const n = Number(input.dataset.troop);
+    const url = URL.createObjectURL(file);
+    troopImageSrcs[n] = url;
 
+    const slot = input.closest(".troop-slot");
+    const label = slot.querySelector(".slot-file-label");
+    const placeholder = slot.querySelector(".slot-placeholder");
+    const previewImg = slot.querySelector(".slot-preview");
+
+    label.classList.add("has-image");
+    placeholder.textContent = file.name.slice(0, 18) + (file.name.length > 18 ? "…" : "");
+    previewImg.src = url;
+    previewImg.hidden = false;
+
+    setStatus(`Troop ${n} vald: ${file.name}`);
+  });
+});
+
+document.getElementById("nameImageInput")?.addEventListener("change", (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  nameImageSrc = URL.createObjectURL(file);
+  setStatus(`Namnbild vald: ${file.name}`);
+});
+
+// ─── Analyze button ──────────────────────────────────────────────────────────
+analyzeBtn.addEventListener("click", async () => {
   analyzeBtn.disabled = true;
-  useSampleBtn.disabled = true;
+  if (useSampleBtn) useSampleBtn.disabled = true;
 
   try {
     const hasTesseract = await ensureTesseractLoaded();
@@ -975,145 +1099,173 @@ analyzeBtn.addEventListener("click", async () => {
       return;
     }
 
-    let resultData = null;
-    let attempt = 0;
-
-    // Build digit templates once (from reference image, cached in localStorage).
-    setStatus("Laddar siffrematching...");
-    await ensureDigitLib();
-
-    while (attempt < MAX_OCR_ATTEMPTS) {
-      attempt += 1;
-      if (attempt > 1) {
-        setStatus(`Kontroll misslyckades – kör OCR igen (försök ${attempt}/${MAX_OCR_ATTEMPTS})...`);
-      }
-
-      const [nameFromCrop, text, troopText, rawTotalPowerDigits] = await Promise.all([
-        extractNameFromImage(selectedImageSrc),
-        extractTextFromImage(selectedImageSrc),
-        extractTroopTextFromImage(selectedImageSrc),
-        extractTotalPowerFromImage(selectedImageSrc)
-      ]);
-
-      const parsed = parseFromText(text, nameFromCrop, troopText);
-      parsed.rawTotalPowerDigits = rawTotalPowerDigits;
-
-      // --- Template matching correction ---
-      // Run pixel-level matching against the known-font templates and replace
-      // any OCR digit that the matcher can identify more confidently.
-      const expectedLens = parsed.rawTroopDigits.map((d) => d.length || 13);
-      const { troops: tmTroops, log: tmLog } = await tmMatchAllTroops(
-        selectedImageSrc, expectedLens
-      );
-
-      let tmCorrected = 0;
-      if (tmTroops) {
-        let baselineDiff = null;
-        if (parsed.rawTotalPowerDigits && parsed.rawTroopDigits.length === 5) {
-          try {
-            const baseSum = parsed.rawTroopDigits.reduce((acc, v) => acc + BigInt(v), 0n);
-            baselineDiff = absBigIntDiff(baseSum, BigInt(parsed.rawTotalPowerDigits));
-          } catch {
-            baselineDiff = null;
-          }
-        }
-
-        for (let i = 0; i < 5; i++) {
-          const tm = tmTroops[i];
-          if (!tm) continue;
-          if (i >= parsed.rawTroopDigits.length) continue;
-
-          const ocrVal = parsed.rawTroopDigits[i];
-          if (tm.length !== ocrVal.length) continue; // length mismatch → skip
-          if (!isPlausibleTemplateCorrection(ocrVal, tm)) continue;
-
-          if (tm !== ocrVal) {
-            let accept = true;
-
-            // If total power exists, only accept template correction when it improves
-            // consistency against total power.
-            if (baselineDiff !== null) {
-              try {
-                const trial = [...parsed.rawTroopDigits];
-                trial[i] = tm;
-                const trialSum = trial.reduce((acc, v) => acc + BigInt(v), 0n);
-                const trialDiff = absBigIntDiff(trialSum, BigInt(parsed.rawTotalPowerDigits));
-                if (trialDiff >= baselineDiff) {
-                  accept = false;
-                }
-              } catch {
-                accept = false;
-              }
-            }
-
-            if (!accept) continue;
-
-            parsed.rawTroopDigits[i] = tm;
-            parsed.troops[i].value = formatDigits(tm);
-            tmCorrected++;
-
-            if (baselineDiff !== null) {
-              try {
-                const newSum = parsed.rawTroopDigits.reduce((acc, v) => acc + BigInt(v), 0n);
-                baselineDiff = absBigIntDiff(newSum, BigInt(parsed.rawTotalPowerDigits));
-              } catch {
-                baselineDiff = null;
-              }
-            }
-          }
-        }
-
-        if (tmCorrected > 0) {
-          // Recalculate power from corrected troops.
-          const newSum = parsed.rawTroopDigits.reduce(
-            (acc, v) => acc + BigInt(v), 0n
-          );
-          parsed.power = formatDigits(String(newSum));
-        }
-      }
-
-      console.debug("[DigitMatcher]", tmLog, `corrections=${tmCorrected}`);
-
-      if (isTroopSumConsistent(parsed)) {
-        resultData = parsed;
-        break;
-      }
-
-      // Show best result so far while retrying.
-      if (!resultData || parsed.troops.length >= (resultData.troops?.length ?? 0)) {
-        resultData = parsed;
-      }
-    }
-
-    // If still not consistent after all attempts, try to repair a single misread troop.
-    if (!isTroopSumConsistent(resultData)) {
-      resultData = repairTroopsWithTotalPower(resultData);
-    }
-
-    showResults(resultData);
-
-    if (!resultData.name && !resultData.power && !resultData.troops.length) {
-      setStatus("OCR klar, men ingen matchande data hittades. Testa en tydligare bild.");
-    } else if (resultData.repairedTroops?.length) {
-      const label = resultData.repairedTroops.map((n) => `Troop ${n}`).join(", ");
-      setStatus(`Klar! ${label} reparerades automatiskt med 1↔7-korrigering.`);
-    } else if (!isTroopSumConsistent(resultData)) {
-      setStatus(`Klar (${MAX_OCR_ATTEMPTS} försök) – truppernas summa matchar inte total power, siffrorna kan vara osäkra.`);
+    if (currentMode === "troops") {
+      await analyzeTroopImages();
     } else {
-      setStatus("Klar! Truppernas summa stämmer med total power.");
+      await analyzeOverviewImage();
     }
   } catch (error) {
     console.error(error);
     setStatus("Ett fel uppstod vid OCR. Kontrollera internetanslutning och försök igen.");
   } finally {
     analyzeBtn.disabled = false;
-    useSampleBtn.disabled = false;
+    if (useSampleBtn) useSampleBtn.disabled = false;
   }
 });
 
+// ─── Troop-tab mode analysis ─────────────────────────────────────────────────
+async function analyzeTroopImages() {
+  const slots = Object.keys(troopImageSrcs).map(Number).sort((a, b) => a - b);
+  if (!slots.length) {
+    setStatus("Ladda upp minst en truppbild.");
+    return;
+  }
+
+  setStatus(`Läser ${slots.length} truppbild${slots.length > 1 ? "er" : ""}...`);
+  setProgress(0);
+
+  const rawTroopDigits = {};
+  for (let i = 0; i < slots.length; i++) {
+    const n = slots[i];
+    setStatus(`Läser Troop ${n} (${i + 1}/${slots.length})...`);
+    setProgress(Math.round(((i + 0.5) / slots.length) * 90));
+    const digits = await readTroopBannerDigits(troopImageSrcs[n]);
+    if (digits) rawTroopDigits[n] = digits;
+  }
+
+  setProgress(95);
+
+  // Read name if a name image was provided, otherwise try from first troop image.
+  let name = "";
+  const nameSource = nameImageSrc || troopImageSrcs[slots[0]];
+  if (nameSource) {
+    name = await extractNameFromImage(nameSource);
+  }
+
+  setProgress(100);
+
+  const troopDigitValues = Array.from({ length: 5 }, (_, i) => rawTroopDigits[i + 1] || null)
+    .filter(Boolean);
+
+  const troops = Object.entries(rawTroopDigits)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([number, digits]) => ({ number: Number(number), value: formatDigits(digits) }));
+
+  let powerDigits = "";
+  try {
+    powerDigits = String(Object.values(rawTroopDigits).reduce((acc, v) => acc + BigInt(v), 0n));
+  } catch { /* leave empty */ }
+
+  const resultData = {
+    name,
+    power: formatDigits(powerDigits),
+    troops,
+    rawTroopDigits: troopDigitValues,
+    rawTotalPowerDigits: ""
+  };
+
+  showResults(resultData);
+  const loaded = troops.length;
+  if (loaded < 5) {
+    setStatus(`Klar! ${loaded}/5 trupper inlästa. Ladda upp fler bilder för full summering.`);
+  } else {
+    setStatus("Klar! Alla 5 trupper inlästa.");
+  }
+}
+
+// ─── Overview (stats-panel) mode analysis ────────────────────────────────────
+async function analyzeOverviewImage() {
+  if (!selectedImageSrc) {
+    setStatus("Välj en bild först.");
+    return;
+  }
+
+  let resultData = null;
+  let attempt = 0;
+
+  setStatus("Laddar siffrematching...");
+  await ensureDigitLib();
+
+  while (attempt < MAX_OCR_ATTEMPTS) {
+    attempt += 1;
+    if (attempt > 1) {
+      setStatus(`Kontroll misslyckades – kör OCR igen (försök ${attempt}/${MAX_OCR_ATTEMPTS})...`);
+    }
+
+    const [nameFromCrop, text, troopText, rawTotalPowerDigits] = await Promise.all([
+      extractNameFromImage(selectedImageSrc),
+      extractTextFromImage(selectedImageSrc),
+      extractTroopTextFromImage(selectedImageSrc),
+      extractTotalPowerFromImage(selectedImageSrc)
+    ]);
+
+    const parsed = parseFromText(text, nameFromCrop, troopText);
+    parsed.rawTotalPowerDigits = rawTotalPowerDigits;
+
+    const ocrLens = parsed.rawTroopDigits.map((d) => d.length >= 13 ? d.length : 13);
+    const ocrDigits = Array.from({ length: 5 }, (_, i) => parsed.rawTroopDigits[i] || null);
+    const expectedLens = Array.from({ length: 5 }, (_, i) => ocrLens[i] || 13);
+
+    const { matrix: tmMatrix, log: tmLog } = await tmMatchDigitMatrix(
+      selectedImageSrc, expectedLens
+    );
+
+    const decoded = tmMatrix
+      ? decodeTroopsFromTemplateMatrix(tmMatrix, expectedLens, 0.78)
+      : { troops: Array(5).fill(null), completeRows: 0 };
+
+    const mergedDigits = Array.from({ length: 5 }, (_, i) =>
+      decoded.troops[i] || ocrDigits[i] || null
+    );
+
+    const mergedTroops = mergedDigits.map((digits, i) => ({
+      number: i + 1,
+      value: digits ? formatDigits(digits) : "-"
+    })).filter((t) => t.value !== "-");
+
+    if (mergedDigits.some(Boolean)) {
+      parsed.rawTroopDigits = mergedDigits.filter(Boolean);
+      parsed.troops = mergedTroops;
+      try {
+        const mergedSum = mergedDigits.filter(Boolean).reduce((acc, v) => acc + BigInt(v), 0n);
+        parsed.power = formatDigits(String(mergedSum));
+      } catch { /* keep original */ }
+    }
+
+    console.debug("[DigitMatcher]", tmLog);
+
+    if (isTroopSumConsistent(parsed)) {
+      resultData = parsed;
+      break;
+    }
+
+    if (!resultData || parsed.troops.length >= (resultData.troops?.length ?? 0)) {
+      resultData = parsed;
+    }
+  }
+
+  if (!isTroopSumConsistent(resultData)) {
+    resultData = repairTroopsWithTotalPower(resultData);
+  }
+
+  showResults(resultData);
+
+  if (!resultData.name && !resultData.power && !resultData.troops.length) {
+    setStatus("OCR klar, men ingen matchande data hittades. Testa en tydligare bild.");
+  } else if (resultData.repairedTroops?.length) {
+    const label = resultData.repairedTroops.map((n) => `Troop ${n}`).join(", ");
+    setStatus(`Klar! ${label} reparerades automatiskt.`);
+  } else if (!isTroopSumConsistent(resultData)) {
+    setStatus(`Klar (${MAX_OCR_ATTEMPTS} försök) – truppernas summa matchar inte total power, siffrorna kan vara osäkra.`);
+  } else {
+    setStatus("Klar! Truppernas summa stämmer med total power.");
+  }
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
 setPreview(SAMPLE_IMAGE, SAMPLE_IMAGE);
 if (window.location.protocol === "file:") {
-  setStatus("Tips: kör via localhost/Live Server för stabil OCR, och kontrollera att internet finns för att ladda OCR-biblioteket.");
+  setStatus("Tips: kör via localhost/Live Server för stabil OCR.");
 } else {
-  setStatus("Exempelbild är förvald. Klicka på Analysera bild.");
+  setStatus("Välj läge och ladda upp bild/bilder.");
 }

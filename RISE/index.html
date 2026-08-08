@@ -23,11 +23,80 @@
     </header>
 
     <section class="panel upload-panel">
-      <label for="imageInput" class="upload-label">Välj bild</label>
-      <input id="imageInput" type="file" accept="image/*">
-      <div class="buttons">
-        <button id="useSampleBtn" type="button" class="btn btn-secondary">Använd exempelbild</button>
-        <button id="analyzeBtn" type="button" class="btn btn-primary">Analysera bild</button>
+
+      <!-- Mode tabs -->
+      <div class="mode-tabs" role="tablist">
+        <button class="mode-tab active" id="tabOverview" role="tab" aria-selected="true" data-mode="overview">
+          Helskärm (stats-panel)
+        </button>
+        <button class="mode-tab" id="tabTroops" role="tab" aria-selected="false" data-mode="troops">
+          5 truppbilder
+        </button>
+      </div>
+
+      <!-- Overview mode -->
+      <div id="modeOverview" class="upload-mode">
+        <label for="imageInput" class="upload-label">Välj bild (hela stats-panelen)</label>
+        <input id="imageInput" type="file" accept="image/*">
+        <div class="buttons">
+          <button id="useSampleBtn" type="button" class="btn btn-secondary">Använd exempelbild</button>
+        </div>
+      </div>
+
+      <!-- Troop-tabs mode -->
+      <div id="modeTroops" class="upload-mode" hidden>
+        <p class="upload-label" style="margin:0 0 10px">Ladda upp en bild per truppflik (du kan hoppa över flikar du inte har)</p>
+        <div class="troop-slots">
+          <div class="troop-slot" data-troop="1">
+            <span class="slot-label">Troop 1</span>
+            <label class="slot-file-label">
+              <input type="file" accept="image/*" class="troop-input" data-troop="1">
+              <span class="slot-placeholder">Välj bild…</span>
+            </label>
+            <img class="slot-preview" alt="" hidden>
+          </div>
+          <div class="troop-slot" data-troop="2">
+            <span class="slot-label">Troop 2</span>
+            <label class="slot-file-label">
+              <input type="file" accept="image/*" class="troop-input" data-troop="2">
+              <span class="slot-placeholder">Välj bild…</span>
+            </label>
+            <img class="slot-preview" alt="" hidden>
+          </div>
+          <div class="troop-slot" data-troop="3">
+            <span class="slot-label">Troop 3</span>
+            <label class="slot-file-label">
+              <input type="file" accept="image/*" class="troop-input" data-troop="3">
+              <span class="slot-placeholder">Välj bild…</span>
+            </label>
+            <img class="slot-preview" alt="" hidden>
+          </div>
+          <div class="troop-slot" data-troop="4">
+            <span class="slot-label">Troop 4</span>
+            <label class="slot-file-label">
+              <input type="file" accept="image/*" class="troop-input" data-troop="4">
+              <span class="slot-placeholder">Välj bild…</span>
+            </label>
+            <img class="slot-preview" alt="" hidden>
+          </div>
+          <div class="troop-slot" data-troop="5">
+            <span class="slot-label">Troop 5</span>
+            <label class="slot-file-label">
+              <input type="file" accept="image/*" class="troop-input" data-troop="5">
+              <span class="slot-placeholder">Välj bild…</span>
+            </label>
+            <img class="slot-preview" alt="" hidden>
+          </div>
+        </div>
+        <p class="upload-label" style="margin:10px 0 4px">Namnbild (valfri – för att läsa spelarens namn)</p>
+        <label class="slot-file-label" style="width:100%">
+          <input type="file" accept="image/*" id="nameImageInput">
+          <span class="slot-placeholder">Välj namnbild…</span>
+        </label>
+      </div>
+
+      <div class="buttons" style="margin-top:12px">
+        <button id="analyzeBtn" type="button" class="btn btn-primary">Analysera</button>
       </div>
       <p id="status" class="status">Väntar på bild...</p>
       <div class="progress-wrap" aria-hidden="true">
@@ -35,7 +104,7 @@
       </div>
     </section>
 
-    <section class="panel preview-panel">
+    <section class="panel preview-panel" id="previewPanel">
       <h2>Förhandsvisning</h2>
       <img id="preview" alt="Förhandsvisning av uppladdad bild">
     </section>
