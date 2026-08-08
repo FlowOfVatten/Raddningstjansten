@@ -581,28 +581,46 @@ function repairTroopsWithTotalPower(result) {
     const tolerance = total / 200n; // 0.5%
 
     // Build candidate lists for each troop.
-    // OCR most often confuses 1 and 7 as the leading digit, so we try both.
-    // Also handle a completely dropped leading digit (value is one digit too short).
+    // OCR confuses 1↔7 (leading digit) and 5↔6 (any position).
+    // Generate single-digit-swap candidates for each troop value.
     const candidateSets = result.rawTroopDigits.map((digits) => {
-      const set = [digits];
+      const set = new Set([digits]);
 
       // Swap leading 1 ↔ 7.
-      if (digits[0] === "1") {
-        set.push("7" + digits.slice(1));
-      }
-
-      if (digits[0] === "7") {
-        set.push("1" + digits.slice(1));
-      }
+      if (digits[0] === "1") set.add("7" + digits.slice(1));
+      if (digits[0] === "7") set.add("1" + digits.slice(1));
 
       // Try every leading digit 2-9 when digit count is one short (dropped digit).
       if (digits.length === 12) {
-        for (let d = 1; d <= 9; d++) {
-          set.push(String(d) + digits);
+        for (let d = 1; d <= 9; d++) set.add(String(d) + digits);
+      }
+
+      // Swap each individual 5↔6 at any position (single swap per candidate).
+      const fiveOrSixPositions = [];
+      for (let i = 0; i < digits.length; i++) {
+        if (digits[i] === "5" || digits[i] === "6") {
+          fiveOrSixPositions.push(i);
+          const swapped = digits[i] === "5" ? "6" : "5";
+          set.add(digits.slice(0, i) + swapped + digits.slice(i + 1));
         }
       }
 
-      return [...new Set(set)];
+      // Also try all pairs of 5↔6 swaps within the same value (handles 2 OCR errors).
+      for (let a = 0; a < fiveOrSixPositions.length; a++) {
+        for (let b = a + 1; b < fiveOrSixPositions.length; b++) {
+          const ia = fiveOrSixPositions[a];
+          const ib = fiveOrSixPositions[b];
+          const swapA = digits[ia] === "5" ? "6" : "5";
+          const swapB = digits[ib] === "5" ? "6" : "5";
+          const pairSwapped =
+            digits.slice(0, ia) + swapA +
+            digits.slice(ia + 1, ib) + swapB +
+            digits.slice(ib + 1);
+          set.add(pairSwapped);
+        }
+      }
+
+      return [...set];
     });
 
     // Exhaustive search over all combinations (max 2^5 = 32 when only 1↔7 swaps).
