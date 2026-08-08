@@ -627,6 +627,49 @@ function buildTroopCandidates(digits) {
   return [...set];
 }
 
+function absBigIntDiff(a, b) {
+  return a > b ? a - b : b - a;
+}
+
+function isAmbiguousDigitPair(a, b) {
+  return (a === "1" && b === "7") ||
+    (a === "7" && b === "1") ||
+    (a === "5" && b === "6") ||
+    (a === "6" && b === "5");
+}
+
+function isPlausibleTemplateCorrection(ocrVal, tmVal) {
+  if (!ocrVal || !tmVal || ocrVal.length !== tmVal.length) {
+    return false;
+  }
+
+  const mismatches = [];
+  for (let i = 0; i < ocrVal.length; i += 1) {
+    if (ocrVal[i] !== tmVal[i]) {
+      mismatches.push(i);
+    }
+  }
+
+  if (mismatches.length === 0) {
+    return false;
+  }
+
+  // Accept exactly one adjacent transposition (e.g. 14 <-> 41).
+  if (mismatches.length === 2) {
+    const [a, b] = mismatches;
+    if (b === a + 1) {
+      return ocrVal[a] === tmVal[b] && ocrVal[b] === tmVal[a];
+    }
+  }
+
+  // Accept up to 2 ambiguous digit flips (1<->7, 5<->6).
+  if (mismatches.length <= 2) {
+    return mismatches.every((idx) => isAmbiguousDigitPair(ocrVal[idx], tmVal[idx]));
+  }
+
+  return false;
+}
+
 function repairTroopsWithTotalPower(result) {
   if (!result.rawTotalPowerDigits || result.rawTroopDigits.length !== 5) {
     return result;
@@ -935,6 +978,10 @@ analyzeBtn.addEventListener("click", async () => {
     let resultData = null;
     let attempt = 0;
 
+    // Build digit templates once (from reference image, cached in localStorage).
+    setStatus("Laddar siffrematching...");
+    await ensureDigitLib();
+
     while (attempt < MAX_OCR_ATTEMPTS) {
       attempt += 1;
       if (attempt > 1) {
@@ -950,6 +997,82 @@ analyzeBtn.addEventListener("click", async () => {
 
       const parsed = parseFromText(text, nameFromCrop, troopText);
       parsed.rawTotalPowerDigits = rawTotalPowerDigits;
+
+      // --- Template matching correction ---
+      // Run pixel-level matching against the known-font templates and replace
+      // any OCR digit that the matcher can identify more confidently.
+      const expectedLens = parsed.rawTroopDigits.map((d) => d.length || 13);
+      const { troops: tmTroops, log: tmLog } = await tmMatchAllTroops(
+        selectedImageSrc, expectedLens
+      );
+
+      let tmCorrected = 0;
+      if (tmTroops) {
+        let baselineDiff = null;
+        if (parsed.rawTotalPowerDigits && parsed.rawTroopDigits.length === 5) {
+          try {
+            const baseSum = parsed.rawTroopDigits.reduce((acc, v) => acc + BigInt(v), 0n);
+            baselineDiff = absBigIntDiff(baseSum, BigInt(parsed.rawTotalPowerDigits));
+          } catch {
+            baselineDiff = null;
+          }
+        }
+
+        for (let i = 0; i < 5; i++) {
+          const tm = tmTroops[i];
+          if (!tm) continue;
+          if (i >= parsed.rawTroopDigits.length) continue;
+
+          const ocrVal = parsed.rawTroopDigits[i];
+          if (tm.length !== ocrVal.length) continue; // length mismatch → skip
+          if (!isPlausibleTemplateCorrection(ocrVal, tm)) continue;
+
+          if (tm !== ocrVal) {
+            let accept = true;
+
+            // If total power exists, only accept template correction when it improves
+            // consistency against total power.
+            if (baselineDiff !== null) {
+              try {
+                const trial = [...parsed.rawTroopDigits];
+                trial[i] = tm;
+                const trialSum = trial.reduce((acc, v) => acc + BigInt(v), 0n);
+                const trialDiff = absBigIntDiff(trialSum, BigInt(parsed.rawTotalPowerDigits));
+                if (trialDiff >= baselineDiff) {
+                  accept = false;
+                }
+              } catch {
+                accept = false;
+              }
+            }
+
+            if (!accept) continue;
+
+            parsed.rawTroopDigits[i] = tm;
+            parsed.troops[i].value = formatDigits(tm);
+            tmCorrected++;
+
+            if (baselineDiff !== null) {
+              try {
+                const newSum = parsed.rawTroopDigits.reduce((acc, v) => acc + BigInt(v), 0n);
+                baselineDiff = absBigIntDiff(newSum, BigInt(parsed.rawTotalPowerDigits));
+              } catch {
+                baselineDiff = null;
+              }
+            }
+          }
+        }
+
+        if (tmCorrected > 0) {
+          // Recalculate power from corrected troops.
+          const newSum = parsed.rawTroopDigits.reduce(
+            (acc, v) => acc + BigInt(v), 0n
+          );
+          parsed.power = formatDigits(String(newSum));
+        }
+      }
+
+      console.debug("[DigitMatcher]", tmLog, `corrections=${tmCorrected}`);
 
       if (isTroopSumConsistent(parsed)) {
         resultData = parsed;
