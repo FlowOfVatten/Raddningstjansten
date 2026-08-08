@@ -20,17 +20,6 @@ const TESSERACT_SOURCES = [
   "https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"
 ];
 
-const KNOWN_SAMPLE_DATA = {
-  name: "BiggTazz",
-  power: "27 996 596 617 786",
-  troops: [
-    { number: 1, value: "7 067 061 504 920" },
-    { number: 2, value: "6 005 154 251 649" },
-    { number: 3, value: "4 682 737 012 605" },
-    { number: 4, value: "4 499 576 295 050" },
-    { number: 5, value: "5 742 067 553 562" }
-  ]
-};
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -128,18 +117,9 @@ function normalizeName(rawName) {
     return "";
   }
 
-  let normalized = rawName
+  return rawName
     .replace(/[|!]/g, "I")
     .replace(/[^A-Za-z0-9]/g, "");
-
-  normalized = normalized.replace(/^l(?=Big)/i, "");
-  normalized = normalized.replace(/^I(?=Bigg)/, "");
-
-  if (/^Bigg[ilI1]*azz$/i.test(normalized) || /^Bigd[ilI1]*azz$/i.test(normalized)) {
-    return "BiggTazz";
-  }
-
-  return normalized;
 }
 
 function getBestNameFromLines(lines) {
@@ -165,6 +145,87 @@ function getBestNameFromLines(lines) {
   }
 
   return "";
+}
+
+const NAME_CROP_VARIANTS = [
+  { x: 0.24, y: 0.24, w: 0.36, h: 0.08, scale: 4 },
+  { x: 0.15, y: 0.16, w: 0.45, h: 0.12, scale: 4 },
+  { x: 0.22, y: 0.22, w: 0.35, h: 0.09, scale: 5 }
+];
+
+const NAME_FILTERS = [
+  "grayscale(100%) contrast(250%) brightness(120%)",
+  "grayscale(100%) contrast(340%) brightness(140%)",
+  "contrast(250%) saturate(0%) brightness(150%)"
+];
+
+function scoreNameCandidate(name) {
+  if (!name || /\d/.test(name)) {
+    return -100;
+  }
+
+  const upper = name.toUpperCase();
+  const disallow = new Set([
+    "STATS",
+    "POWER",
+    "DETAILS",
+    "TROOP",
+    "STAGE",
+    "IMPROVE",
+    "GET",
+    "STRONGER"
+  ]);
+
+  if (disallow.has(upper)) {
+    return -100;
+  }
+
+  let score = 0;
+  if (name.length >= 4 && name.length <= 10) {
+    score += 4;
+  } else if (name.length >= 3 && name.length <= 14) {
+    score += 2;
+  }
+
+  if (/^[A-Z][a-z]+$/.test(name)) {
+    score += 4;
+  }
+
+  if (/^[A-Za-z]+$/.test(name)) {
+    score += 2;
+  }
+
+  if (!/[AEIOUYaeiouy]/.test(name)) {
+    score -= 2;
+  }
+
+  if (/(.)\1\1/.test(name)) {
+    score -= 2;
+  }
+
+  return score;
+}
+
+function pickBestName(candidates) {
+  if (!candidates.length) {
+    return "";
+  }
+
+  const unique = [...new Set(candidates.map((candidate) => normalizeName(candidate)).filter(Boolean))];
+  unique.sort((a, b) => {
+    const scoreDiff = scoreNameCandidate(b) - scoreNameCandidate(a);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+
+    if (a.length !== b.length) {
+      return a.length - b.length;
+    }
+
+    return a.localeCompare(b);
+  });
+
+  return unique[0] || "";
 }
 
 function sumDigits(values) {
@@ -485,7 +546,7 @@ async function loadImageElement(imageSrc) {
   });
 }
 
-function cropImageToDataUrl(img, box, scale = 4) {
+function cropImageToDataUrl(img, box, scale = 4, filter = "grayscale(100%) contrast(250%) brightness(120%)") {
   const x = img.width * box.x;
   const y = img.height * box.y;
   const w = img.width * box.w;
@@ -496,7 +557,7 @@ function cropImageToDataUrl(img, box, scale = 4) {
   canvas.height = Math.floor(h * scale);
 
   const ctx = canvas.getContext("2d");
-  ctx.filter = "grayscale(100%) contrast(250%) brightness(120%)";
+  ctx.filter = filter;
   ctx.drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
 
   return canvas.toDataURL("image/png");
@@ -506,20 +567,41 @@ async function extractNameFromImage(imageSrc) {
   setStatus("OCR steg 1/2: läser namn...");
 
   const img = await loadImageElement(imageSrc);
-  const nameCrop = cropImageToDataUrl(img, {
-    x: 0.24,
-    y: 0.24,
-    w: 0.36,
-    h: 0.08
-  });
+  const candidates = [];
 
-  const result = await Tesseract.recognize(nameCrop, "eng");
-  const lines = result.data.text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  for (const variant of NAME_CROP_VARIANTS) {
+    for (const filter of NAME_FILTERS) {
+      const nameCrop = cropImageToDataUrl(
+        img,
+        {
+          x: variant.x,
+          y: variant.y,
+          w: variant.w,
+          h: variant.h
+        },
+        variant.scale,
+        filter
+      );
 
-  return getBestNameFromLines(lines);
+      const result = await Tesseract.recognize(nameCrop, "eng");
+      const lines = result.data.text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      for (const line of lines) {
+        const tokenCandidates = line.match(/[A-Za-z][A-Za-z0-9]{2,14}/g) || [];
+        tokenCandidates.forEach((token) => candidates.push(token));
+      }
+
+      const lineBest = getBestNameFromLines(lines);
+      if (lineBest) {
+        candidates.push(lineBest);
+      }
+    }
+  }
+
+  return pickBestName(candidates);
 }
 
 async function extractTroopTextFromImage(imageSrc) {
@@ -597,8 +679,7 @@ analyzeBtn.addEventListener("click", async () => {
     ]);
 
     const parsed = parseFromText(text, nameFromCrop, troopText);
-    const isKnownSample = selectedImageName === SAMPLE_IMAGE || selectedImageSrc.endsWith(SAMPLE_IMAGE);
-    const resultData = isKnownSample ? KNOWN_SAMPLE_DATA : parsed;
+    const resultData = parsed;
 
     showResults(resultData);
 
