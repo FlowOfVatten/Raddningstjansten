@@ -117,6 +117,12 @@ function sanitizeDigits(rawValue, keepLastDigits = 0) {
   return digits;
 }
 
+function sanitizeWithOcrFixes(rawValue) {
+  return (rawValue || "")
+    .replace(/[Oo]/g, "0")
+    .replace(/[Il]/g, "1");
+}
+
 function normalizeName(rawName) {
   if (!rawName) {
     return "";
@@ -190,22 +196,169 @@ function findHeaderPowerDigits(text) {
   }, "");
 }
 
+function splitToTripletGroups(token) {
+  if (!token) {
+    return [];
+  }
+
+  if (token.length <= 3) {
+    return [token];
+  }
+
+  const groups = [];
+  let firstSize = token.length % 3;
+  if (firstSize === 0) {
+    firstSize = 3;
+  }
+
+  groups.push(token.slice(0, firstSize));
+  for (let i = firstSize; i < token.length; i += 3) {
+    groups.push(token.slice(i, i + 3));
+  }
+
+  return groups.filter(Boolean);
+}
+
+function cleanCurrencyNoise(groups) {
+  if (!groups.length) {
+    return groups;
+  }
+
+  const cleaned = [...groups];
+
+  if (["44", "344", "444"].includes(cleaned[0])) {
+    cleaned.shift();
+  }
+
+  if (!cleaned.length) {
+    return cleaned;
+  }
+
+  if (/^44\d{1,3}$/.test(cleaned[0])) {
+    cleaned[0] = cleaned[0].slice(2);
+  }
+
+  if (/^344\d{1,3}$/.test(cleaned[0])) {
+    cleaned[0] = cleaned[0].slice(3);
+  }
+
+  return cleaned.filter(Boolean);
+}
+
+function buildNumericCandidates(expandedGroups) {
+  const candidates = [];
+
+  for (let start = 0; start < expandedGroups.length; start += 1) {
+    const sequence = expandedGroups.slice(start);
+    if (!sequence.length) {
+      continue;
+    }
+
+    if (sequence[0].length < 1 || sequence[0].length > 3) {
+      continue;
+    }
+
+    const validTail = sequence.slice(1).every((group) => group.length === 3);
+    if (!validTail) {
+      continue;
+    }
+
+    const digits = sequence.join("");
+    if (digits.length >= 12 && digits.length <= 15) {
+      candidates.push(digits);
+    }
+  }
+
+  return candidates;
+}
+
+function scoreNumericCandidate(digits) {
+  let score = 0;
+  if (digits.length === 14) {
+    score += 4;
+  } else if (digits.length === 13) {
+    score += 3;
+  } else if (digits.length === 12) {
+    score += 1;
+  }
+
+  if (!digits.startsWith("0")) {
+    score += 1;
+  }
+
+  return score;
+}
+
+function pickBestNumericValueFromRaw(rawValue) {
+  const fixed = sanitizeWithOcrFixes(rawValue);
+  const tokens = fixed.match(/\d+/g) || [];
+  if (!tokens.length) {
+    return "";
+  }
+
+  const cleanedTokens = cleanCurrencyNoise(tokens);
+  const expanded = cleanedTokens.flatMap((token) => splitToTripletGroups(token));
+  const candidates = buildNumericCandidates(expanded);
+
+  if (!candidates.length) {
+    return sanitizeDigits(fixed, 14);
+  }
+
+  candidates.sort((a, b) => {
+    const scoreDiff = scoreNumericCandidate(b) - scoreNumericCandidate(a);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+
+    if (BigInt(b) > BigInt(a)) {
+      return 1;
+    }
+
+    if (BigInt(b) < BigInt(a)) {
+      return -1;
+    }
+
+    return 0;
+  });
+
+  return candidates[0];
+}
+
 function parseTroopMapFromText(text) {
   const troopMap = new Map();
-  const troopRegex = /TROOPS?\s*([0-9]{1,2})[^0-9]{0,18}([0-9][0-9\s,\.]{6,})/gi;
-  let match;
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-  while ((match = troopRegex.exec(text)) !== null) {
-    let number = Number(match[1]);
-    if (number > 9) {
-      number = Number(String(number).slice(-1));
+  for (const line of lines) {
+    let number = 0;
+    let valueSlice = line;
+    const lineMatch = line.match(/TROOPS?\s*([0-9]{1,2})/i);
+
+    if (lineMatch) {
+      number = Number(lineMatch[1]);
+      if (number > 9) {
+        number = Number(String(number).slice(-1));
+      }
+
+      const labelIndex = line.toUpperCase().indexOf(lineMatch[0].toUpperCase());
+      const valueStart = labelIndex >= 0 ? labelIndex + lineMatch[0].length : 0;
+      valueSlice = line.slice(valueStart);
+    } else if (/TROOPS\b/i.test(line)) {
+      // OCR confusion: "Troops" without number often means Troop 4 in these screenshots.
+      number = 4;
+      const marker = line.toUpperCase().indexOf("TROOPS");
+      valueSlice = marker >= 0 ? line.slice(marker + "TROOPS".length) : line;
+    } else {
+      continue;
     }
 
     if (number < 1 || number > 5) {
       continue;
     }
 
-    const valueDigits = sanitizeDigits(match[2], 13);
+    const valueDigits = pickBestNumericValueFromRaw(valueSlice);
     if (!valueDigits) {
       continue;
     }
@@ -218,15 +371,43 @@ function parseTroopMapFromText(text) {
   return troopMap;
 }
 
+function findTotalHeroPowerDigits(text) {
+  const totalMatch = text.match(/TOTAL\s*HERO\s*POWER[^0-9]*([0-9][0-9\s,\.,]{6,})/i);
+  if (!totalMatch) {
+    return "";
+  }
+
+  return pickBestNumericValueFromRaw(totalMatch[1]);
+}
+
 function pickBestTroopValue(candidates) {
   if (!candidates?.length) {
     return "";
   }
 
   const unique = [...new Set(candidates)];
+
+  const candidates13 = unique.filter((value) => value.length === 13);
+  const hasLeading4Candidate14 = unique.some((value) => value.length === 14 && value.startsWith("4"));
+
+  if (hasLeading4Candidate14 && candidates13.length) {
+    candidates13.sort((a, b) => (BigInt(b) > BigInt(a) ? 1 : -1));
+    return candidates13[0];
+  }
+
+  // Common OCR artifact: a leading "4" is sometimes prepended.
+  for (const value of unique) {
+    if (value.length === 14 && value.startsWith("4")) {
+      const trimmed = value.slice(1);
+      if (unique.includes(trimmed)) {
+        return trimmed;
+      }
+    }
+  }
+
   unique.sort((a, b) => {
-    const scoreA = a.length === 13 ? 3 : a.length === 12 ? 1 : 0;
-    const scoreB = b.length === 13 ? 3 : b.length === 12 ? 1 : 0;
+    const scoreA = a.length === 14 ? 4 : a.length === 13 ? 3 : a.length === 12 ? 1 : 0;
+    const scoreB = b.length === 14 ? 4 : b.length === 13 ? 3 : b.length === 12 ? 1 : 0;
     if (scoreA !== scoreB) {
       return scoreB - scoreA;
     }
@@ -278,11 +459,11 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
   const cropTroops = parseTroopMapFromText(troopText);
   const troopMap = mergeTroopCandidates(fullTroops, cropTroops);
 
-  let powerDigits = findHeaderPowerDigits(text);
+  let powerDigits = findTotalHeroPowerDigits(text) || findHeaderPowerDigits(text);
 
   const troopDigitValues = Array.from(troopMap.values());
   const troopSumDigits = sumDigits(troopDigitValues);
-  if (troopSumDigits && troopMap.size >= 5) {
+  if (!powerDigits && troopSumDigits && troopMap.size >= 5) {
     powerDigits = troopSumDigits;
   }
 
