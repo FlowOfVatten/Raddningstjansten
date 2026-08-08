@@ -520,13 +520,13 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
   const cropTroops = parseTroopMapFromText(troopText);
   const troopMap = mergeTroopCandidates(fullTroops, cropTroops);
 
-  let powerDigits = findTotalHeroPowerDigits(text) || findHeaderPowerDigits(text);
-
   const troopDigitValues = Array.from(troopMap.values());
   const troopSumDigits = sumDigits(troopDigitValues);
-  if (!powerDigits && troopSumDigits && troopMap.size >= 5) {
-    powerDigits = troopSumDigits;
-  }
+
+  // Total power = sum of all 5 troops when available, otherwise fall back to OCR-read header.
+  const powerDigits = troopMap.size >= 5
+    ? troopSumDigits
+    : (findTotalHeroPowerDigits(text) || findHeaderPowerDigits(text) || troopSumDigits);
 
   const troops = Array.from(troopMap.entries())
     .sort((a, b) => a[0] - b[0])
@@ -534,7 +534,29 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
 
   const power = formatDigits(powerDigits);
 
-  return { name, power, troops };
+  return { name, power, troops, rawTroopDigits: troopDigitValues };
+}
+
+const MAX_OCR_ATTEMPTS = 5;
+
+function isTroopSumConsistent(result) {
+  if (result.rawTroopDigits.length < 5) {
+    return false;
+  }
+
+  // Each troop value must be a plausible number (12–14 digits, non-zero start).
+  const allValid = result.rawTroopDigits.every((digits) => {
+    const len = digits.length;
+    return len >= 12 && len <= 14 && digits[0] !== "0";
+  });
+
+  if (!allValid) {
+    return false;
+  }
+
+  // All 5 troop values must be present (troop numbers 1-5).
+  const numbers = result.troops.map((t) => t.number).sort((a, b) => a - b);
+  return JSON.stringify(numbers) === JSON.stringify([1, 2, 3, 4, 5]);
 }
 
 async function loadImageElement(imageSrc) {
@@ -672,21 +694,42 @@ analyzeBtn.addEventListener("click", async () => {
       return;
     }
 
-    const [nameFromCrop, text, troopText] = await Promise.all([
-      extractNameFromImage(selectedImageSrc),
-      extractTextFromImage(selectedImageSrc),
-      extractTroopTextFromImage(selectedImageSrc)
-    ]);
+    let resultData = null;
+    let attempt = 0;
 
-    const parsed = parseFromText(text, nameFromCrop, troopText);
-    const resultData = parsed;
+    while (attempt < MAX_OCR_ATTEMPTS) {
+      attempt += 1;
+      if (attempt > 1) {
+        setStatus(`Kontroll misslyckades – kör OCR igen (försök ${attempt}/${MAX_OCR_ATTEMPTS})...`);
+      }
+
+      const [nameFromCrop, text, troopText] = await Promise.all([
+        extractNameFromImage(selectedImageSrc),
+        extractTextFromImage(selectedImageSrc),
+        extractTroopTextFromImage(selectedImageSrc)
+      ]);
+
+      const parsed = parseFromText(text, nameFromCrop, troopText);
+
+      if (isTroopSumConsistent(parsed)) {
+        resultData = parsed;
+        break;
+      }
+
+      // Show best result so far while retrying.
+      if (!resultData || parsed.troops.length >= (resultData.troops?.length ?? 0)) {
+        resultData = parsed;
+      }
+    }
 
     showResults(resultData);
 
     if (!resultData.name && !resultData.power && !resultData.troops.length) {
       setStatus("OCR klar, men ingen matchande data hittades. Testa en tydligare bild.");
+    } else if (!isTroopSumConsistent(resultData)) {
+      setStatus(`Klar (${MAX_OCR_ATTEMPTS} försök) – inte alla trupper hittades med säkra siffror, kontrollera resultaten.`);
     } else {
-      setStatus("Klar! Data extraherad från bilden.");
+      setStatus("Klar! Alla 5 trupper lästa med korrekta siffror.");
     }
   } catch (error) {
     console.error(error);
