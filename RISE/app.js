@@ -386,11 +386,27 @@ function pickBestNumericValueFromRaw(rawValue) {
 }
 
 function parseTroopMapFromText(text) {
+  // Split into the label-pass (before ---VALUES---) and the digit-only pass (after).
+  const [labelSection, valueSection = ""] = text.split("---VALUES---");
+
+  // Extract digit-only values from the value-pass in order (top to bottom).
+  // Each line that contains a plausible troop-sized number is collected in sequence.
+  const digitOnlyValues = [];
+  for (const line of valueSection.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    const v = pickBestNumericValueFromRaw(line);
+    if (v && v.length >= 12 && v.length <= 14) {
+      digitOnlyValues.push(v);
+    }
+  }
+
   const troopMap = new Map();
-  const lines = text
+  const lines = labelSection
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+
+  // Track which digit-only value index maps to which troop number (in encounter order).
+  let digitOnlyIndex = 0;
 
   for (const line of lines) {
     let number = 0;
@@ -419,14 +435,23 @@ function parseTroopMapFromText(text) {
       continue;
     }
 
-    const valueDigits = pickBestNumericValueFromRaw(valueSlice);
-    if (!valueDigits) {
-      continue;
+    const existing = troopMap.get(number) || [];
+
+    // Prefer the digit-only pass value for this position when available.
+    if (digitOnlyIndex < digitOnlyValues.length) {
+      existing.push(digitOnlyValues[digitOnlyIndex]);
+      digitOnlyIndex += 1;
     }
 
-    const existing = troopMap.get(number) || [];
-    existing.push(valueDigits);
-    troopMap.set(number, existing);
+    // Also add the value from the label-pass as a fallback candidate.
+    const fallbackDigits = pickBestNumericValueFromRaw(valueSlice);
+    if (fallbackDigits) {
+      existing.push(fallbackDigits);
+    }
+
+    if (existing.length) {
+      troopMap.set(number, existing);
+    }
   }
 
   return troopMap;
@@ -520,7 +545,10 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
   const cropTroops = parseTroopMapFromText(troopText);
   const troopMap = mergeTroopCandidates(fullTroops, cropTroops);
 
-  const troopDigitValues = Array.from(troopMap.values());
+  // Keep rawTroopDigits sorted by troop number so index 0=Troop1 … 4=Troop5.
+  const troopDigitValues = Array.from(troopMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([, v]) => v);
   const troopSumDigits = sumDigits(troopDigitValues);
 
   // Total power = sum of all 5 troops when available, otherwise fall back to OCR-read header.
@@ -537,6 +565,95 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
   return { name, power, troops, rawTroopDigits: troopDigitValues };
 }
 
+function repairTroopsWithTotalPower(result) {
+  if (!result.rawTotalPowerDigits || result.rawTroopDigits.length !== 5) {
+    return result;
+  }
+
+  try {
+    const total = BigInt(result.rawTotalPowerDigits);
+    const tolerance = total / 200n; // 0.5%
+
+    // Build candidate lists for each troop.
+    // OCR most often confuses 1 and 7 as the leading digit, so we try both.
+    // Also handle a completely dropped leading digit (value is one digit too short).
+    const candidateSets = result.rawTroopDigits.map((digits) => {
+      const set = [digits];
+
+      // Swap leading 1 ↔ 7.
+      if (digits[0] === "1") {
+        set.push("7" + digits.slice(1));
+      }
+
+      if (digits[0] === "7") {
+        set.push("1" + digits.slice(1));
+      }
+
+      // Try every leading digit 2-9 when digit count is one short (dropped digit).
+      if (digits.length === 12) {
+        for (let d = 1; d <= 9; d++) {
+          set.push(String(d) + digits);
+        }
+      }
+
+      return [...new Set(set)];
+    });
+
+    // Exhaustive search over all combinations (max 2^5 = 32 when only 1↔7 swaps).
+    let bestDiff = null;
+    let bestCombo = null;
+
+    function search(idx, combo) {
+      if (idx === 5) {
+        try {
+          const sum = combo.reduce((acc, v) => acc + BigInt(v), 0n);
+          const d = sum > total ? sum - total : total - sum;
+
+          if (bestDiff === null || d < bestDiff) {
+            bestDiff = d;
+            bestCombo = [...combo];
+          }
+        } catch {
+          // Skip invalid BigInt conversions.
+        }
+
+        return;
+      }
+
+      for (const candidate of candidateSets[idx]) {
+        combo.push(candidate);
+        search(idx + 1, combo);
+        combo.pop();
+      }
+    }
+
+    search(0, []);
+
+    if (bestDiff !== null && bestDiff <= tolerance && bestCombo) {
+      const repairedTroops = result.rawTroopDigits
+        .map((orig, i) => (orig !== bestCombo[i] ? result.troops[i].number : null))
+        .filter((n) => n !== null);
+
+      const newTroops = result.troops.map((t, i) => ({
+        ...t,
+        value: formatDigits(bestCombo[i])
+      }));
+
+      return {
+        ...result,
+        power: formatDigits(result.rawTotalPowerDigits),
+        troops: newTroops,
+        rawTroopDigits: bestCombo,
+        repairedTroops
+      };
+    }
+  } catch {
+    // Leave result unchanged if repair fails.
+  }
+
+  return result;
+}
+
 const MAX_OCR_ATTEMPTS = 5;
 
 function isTroopSumConsistent(result) {
@@ -544,19 +661,38 @@ function isTroopSumConsistent(result) {
     return false;
   }
 
-  // Each troop value must be a plausible number (12–14 digits, non-zero start).
-  const allValid = result.rawTroopDigits.every((digits) => {
-    const len = digits.length;
-    return len >= 12 && len <= 14 && digits[0] !== "0";
-  });
-
-  if (!allValid) {
+  // All 5 troop numbers 1-5 must be present.
+  const numbers = result.troops.map((t) => t.number).sort((a, b) => a - b);
+  if (JSON.stringify(numbers) !== JSON.stringify([1, 2, 3, 4, 5])) {
     return false;
   }
 
-  // All 5 troop values must be present (troop numbers 1-5).
-  const numbers = result.troops.map((t) => t.number).sort((a, b) => a - b);
-  return JSON.stringify(numbers) === JSON.stringify([1, 2, 3, 4, 5]);
+  if (!result.rawTotalPowerDigits) {
+    // No extracted total power — fall back to digit-length check only.
+    return result.rawTroopDigits.every((digits) => {
+      return digits.length >= 12 && digits.length <= 14 && digits[0] !== "0";
+    });
+  }
+
+  // Primary check: troop sum must match OCR-read total power within 0.5% tolerance.
+  try {
+    const troopSum = result.rawTroopDigits.reduce(
+      (acc, value) => acc + BigInt(value),
+      0n
+    );
+    const total = BigInt(result.rawTotalPowerDigits);
+
+    if (total === 0n) {
+      return false;
+    }
+
+    const diff = troopSum > total ? troopSum - total : total - troopSum;
+    const tolerance = total / 200n; // 0.5%
+
+    return diff <= tolerance;
+  } catch {
+    return false;
+  }
 }
 
 async function loadImageElement(imageSrc) {
@@ -628,15 +764,58 @@ async function extractNameFromImage(imageSrc) {
 
 async function extractTroopTextFromImage(imageSrc) {
   const img = await loadImageElement(imageSrc);
-  const troopCrop = cropImageToDataUrl(img, {
-    x: 0.40,
-    y: 0.40,
-    w: 0.53,
-    h: 0.29
+
+  // Pass 1: full area with letters+digits to capture "Troop N" labels.
+  const fullBox = { x: 0.38, y: 0.33, w: 0.57, h: 0.38 };
+  const fullCrop = cropImageToDataUrl(img, fullBox);
+  const fullResult = await Tesseract.recognize(fullCrop, "eng");
+
+  // Pass 2: right ~55% of same area (numeric value column only),
+  // with digit-only whitelist to avoid 1/7 and other letter/digit confusion.
+  const valueBox = { x: 0.53, y: 0.33, w: 0.42, h: 0.38 };
+  const valueCrop = cropImageToDataUrl(img, valueBox, 4,
+    "grayscale(100%) contrast(320%) brightness(130%)");
+  const valueResult = await Tesseract.recognize(valueCrop, "eng", {
+    tessedit_char_whitelist: "0123456789,. $'"
   });
 
-  const result = await Tesseract.recognize(troopCrop, "eng");
-  return result.data.text;
+  // Return both passes concatenated so parseTroopMapFromText can use line-level merging.
+  return fullResult.data.text + "\n---VALUES---\n" + valueResult.data.text;
+}
+
+// The big POWER number lives in the stats-panel header (top-right area of the panel).
+// OCR picks it up with separators like 27/996'596'617:786 — strip non-digits and we get the total.
+async function extractTotalPowerFromImage(imageSrc) {
+  const img = await loadImageElement(imageSrc);
+
+  const POWER_BOXES = [
+    { x: 0.50, y: 0.28, w: 0.45, h: 0.10 },
+    { x: 0.45, y: 0.26, w: 0.50, h: 0.12 }
+  ];
+
+  const POWER_FILTERS = [
+    "grayscale(100%) contrast(300%) brightness(120%)",
+    "grayscale(100%) contrast(400%) brightness(150%)"
+  ];
+
+  for (const box of POWER_BOXES) {
+    for (const filter of POWER_FILTERS) {
+      const cropUrl = cropImageToDataUrl(img, box, 4, filter);
+      const result = await Tesseract.recognize(cropUrl, "eng");
+      const raw = result.data.text.replace(/[^0-9]/g, "");
+
+      // Find the longest consecutive digit sequence of 13–14 digits.
+      const matches = result.data.text.match(/[0-9][0-9\s,\./'`:']{10,}/g) || [];
+      for (const m of matches) {
+        const digits = m.replace(/[^0-9]/g, "");
+        if (digits.length === 14 || digits.length === 13) {
+          return digits;
+        }
+      }
+    }
+  }
+
+  return "";
 }
 
 async function extractTextFromImage(imageSrc) {
@@ -703,13 +882,15 @@ analyzeBtn.addEventListener("click", async () => {
         setStatus(`Kontroll misslyckades – kör OCR igen (försök ${attempt}/${MAX_OCR_ATTEMPTS})...`);
       }
 
-      const [nameFromCrop, text, troopText] = await Promise.all([
+      const [nameFromCrop, text, troopText, rawTotalPowerDigits] = await Promise.all([
         extractNameFromImage(selectedImageSrc),
         extractTextFromImage(selectedImageSrc),
-        extractTroopTextFromImage(selectedImageSrc)
+        extractTroopTextFromImage(selectedImageSrc),
+        extractTotalPowerFromImage(selectedImageSrc)
       ]);
 
       const parsed = parseFromText(text, nameFromCrop, troopText);
+      parsed.rawTotalPowerDigits = rawTotalPowerDigits;
 
       if (isTroopSumConsistent(parsed)) {
         resultData = parsed;
@@ -722,14 +903,22 @@ analyzeBtn.addEventListener("click", async () => {
       }
     }
 
+    // If still not consistent after all attempts, try to repair a single misread troop.
+    if (!isTroopSumConsistent(resultData)) {
+      resultData = repairTroopsWithTotalPower(resultData);
+    }
+
     showResults(resultData);
 
     if (!resultData.name && !resultData.power && !resultData.troops.length) {
       setStatus("OCR klar, men ingen matchande data hittades. Testa en tydligare bild.");
+    } else if (resultData.repairedTroops?.length) {
+      const label = resultData.repairedTroops.map((n) => `Troop ${n}`).join(", ");
+      setStatus(`Klar! ${label} reparerades automatiskt med 1↔7-korrigering.`);
     } else if (!isTroopSumConsistent(resultData)) {
-      setStatus(`Klar (${MAX_OCR_ATTEMPTS} försök) – inte alla trupper hittades med säkra siffror, kontrollera resultaten.`);
+      setStatus(`Klar (${MAX_OCR_ATTEMPTS} försök) – truppernas summa matchar inte total power, siffrorna kan vara osäkra.`);
     } else {
-      setStatus("Klar! Alla 5 trupper lästa med korrekta siffror.");
+      setStatus("Klar! Truppernas summa stämmer med total power.");
     }
   } catch (error) {
     console.error(error);
