@@ -571,6 +571,46 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
   return { name, power, troops, rawTroopDigits: troopDigitValues };
 }
 
+function buildTroopCandidates(digits) {
+  const set = new Set([digits]);
+
+  // Leading 1 ↔ 7.
+  if (digits[0] === "1") set.add("7" + digits.slice(1));
+  if (digits[0] === "7") set.add("1" + digits.slice(1));
+
+  // Dropped leading digit (value one digit too short).
+  if (digits.length === 12) {
+    for (let d = 1; d <= 9; d++) set.add(String(d) + digits);
+  }
+
+  // Single 5 ↔ 6 swap at every position, plus all pairs within same value.
+  const fiveOrSixPos = [];
+  for (let i = 0; i < digits.length; i++) {
+    if (digits[i] === "5" || digits[i] === "6") {
+      fiveOrSixPos.push(i);
+      const sw = digits[i] === "5" ? "6" : "5";
+      set.add(digits.slice(0, i) + sw + digits.slice(i + 1));
+    }
+  }
+  for (let a = 0; a < fiveOrSixPos.length; a++) {
+    for (let b = a + 1; b < fiveOrSixPos.length; b++) {
+      const ia = fiveOrSixPos[a], ib = fiveOrSixPos[b];
+      const swA = digits[ia] === "5" ? "6" : "5";
+      const swB = digits[ib] === "5" ? "6" : "5";
+      set.add(digits.slice(0, ia) + swA + digits.slice(ia + 1, ib) + swB + digits.slice(ib + 1));
+    }
+  }
+
+  // Adjacent digit transposition at every position (catches 14↔41, 17↔71, etc.).
+  for (let i = 0; i < digits.length - 1; i++) {
+    if (digits[i] !== digits[i + 1]) {
+      set.add(digits.slice(0, i) + digits[i + 1] + digits[i] + digits.slice(i + 2));
+    }
+  }
+
+  return [...set];
+}
+
 function repairTroopsWithTotalPower(result) {
   if (!result.rawTotalPowerDigits || result.rawTroopDigits.length !== 5) {
     return result;
@@ -578,123 +618,80 @@ function repairTroopsWithTotalPower(result) {
 
   try {
     const total = BigInt(result.rawTotalPowerDigits);
+    const tolerance = total / 200n; // 0.5%
 
-    // If the troop sum already matches total within tolerance, nothing to repair.
-    const currentSum = result.rawTroopDigits.reduce((acc, v) => acc + BigInt(v), 0n);
-    const currentDiff = currentSum > total ? currentSum - total : total - currentSum;
-    if (currentDiff <= total / 200n) {
+    const calcSum = (vals) => vals.reduce((acc, v) => acc + BigInt(v), 0n);
+    const absDiff = (a, b) => a > b ? a - b : b - a;
+
+    const currentSum = calcSum(result.rawTroopDigits);
+    const currentDiff = absDiff(currentSum, total);
+
+    // Already within tolerance – nothing to do.
+    if (currentDiff <= tolerance) {
       return result;
     }
 
-    // If the OCR-read total is wildly different from the troop sum (>50%), the total
-    // is probably from the wrong area of the image – trust the troops instead.
-    const sumStr = String(currentSum);
+    // OCR total too far off (>50%) – it's probably from the wrong image area. Trust sum.
     if (currentDiff > currentSum / 2n) {
-      return { ...result, power: formatDigits(sumStr) };
+      return { ...result, power: formatDigits(String(currentSum)) };
     }
-    const tolerance = total / 200n; // 0.5%
 
-    // Build candidate lists for each troop.
-    // OCR confuses 1↔7 (leading digit) and 5↔6 (any position).
-    // Generate single-digit-swap candidates for each troop value.
-    const candidateSets = result.rawTroopDigits.map((digits) => {
-      const set = new Set([digits]);
+    // Greedy single-troop repair: in each pass find the one troop+candidate that
+    // most reduces the diff, apply it, repeat up to 5 times.
+    let working = [...result.rawTroopDigits];
+    const repairedSet = new Set();
 
-      // Swap leading 1 ↔ 7.
-      if (digits[0] === "1") set.add("7" + digits.slice(1));
-      if (digits[0] === "7") set.add("1" + digits.slice(1));
+    for (let pass = 0; pass < 5; pass++) {
+      const workingSum = calcSum(working);
+      const workingDiff = absDiff(workingSum, total);
+      if (workingDiff <= tolerance) break;
 
-      // Try every leading digit 2-9 when digit count is one short (dropped digit).
-      if (digits.length === 12) {
-        for (let d = 1; d <= 9; d++) set.add(String(d) + digits);
-      }
+      let bestDiff = workingDiff;
+      let bestTroopIdx = -1;
+      let bestCandidate = "";
 
-      // Swap each individual 5↔6 at any position (single swap per candidate).
-      const fiveOrSixPositions = [];
-      for (let i = 0; i < digits.length; i++) {
-        if (digits[i] === "5" || digits[i] === "6") {
-          fiveOrSixPositions.push(i);
-          const swapped = digits[i] === "5" ? "6" : "5";
-          set.add(digits.slice(0, i) + swapped + digits.slice(i + 1));
+      for (let i = 0; i < 5; i++) {
+        for (const candidate of buildTroopCandidates(working[i])) {
+          if (candidate === working[i]) continue;
+          const newVals = working.map((v, j) => (j === i ? candidate : v));
+          try {
+            const d = absDiff(calcSum(newVals), total);
+            if (d < bestDiff) {
+              bestDiff = d;
+              bestTroopIdx = i;
+              bestCandidate = candidate;
+            }
+          } catch { /* skip */ }
         }
       }
 
-      // Also try all pairs of 5↔6 swaps within the same value (handles 2 OCR errors).
-      for (let a = 0; a < fiveOrSixPositions.length; a++) {
-        for (let b = a + 1; b < fiveOrSixPositions.length; b++) {
-          const ia = fiveOrSixPositions[a];
-          const ib = fiveOrSixPositions[b];
-          const swapA = digits[ia] === "5" ? "6" : "5";
-          const swapB = digits[ib] === "5" ? "6" : "5";
-          const pairSwapped =
-            digits.slice(0, ia) + swapA +
-            digits.slice(ia + 1, ib) + swapB +
-            digits.slice(ib + 1);
-          set.add(pairSwapped);
-        }
-      }
-
-      return [...set];
-    });
-
-    // Exhaustive search over all combinations (max 2^5 = 32 when only 1↔7 swaps).
-    let bestDiff = null;
-    let bestCombo = null;
-
-    function search(idx, combo) {
-      if (idx === 5) {
-        try {
-          const sum = combo.reduce((acc, v) => acc + BigInt(v), 0n);
-          const d = sum > total ? sum - total : total - sum;
-
-          if (bestDiff === null || d < bestDiff) {
-            bestDiff = d;
-            bestCombo = [...combo];
-          }
-        } catch {
-          // Skip invalid BigInt conversions.
-        }
-
-        return;
-      }
-
-      for (const candidate of candidateSets[idx]) {
-        combo.push(candidate);
-        search(idx + 1, combo);
-        combo.pop();
-      }
+      if (bestTroopIdx === -1) break; // No improvement found.
+      working[bestTroopIdx] = bestCandidate;
+      repairedSet.add(result.troops[bestTroopIdx].number);
     }
 
-    search(0, []);
+    const finalSum = calcSum(working);
+    const finalDiff = absDiff(finalSum, total);
 
-    if (bestDiff !== null && bestDiff <= tolerance && bestCombo) {
-      const repairedTroops = result.rawTroopDigits
-        .map((orig, i) => (orig !== bestCombo[i] ? result.troops[i].number : null))
-        .filter((n) => n !== null);
-
-      const newTroops = result.troops.map((t, i) => ({
-        ...t,
-        value: formatDigits(bestCombo[i])
-      }));
-
-      // Verify the repaired combo sums correctly before accepting.
-      const verifySum = bestCombo.reduce((acc, v) => acc + BigInt(v), 0n);
-      const verifyDiff = verifySum > total ? verifySum - total : total - verifySum;
-      if (verifyDiff > total / 200n) {
-        // Repair made things worse – trust original troop sum.
-        return { ...result, power: formatDigits(String(currentSum)) };
-      }
-
-      return {
-        ...result,
-        power: formatDigits(result.rawTotalPowerDigits),
-        troops: newTroops,
-        rawTroopDigits: bestCombo,
-        repairedTroops
-      };
+    // Only accept if we actually improved AND end up within tolerance.
+    if (finalDiff > tolerance) {
+      return { ...result, power: formatDigits(String(currentSum)) };
     }
+
+    const newTroops = result.troops.map((t, i) => ({
+      ...t,
+      value: formatDigits(working[i])
+    }));
+
+    return {
+      ...result,
+      power: formatDigits(result.rawTotalPowerDigits),
+      troops: newTroops,
+      rawTroopDigits: working,
+      repairedTroops: [...repairedSet]
+    };
   } catch {
-    // Leave result unchanged if repair fails.
+    // Leave result unchanged.
   }
 
   return result;
