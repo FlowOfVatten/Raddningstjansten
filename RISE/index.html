@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RISE Power Reader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-a"></div>
+  <div class="bg-shape bg-shape-b"></div>
+
+  <main class="container">
+    <header class="hero">
+      <p class="eyebrow">Azure Web Application</p>
+      <h1>RISE Power Reader</h1>
+      <p class="lead">
+        Ladda upp en screenshot och få ut Namn, Power och Troop 1-5 snyggt presenterat direkt under bilden.
+      </p>
+    </header>
+
+    <section class="panel upload-panel">
+      <label for="imageInput" class="upload-label">Välj bild</label>
+      <input id="imageInput" type="file" accept="image/*">
+      <div class="buttons">
+        <button id="useSampleBtn" type="button" class="btn btn-secondary">Använd exempelbild</button>
+        <button id="analyzeBtn" type="button" class="btn btn-primary">Analysera bild</button>
+      </div>
+      <p id="status" class="status">Väntar på bild...</p>
+      <div class="progress-wrap" aria-hidden="true">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+    </section>
+
+    <section class="panel preview-panel">
+      <h2>Förhandsvisning</h2>
+      <img id="preview" alt="Förhandsvisning av uppladdad bild">
+    </section>
+
+    <section class="panel results-panel">
+      <h2>Extraherad information</h2>
+      <div id="resultsEmpty" class="empty">Ingen data ännu.</div>
+      <div id="results" class="results" hidden>
+        <article class="result-card">
+          <h3>Namn</h3>
+          <p id="nameValue">-</p>
+        </article>
+        <article class="result-card">
+          <h3>Total Power</h3>
+          <p id="powerValue">-</p>
+        </article>
+        <article class="result-card troop-card">
+          <h3>Troops</h3>
+          <div id="troopsGrid" class="troops-grid"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
