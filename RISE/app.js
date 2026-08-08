@@ -117,9 +117,15 @@ function normalizeName(rawName) {
     return "";
   }
 
-  return rawName
+  let name = rawName
     .replace(/[|!]/g, "I")
     .replace(/[^A-Za-z0-9]/g, "");
+
+  // This game font renders uppercase T as "il" or "ll" in OCR output.
+  // Replace any "il" or "ll" that appears mid-word between uppercase-style contexts.
+  name = name.replace(/([A-Z][a-z]+)(?:il|ll)([a-z]+)/g, (_, pre, post) => pre + "T" + post);
+
+  return name;
 }
 
 function getBestNameFromLines(lines) {
