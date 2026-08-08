@@ -578,6 +578,20 @@ function repairTroopsWithTotalPower(result) {
 
   try {
     const total = BigInt(result.rawTotalPowerDigits);
+
+    // If the troop sum already matches total within tolerance, nothing to repair.
+    const currentSum = result.rawTroopDigits.reduce((acc, v) => acc + BigInt(v), 0n);
+    const currentDiff = currentSum > total ? currentSum - total : total - currentSum;
+    if (currentDiff <= total / 200n) {
+      return result;
+    }
+
+    // If the OCR-read total is wildly different from the troop sum (>50%), the total
+    // is probably from the wrong area of the image – trust the troops instead.
+    const sumStr = String(currentSum);
+    if (currentDiff > currentSum / 2n) {
+      return { ...result, power: formatDigits(sumStr) };
+    }
     const tolerance = total / 200n; // 0.5%
 
     // Build candidate lists for each troop.
@@ -662,6 +676,14 @@ function repairTroopsWithTotalPower(result) {
         ...t,
         value: formatDigits(bestCombo[i])
       }));
+
+      // Verify the repaired combo sums correctly before accepting.
+      const verifySum = bestCombo.reduce((acc, v) => acc + BigInt(v), 0n);
+      const verifyDiff = verifySum > total ? verifySum - total : total - verifySum;
+      if (verifyDiff > total / 200n) {
+        // Repair made things worse – trust original troop sum.
+        return { ...result, power: formatDigits(String(currentSum)) };
+      }
 
       return {
         ...result,
