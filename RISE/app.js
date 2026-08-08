@@ -154,9 +154,14 @@ function getBestNameFromLines(lines) {
 }
 
 const NAME_CROP_VARIANTS = [
+  // Original screenshots: name sits in middle-left of stats panel.
   { x: 0.24, y: 0.24, w: 0.36, h: 0.08, scale: 4 },
   { x: 0.15, y: 0.16, w: 0.45, h: 0.12, scale: 4 },
-  { x: 0.22, y: 0.22, w: 0.35, h: 0.09, scale: 5 }
+  { x: 0.22, y: 0.22, w: 0.35, h: 0.09, scale: 5 },
+  // Portrait-style screenshots: name sits to the right of the portrait icon.
+  { x: 0.22, y: 0.27, w: 0.55, h: 0.09, scale: 4 },
+  { x: 0.20, y: 0.25, w: 0.58, h: 0.11, scale: 4 },
+  { x: 0.22, y: 0.30, w: 0.52, h: 0.09, scale: 4 }
 ];
 
 const NAME_FILTERS = [
@@ -187,14 +192,20 @@ function scoreNameCandidate(name) {
   }
 
   let score = 0;
-  if (name.length >= 4 && name.length <= 10) {
+  if (name.length >= 5 && name.length <= 10) {
     score += 4;
-  } else if (name.length >= 3 && name.length <= 14) {
+  } else if (name.length >= 4 && name.length <= 14) {
     score += 2;
   }
 
-  if (/^[A-Z][a-z]+$/.test(name)) {
+  // Require at least 4 chars for the "clean word" bonus.
+  if (name.length >= 4 && /^[A-Z][a-z]+$/.test(name)) {
     score += 4;
+  }
+
+  // Extra bonus for CamelCase names (e.g. NightBane, BiggTazz).
+  if (/^[A-Z][a-z]+[A-Z][a-z]+/.test(name)) {
+    score += 3;
   }
 
   if (/^[A-Za-z]+$/.test(name)) {
@@ -309,6 +320,11 @@ function cleanCurrencyNoise(groups) {
     cleaned[0] = cleaned[0].slice(3);
   }
 
+  // Strip leading "41" OCR artifact (currency icon read as 41).
+  if (/^41\d{1,3}$/.test(cleaned[0])) {
+    cleaned[0] = cleaned[0].slice(2);
+  }
+
   return cleaned.filter(Boolean);
 }
 
@@ -331,7 +347,7 @@ function buildNumericCandidates(expandedGroups) {
     }
 
     const digits = sequence.join("");
-    if (digits.length >= 12 && digits.length <= 15) {
+    if (digits.length >= 12 && digits.length <= 14) {
       candidates.push(digits);
     }
   }
@@ -396,11 +412,11 @@ function parseTroopMapFromText(text) {
   const [labelSection, valueSection = ""] = text.split("---VALUES---");
 
   // Extract digit-only values from the value-pass in order (top to bottom).
-  // Each line that contains a plausible troop-sized number is collected in sequence.
+  // Accept 12-15 digit troop values.
   const digitOnlyValues = [];
   for (const line of valueSection.split("\n").map((l) => l.trim()).filter(Boolean)) {
     const v = pickBestNumericValueFromRaw(line);
-    if (v && v.length >= 12 && v.length <= 14) {
+    if (v && v.length >= 12 && v.length <= 15) {
       digitOnlyValues.push(v);
     }
   }
