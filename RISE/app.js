@@ -1552,6 +1552,14 @@ if (window.location.protocol === "file:") {
     return td;
   }
 
+  function isUpdatedWithinDays(isoDate, days) {
+    if (!isoDate) return false;
+    var ts = Date.parse(isoDate);
+    if (Number.isNaN(ts)) return false;
+    var ageMs = Date.now() - ts;
+    return ageMs >= 0 && ageMs <= (days * 24 * 60 * 60 * 1000);
+  }
+
   function buildUserChartRows(users, selectedUnit, sortBy, sortDir) {
     var rows = users.map(function(u) {
       var troops = u.troops && typeof u.troops === 'object' ? u.troops : {};
@@ -1569,12 +1577,15 @@ if (window.location.protocol === "file:") {
         if (selectedUnit !== 'all' && t.unit !== selectedUnit) return acc;
         return acc + t.power;
       }, 0);
+      var updatedAt = troops._updatedAt || null;
+      var isUpdatedRecent = isUpdatedWithinDays(updatedAt, 7);
 
       return {
         username: u.username,
         hasSelectedUnit: hasSelectedUnit,
         troops: troopEntries,
-        total: total
+        total: total,
+        isUpdatedRecent: isUpdatedRecent
       };
     }).filter(function(r) { return r.hasSelectedUnit; });
 
@@ -1627,10 +1638,12 @@ if (window.location.protocol === "file:") {
         tr.appendChild(renderTroopCell(displayTroop, selectedUnit));
       });
 
-      var totalTd = document.createElement('td');
-      totalTd.className = 'chart-total-cell';
-      totalTd.textContent = r.total.toLocaleString('en-US');
-      tr.appendChild(totalTd);
+      var updatedTd = document.createElement('td');
+      updatedTd.className = 'chart-updated-cell';
+      updatedTd.innerHTML = r.isUpdatedRecent
+        ? '<span class="chart-updated-mark ok" title="Updated within the last 7 days">V</span>'
+        : '<span class="chart-updated-mark stale" title="Older than 7 days or never updated">X</span>';
+      tr.appendChild(updatedTd);
 
       chartTableBody.appendChild(tr);
     });

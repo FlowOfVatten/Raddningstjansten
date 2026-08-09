@@ -82,30 +82,36 @@
       </div>
 
       <div class="chart-filters">
-        <label for="chartUnitFilter">Unit filter</label>
-        <select id="chartUnitFilter" class="admin-input chart-select">
-          <option value="all">All units</option>
-          <option value="archer">Archer (yellow)</option>
-          <option value="goblin">Goblin (green)</option>
-          <option value="ice">Ice (blue)</option>
-          <option value="fire">Fire (red)</option>
-        </select>
+        <div class="chart-filter-group">
+          <label for="chartUnitFilter">Unit filter</label>
+          <select id="chartUnitFilter" class="admin-input chart-select">
+            <option value="all">All units</option>
+            <option value="archer">Archer (yellow)</option>
+            <option value="goblin">Goblin (green)</option>
+            <option value="ice">Ice (blue)</option>
+            <option value="fire">Fire (red)</option>
+          </select>
+        </div>
 
-        <label for="chartSortBy">Sort by</label>
-        <select id="chartSortBy" class="admin-input chart-select">
-          <option value="total">Total power</option>
-          <option value="1">Troop 1 power</option>
-          <option value="2">Troop 2 power</option>
-          <option value="3">Troop 3 power</option>
-          <option value="4">Troop 4 power</option>
-          <option value="5">Troop 5 power</option>
-        </select>
+        <div class="chart-filter-group">
+          <label for="chartSortBy">Sort by</label>
+          <select id="chartSortBy" class="admin-input chart-select">
+            <option value="total">Total power</option>
+            <option value="1">Troop 1 power</option>
+            <option value="2">Troop 2 power</option>
+            <option value="3">Troop 3 power</option>
+            <option value="4">Troop 4 power</option>
+            <option value="5">Troop 5 power</option>
+          </select>
+        </div>
 
-        <label for="chartSortDir">Order</label>
-        <select id="chartSortDir" class="admin-input chart-select">
-          <option value="desc">Highest first</option>
-          <option value="asc">Lowest first</option>
-        </select>
+        <div class="chart-filter-group">
+          <label for="chartSortDir">Order</label>
+          <select id="chartSortDir" class="admin-input chart-select">
+            <option value="desc">Highest first</option>
+            <option value="asc">Lowest first</option>
+          </select>
+        </div>
       </div>
 
       <div class="chart-table-wrap">
@@ -118,7 +124,7 @@
               <th>Troop 3</th>
               <th>Troop 4</th>
               <th>Troop 5</th>
-              <th>Total</th>
+              <th>Updated &gt;7 days</th>
             </tr>
           </thead>
           <tbody id="chartTableBody">

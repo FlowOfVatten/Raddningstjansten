@@ -828,8 +828,14 @@ body {
 .chart-filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr));
-  gap: 8px 12px;
-  align-items: center;
+  gap: 12px;
+  align-items: start;
+}
+
+.chart-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .chart-filters label {
@@ -907,9 +913,32 @@ body {
   color: #8ba6c8;
 }
 
-.chart-total-cell {
-  font-weight: 800;
-  color: #0a2550;
+.chart-updated-cell {
+  text-align: center;
+}
+
+.chart-updated-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.chart-updated-mark.ok {
+  color: #0f9d58;
+  background: #e6f9ef;
+  border: 1px solid #9fe0bc;
+}
+
+.chart-updated-mark.stale {
+  color: #c0392b;
+  background: #fdeceb;
+  border: 1px solid #f2b8b4;
 }
 
 @media (max-width: 900px) {

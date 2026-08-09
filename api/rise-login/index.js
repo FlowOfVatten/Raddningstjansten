@@ -36,7 +36,9 @@ module.exports = async function (context, req) {
         return { status: 401, headers: cors, body: JSON.stringify({ error: 'Invalid session' }) };
       if (action === 'loadTroops')
         return { status: 200, headers: cors, body: JSON.stringify({ troops: tr.rows[0].troops || {} }) };
-      await tc.query('UPDATE users SET troops=$1 WHERE lower(username)=lower($2)', [JSON.stringify(troops), username]);
+      const troopPayload = (troops && typeof troops === 'object') ? { ...troops } : {};
+      troopPayload._updatedAt = new Date().toISOString();
+      await tc.query('UPDATE users SET troops=$1 WHERE lower(username)=lower($2)', [JSON.stringify(troopPayload), username]);
       return { status: 200, headers: cors, body: JSON.stringify({ ok: true }) };
     } catch (err) {
       context.log.error('rise troops error:', err.message);
