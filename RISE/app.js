@@ -1924,14 +1924,10 @@ function avatarFromCdnToFilePath(url) {
   return 'https://kingdom-guard.fandom.com/wiki/Special:FilePath/' + m[1];
 }
 
-function localElementAvatar(name) {
-  var hero = HERO_DATA.find(function (h) { return h.name === name; });
-  if (!hero || !hero.element) return null;
-  if (hero.element === 'ice') return 'ice.jpeg';
-  if (hero.element === 'archer' || hero.element === 'fire' || hero.element === 'goblin') {
-    return hero.element + '.jpg';
-  }
-  return null;
+function avatarViaProxy(url) {
+  if (!url) return null;
+  var cleaned = String(url).replace(/^https?:\/\//i, '');
+  return 'https://images.weserv.nl/?url=' + encodeURIComponent(cleaned);
 }
 
 function pushUnique(list, value) {
@@ -1942,11 +1938,11 @@ function pushUnique(list, value) {
 function heroAvatarSources(name) {
   var cdn = HERO_AVATAR[name] || null;
   var fp = avatarFromCdnToFilePath(cdn);
-  var local = localElementAvatar(name);
+  var proxy = avatarViaProxy(cdn);
   var sources = [];
   pushUnique(sources, fp);
   pushUnique(sources, cdn);
-  pushUnique(sources, local);
+  pushUnique(sources, proxy);
   return sources;
 }
 
@@ -1960,7 +1956,7 @@ function heroAvatarMarkup(type, heroName) {
   if (!av) return '<span class="' + phClass + '">' + initial + '</span>';
   return '<span class="' + imgClass + '-wrap">' +
     '<span class="' + phClass + '">' + initial + '</span>' +
-    '<img class="' + imgClass + '" src="' + av + '" data-src-list="' + avList + '" data-src-index="0" alt="" loading="lazy" style="display:none" onload="this.style.display=\'block\';this.previousElementSibling.style.display=\'none\';" onerror="var list=(this.dataset.srcList||\'\').split(\'|\');var i=parseInt(this.dataset.srcIndex||\'0\',10)+1;if(i<list.length){this.dataset.srcIndex=String(i);this.src=list[i];return;}this.style.display=\'none\';this.previousElementSibling.style.display=\'inline-flex\';">' +
+    '<img class="' + imgClass + '" src="' + av + '" data-src-list="' + avList + '" data-src-index="0" alt="" loading="lazy" referrerpolicy="no-referrer" style="display:none" onload="this.style.display=\'block\';this.previousElementSibling.style.display=\'none\';" onerror="var list=(this.dataset.srcList||\'\').split(\'|\');var i=parseInt(this.dataset.srcIndex||\'0\',10)+1;if(i<list.length){this.dataset.srcIndex=String(i);this.src=list[i];return;}this.style.display=\'none\';this.previousElementSibling.style.display=\'inline-flex\';">' +
     '</span>';
 }
 
