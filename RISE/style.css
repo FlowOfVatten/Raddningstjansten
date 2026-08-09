@@ -1027,6 +1027,10 @@ body {
   gap: 10px;
 }
 
+.roster-tab-content[hidden] {
+  display: none !important;
+}
+
 .roster-element-group {
   border-radius: 12px;
   overflow: hidden;
@@ -1066,13 +1070,25 @@ body {
   border: 1px solid #dde9f8;
 }
 
+.roster-hero-avatar-wrap {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
 .roster-hero-avatar-ph {
   width: 32px;
   height: 32px;
   border-radius: 6px;
   background: #eef4fb;
   flex-shrink: 0;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #5f7fab;
+  border: 1px solid #dde9f8;
 }
 
 .roster-tier-badge, .rec-tier-badge {
@@ -1120,9 +1136,10 @@ body {
 /* ── Recommendations ─────────────────────────────────────────── */
 .rec-troops-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
 }
+
 .rec-mode-row {
   display: flex;
   gap: 8px;
@@ -1148,16 +1165,10 @@ body {
   border-color: transparent;
 }
 
-.rec-troops-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-}
-
 .rec-troop-card {
   border-radius: 14px;
   border: 2px solid #dde9f8;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   overflow: hidden;
   background: #fff;
 }
@@ -1206,6 +1217,26 @@ body {
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid #dde9f8;
+}
+
+.rec-hero-avatar-wrap {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.rec-hero-avatar-ph {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #eef4fb;
+  border: 1px solid #dde9f8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #5f7fab;
 }
 
 .rec-leader-badge {

@@ -1901,6 +1901,30 @@ const HERO_AVATAR = {
 };
 function heroAvatar(name) { return HERO_AVATAR[name] || null; }
 
+function heroAvatarFallbackDataUri(heroName) {
+  var initial = (heroName && heroName.charAt(0).toUpperCase()) || '?';
+  var svg = '' +
+    '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0%" stop-color="#d8e9ff"/>' +
+    '<stop offset="100%" stop-color="#94b8ef"/>' +
+    '</linearGradient></defs>' +
+    '<rect width="64" height="64" rx="12" fill="url(#g)"/>' +
+    '<text x="32" y="41" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700" fill="#214b88">' + initial + '</text>' +
+    '</svg>';
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+function heroAvatarMarkup(type, heroName) {
+  var av = heroAvatar(heroName);
+  var imgClass = type === 'rec' ? 'rec-hero-avatar' : 'roster-hero-avatar';
+  var fallback = heroAvatarFallbackDataUri(heroName);
+  if (!av) return '<img class="' + imgClass + '" src="' + fallback + '" alt="" loading="lazy">';
+  return '<span class="' + imgClass + '-wrap">' +
+    '<img class="' + imgClass + '" src="' + av + '" data-fallback="' + fallback + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=this.dataset.fallback;">' +
+    '</span>';
+}
+
 /* ── Hero Roster & Recommendations ─────────────────────────────── */
 (function () {
   var rosterModal         = document.getElementById('rosterModal');
@@ -1989,10 +2013,9 @@ function heroAvatar(name) { return HERO_AVATAR[name] || null; }
         var s = _heroRoster[hero.name] || {};
         var row = document.createElement('div');
         row.className = 'roster-hero-row';
-        var av = heroAvatar(hero.name);
         var tierLbl = TIER_LABEL[hero.tier] || 'C';
         row.innerHTML =
-          (av ? '<img class="roster-hero-avatar" src="' + av + '" alt="" loading="lazy">' : '<span class="roster-hero-avatar-ph"></span>') +
+          heroAvatarMarkup('roster', hero.name) +
           '<span class="roster-tier-badge tier-' + tierLbl.toLowerCase() + '">' + tierLbl + '</span>' +
           '<span class="roster-hero-name">' + hero.name + '</span>' +
           '<label class="roster-cb-label"><input type="checkbox" data-hero="' + hero.name + '" data-type="owned"' + (s.owned ? ' checked' : '') + '> Owned</label>' +
@@ -2017,19 +2040,31 @@ function heroAvatar(name) { return HERO_AVATAR[name] || null; }
   }
 
   function recHeroRow(role, h, stat, isLeader) {
-    var av = heroAvatar(h.name);
     var tl = TIER_LABEL[h.tier] || 'C';
     return '<div class="rec-hero-row' + (isLeader ? ' leader' : '') + '">' +
       '<span class="' + (isLeader ? 'rec-leader-badge' : 'rec-role-badge') + '">' + role + '</span>' +
-      (av ? '<img class="rec-hero-avatar" src="' + av + '" alt="" loading="lazy">' : '') +
+      heroAvatarMarkup('rec', h.name) +
       '<span class="rec-tier-badge tier-' + tl.toLowerCase() + '">' + tl + '</span>' +
       '<span class="rec-hero-name">' + h.name + '</span>' +
       '<span class="rec-stat">' + stat + '</span>' +
       '</div>';
   }
 
+  function recStatLabel(h, isLeader, mode) {
+    var ap = HERO_MONSTER_AP[h.name] || 0;
+    if (mode === 'farming') {
+      if (ap > 0) return 'AP -' + ap + '%';
+      return isLeader ? 'March +' + h.march + '%' : '+' + h.guerrilla + '% pwr';
+    }
+    if (mode === 'power') {
+      return isLeader ? 'Power +' + (h.march + h.guerrilla) + '%' : '+' + h.guerrilla + '% pwr';
+    }
+    return isLeader ? 'March +' + h.march + '%' : '+' + h.guerrilla + '% pwr';
+  }
+
   function renderRecommendations() {
-     var result = buildRecommendedTroops(_recMode);
+     var mode = _recMode || 'pvp';
+     var result = buildRecommendedTroops(mode);
     recResults.innerHTML = '';
     if (!result.troops.length) {
       recResults.innerHTML = '<p class="roster-empty">Mark heroes as Owned + 5\u2605 in My Heroes to see recommendations.</p>';
@@ -2041,9 +2076,9 @@ function heroAvatar(name) { return HERO_AVATAR[name] || null; }
         card.className = 'rec-troop-card rec-troop-' + t.element;
         card.innerHTML =
           '<div class="rec-troop-header"><img src="' + t.element + (t.element === 'ice' ? '.jpeg' : '.jpg') + '" class="rec-element-icon" alt=""> ' + ELEMENT_LABEL[t.element] + ' \u2014 Troop ' + (i + 1) + '</div>' +
-          recHeroRow('Leader', t.leader, 'March +' + t.leader.march + '%', true) +
-          recHeroRow('Asst', t.a1, '+' + t.a1.guerrilla + '% pwr', false) +
-          recHeroRow('Asst', t.a2, '+' + t.a2.guerrilla + '% pwr', false);
+          recHeroRow('Leader', t.leader, recStatLabel(t.leader, true, mode), true) +
+          recHeroRow('Asst', t.a1, recStatLabel(t.a1, false, mode), false) +
+          recHeroRow('Asst', t.a2, recStatLabel(t.a2, false, mode), false);
         grid.appendChild(card);
       });
       recResults.appendChild(grid);
