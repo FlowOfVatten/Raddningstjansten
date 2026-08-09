@@ -1751,83 +1751,155 @@ if (window.location.protocol === "file:") {
 /* -------------------------------------------------------------- */
 
 /* ── HERO DATA ─────────────────────────────────────────────────── */
+// tier: 4=S, 3=A, 2=B, 1=C
 const HERO_DATA = [
   // Archer
-  { name: 'Sahar',     element: 'archer', march: 20, guerrilla: 25, load:  0, firstAid: 25, regen: true },
-  { name: "O'Neil",    element: 'archer', march: 20, guerrilla: 25, load: 20, firstAid: 20, regen: false },
-  { name: 'Ariza',     element: 'archer', march: 20, guerrilla: 25, load: 15, firstAid: 20, regen: false },
-  { name: 'Gabrielle', element: 'archer', march: 20, guerrilla: 20, load: 20, firstAid: 10, regen: true },
-  { name: 'Jennifer',  element: 'archer', march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
-  { name: 'Arthur',    element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Harold',    element: 'archer', march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
-  { name: 'Arwyn',     element: 'archer', march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
-  { name: 'Ptolomeo',  element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
-  { name: 'Johannes',  element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
-  { name: 'Bella',     element: 'archer', march: 20, guerrilla:  0, load: 20, firstAid: 15, regen: true },
-  { name: 'Montag',    element: 'archer', march: 20, guerrilla:  0, load: 20, firstAid:  0, regen: true },
-  { name: 'Sebastian', element: 'archer', march: 20, guerrilla: 20, load: 20, firstAid:  0, regen: true },
-  { name: 'Padme',     element: 'archer', march: 30, guerrilla: 40, load:  0, firstAid:  0, regen: true },
-  { name: 'Meg',       element: 'archer', march: 20, guerrilla: 25, load:  0, firstAid: 15, regen: true },
-  { name: 'Maya',      element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
-  { name: 'Trist',     element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
-  { name: 'Fatima',    element: 'archer', march: 20, guerrilla:  0, load: 20, firstAid:  0, regen: true },
+  { name: 'Sahar',     element: 'archer', tier: 4, march: 20, guerrilla: 25, load:  0, firstAid: 25, regen: true },
+  { name: "O'Neil",    element: 'archer', tier: 3, march: 20, guerrilla: 25, load: 20, firstAid: 20, regen: false },
+  { name: 'Ariza',     element: 'archer', tier: 3, march: 20, guerrilla: 25, load: 15, firstAid: 20, regen: false },
+  { name: 'Gabrielle', element: 'archer', tier: 3, march: 20, guerrilla: 20, load: 20, firstAid: 10, regen: true },
+  { name: 'Jennifer',  element: 'archer', tier: 2, march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
+  { name: 'Arthur',    element: 'archer', tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Harold',    element: 'archer', tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Arwyn',     element: 'archer', tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Ptolomeo',  element: 'archer', tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Johannes',  element: 'archer', tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Bella',     element: 'archer', tier: 1, march: 20, guerrilla:  0, load: 20, firstAid: 15, regen: true },
+  { name: 'Montag',    element: 'archer', tier: 1, march: 20, guerrilla:  0, load: 20, firstAid:  0, regen: true },
+  { name: 'Sebastian', element: 'archer', tier: 1, march: 20, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Padme',     element: 'archer', tier: 4, march: 30, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Meg',       element: 'archer', tier: 2, march: 20, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Maya',      element: 'archer', tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Trist',     element: 'archer', tier: 1, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Fatima',    element: 'archer', tier: 1, march: 20, guerrilla:  0, load: 20, firstAid:  0, regen: true },
   // Fire
-  { name: 'Tracy',     element: 'fire',   march: 30, guerrilla: 40, load:  0, firstAid:  0, regen: true },
-  { name: 'Erika',     element: 'fire',   march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
-  { name: 'Lovelace',  element: 'fire',   march: 30, guerrilla: 20, load:  0, firstAid: 15, regen: true },
-  { name: 'Daria',     element: 'fire',   march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
-  { name: 'Cosette',   element: 'fire',   march: 20, guerrilla: 30, load: 30, firstAid: 25, regen: false },
-  { name: 'Vanessa',   element: 'fire',   march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
-  { name: 'Simon',     element: 'fire',   march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Miku',      element: 'fire',   march: 15, guerrilla: 25, load:  0, firstAid:  0, regen: true },
-  { name: 'Paul',      element: 'fire',   march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
-  { name: 'Wallis',    element: 'fire',   march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
-  { name: 'Dolvar',    element: 'fire',   march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
-  { name: 'Allen',     element: 'fire',   march: 20, guerrilla: 25, load: 10, firstAid: 15, regen: false },
-  { name: 'Giselle',   element: 'fire',   march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
-  { name: 'Dain',      element: 'fire',   march: 20, guerrilla:  0, load: 20, firstAid: 15, regen: true },
-  { name: 'Apollo',    element: 'fire',   march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
-  { name: 'Anko',      element: 'fire',   march: 30, guerrilla: 20, load:  0, firstAid: 15, regen: true },
-  { name: 'Gro',       element: 'fire',   march: 15, guerrilla:  0, load:  0, firstAid: 15, regen: false },
-  { name: 'Kris',      element: 'fire',   march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Ophelia',   element: 'fire',   march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
-  { name: 'Samar',     element: 'fire',   march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Tracy',     element: 'fire',   tier: 4, march: 30, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Erika',     element: 'fire',   tier: 3, march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Lovelace',  element: 'fire',   tier: 4, march: 30, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Daria',     element: 'fire',   tier: 3, march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Cosette',   element: 'fire',   tier: 4, march: 20, guerrilla: 30, load: 30, firstAid: 25, regen: false },
+  { name: 'Vanessa',   element: 'fire',   tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Simon',     element: 'fire',   tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Miku',      element: 'fire',   tier: 3, march: 15, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Paul',      element: 'fire',   tier: 3, march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
+  { name: 'Wallis',    element: 'fire',   tier: 2, march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
+  { name: 'Dolvar',    element: 'fire',   tier: 2, march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
+  { name: 'Allen',     element: 'fire',   tier: 2, march: 20, guerrilla: 25, load: 10, firstAid: 15, regen: false },
+  { name: 'Giselle',   element: 'fire',   tier: 2, march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Dain',      element: 'fire',   tier: 2, march: 20, guerrilla:  0, load: 20, firstAid: 15, regen: true },
+  { name: 'Apollo',    element: 'fire',   tier: 4, march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Anko',      element: 'fire',   tier: 3, march: 30, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Gro',       element: 'fire',   tier: 1, march: 15, guerrilla:  0, load:  0, firstAid: 15, regen: false },
+  { name: 'Kris',      element: 'fire',   tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Ophelia',   element: 'fire',   tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Samar',     element: 'fire',   tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
   // Ice
-  { name: 'Keith',     element: 'ice',    march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
-  { name: 'Maud',      element: 'ice',    march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
-  { name: 'Nathaniel', element: 'ice',    march: 30, guerrilla:  0, load: 20, firstAid: 15, regen: true },
-  { name: 'Filius',    element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid: 15, regen: true },
-  { name: 'Hana',      element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
-  { name: 'Ao Deng',   element: 'ice',    march: 20, guerrilla: 40, load:  0, firstAid:  0, regen: true },
-  { name: 'Judy',      element: 'ice',    march: 20, guerrilla: 40, load:  0, firstAid:  0, regen: true },
-  { name: 'Paula',     element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: false },
-  { name: 'Ao Yue',    element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
-  { name: 'Jessica',   element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
-  { name: 'Pedra',     element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
-  { name: 'Lilani',    element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
-  { name: 'Vera',      element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
-  { name: 'Parr',      element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
-  { name: 'Rudolph',   element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
-  { name: 'Hadi',      element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Nicole',    element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Ralph',     element: 'ice',    march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
-  { name: 'Merlin',    element: 'ice',    march: 15, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Keith',     element: 'ice',    tier: 4, march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Maud',      element: 'ice',    tier: 4, march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Nathaniel', element: 'ice',    tier: 4, march: 30, guerrilla:  0, load: 20, firstAid: 15, regen: true },
+  { name: 'Filius',    element: 'ice',    tier: 3, march: 20, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Hana',      element: 'ice',    tier: 3, march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Ao Deng',   element: 'ice',    tier: 3, march: 20, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Judy',      element: 'ice',    tier: 3, march: 20, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Paula',     element: 'ice',    tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Ao Yue',    element: 'ice',    tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Jessica',   element: 'ice',    tier: 3, march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Pedra',     element: 'ice',    tier: 2, march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Lilani',    element: 'ice',    tier: 3, march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Vera',      element: 'ice',    tier: 3, march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Parr',      element: 'ice',    tier: 3, march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Rudolph',   element: 'ice',    tier: 2, march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
+  { name: 'Hadi',      element: 'ice',    tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Nicole',    element: 'ice',    tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Ralph',     element: 'ice',    tier: 1, march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
+  { name: 'Merlin',    element: 'ice',    tier: 1, march: 15, guerrilla:  0, load:  0, firstAid:  0, regen: false },
   // Goblin
-  { name: 'Chiyoko',   element: 'goblin', march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
-  { name: 'Rosamond',  element: 'goblin', march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
-  { name: 'Gruen',     element: 'goblin', march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
-  { name: 'Rogers',    element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Pythia',    element: 'goblin', march: 15, guerrilla:  0, load: 20, firstAid:  0, regen: true },
-  { name: 'Rila',      element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
-  { name: 'Lilith',    element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
-  { name: 'Meniere',   element: 'goblin', march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
-  { name: 'Catherine', element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Claudia',   element: 'goblin', march:  0, guerrilla:  0, load: 20, firstAid: 15, regen: false },
-  { name: 'Isaac',     element: 'goblin', march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
-  { name: 'Alucard',   element: 'goblin', march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Chiyoko',   element: 'goblin', tier: 4, march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Rosamond',  element: 'goblin', tier: 4, march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
+  { name: 'Gruen',     element: 'goblin', tier: 3, march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Rogers',    element: 'goblin', tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Pythia',    element: 'goblin', tier: 2, march: 15, guerrilla:  0, load: 20, firstAid:  0, regen: true },
+  { name: 'Rila',      element: 'goblin', tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Lilith',    element: 'goblin', tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Meniere',   element: 'goblin', tier: 3, march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Catherine', element: 'goblin', tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Claudia',   element: 'goblin', tier: 1, march:  0, guerrilla:  0, load: 20, firstAid: 15, regen: false },
+  { name: 'Isaac',     element: 'goblin', tier: 1, march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
+  { name: 'Alucard',   element: 'goblin', tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
 ];
 const ELEMENT_LABEL = { archer: 'Archer', fire: 'Fire', ice: 'Ice', goblin: 'Goblin' };
 const ELEMENT_ORDER = ['archer', 'fire', 'ice', 'goblin'];
+const TIER_LABEL = { 4: 'S', 3: 'A', 2: 'B', 1: 'C' };
+
+const _W = 'https://static.wikia.nocookie.net/kingdom-guard/images/';
+const _S = '/revision/latest/scale-to-width-down/38?cb=20240702';
+const HERO_AVATAR = {
+  'Sahar':     _W + 'c/c8/Sahar.png'     + _S,
+  "O'Neil":    _W + '3/3f/O%27Neil.png'  + _S,
+  'Ariza':     _W + '4/48/Ariza.png'     + _S,
+  'Gabrielle': _W + 'e/e8/Gabrielle.png' + _S,
+  'Jennifer':  _W + 'a/a2/Jeniffer.png'  + _S,
+  'Arthur':    _W + '5/50/Arthur.png'    + _S,
+  'Harold':    _W + '7/75/Harold.png'    + _S,
+  'Arwyn':     _W + '7/76/Arwyn.png'     + _S,
+  'Ptolomeo':  _W + '8/8a/Ptolomeo.png'  + _S,
+  'Johannes':  _W + '4/4d/Johannes.png'  + _S,
+  'Bella':     _W + '7/70/Bella.png'     + _S,
+  'Montag':    _W + '1/1a/Montag.png'    + _S,
+  'Sebastian': _W + '1/11/Sebasti%C3%A1n.png' + _S,
+  'Padme':     _W + 'e/ef/Padme.png'     + _S,
+  'Maya':      _W + '0/09/Maya.png'      + _S,
+  'Trist':     _W + '1/1e/Trist.png'     + _S,
+  'Fatima':    _W + '3/38/F%C3%A1tima.png' + _S,
+  'Tracy':     _W + '8/8e/Tracy.png'     + _S,
+  'Erika':     _W + 'c/c0/Erika.png'     + _S,
+  'Lovelace':  _W + '7/7a/Lovelace.png'  + _S,
+  'Daria':     _W + 'c/c9/Dar%C3%ADa.png' + _S,
+  'Cosette':   _W + 'e/ef/Cosette.png'   + _S,
+  'Vanessa':   _W + 'a/a0/Vanessa.png'   + _S,
+  'Simon':     _W + '5/5f/Sim%C3%B3n.png' + _S,
+  'Miku':      _W + '6/6a/Miku.png'      + _S,
+  'Paul':      _W + '0/00/Paul.png'      + _S,
+  'Wallis':    _W + '8/88/Wallis.png'    + _S,
+  'Dolvar':    _W + '7/73/Dolvar.png'    + _S,
+  'Allen':     _W + '6/6c/Allen.png'     + _S,
+  'Giselle':   _W + 'f/f1/Giselle.png'   + _S,
+  'Gro':       _W + 'b/be/Gro.png'       + _S,
+  'Kris':      _W + '3/34/Kris.png'      + _S,
+  'Ophelia':   _W + 'a/ab/Ophelia.png'   + _S,
+  'Samar':     _W + '6/65/Samar.png'     + _S,
+  'Gruen':     _W + '9/9f/Gruen.png'     + _S,
+  'Rosamond':  _W + '8/8f/Rosamond.png'  + _S,
+  'Rogers':    _W + 'e/e8/Rogers_h%C3%A9roe.png' + _S,
+  'Pythia':    _W + '9/90/Pythia.png'    + _S,
+  'Rila':      _W + '3/30/Rila.png'      + _S,
+  'Lilith':    _W + '7/7e/Lilith.png'    + _S,
+  'Meniere':   _W + '9/98/M%C3%A9ni%C3%A8re.png' + _S,
+  'Catherine': _W + 'a/a5/Catherine.png' + _S,
+  'Claudia':   _W + '3/34/Claudia.png'   + _S,
+  'Isaac':     _W + '9/99/Isaac.png'     + _S,
+  'Alucard':   _W + 'e/e7/Alucard.png'   + _S,
+  'Filius':    _W + 'e/ea/Filius.png'    + _S,
+  'Hana':      _W + 'd/de/Hana.png'      + _S,
+  'Ao Deng':   _W + 'b/b5/Ao_Deng_Ge_Ri_Le.png' + _S,
+  'Judy':      _W + '2/26/Judy.png'      + _S,
+  'Keith':     _W + 'e/e6/Keith.png'     + _S,
+  'Paula':     _W + 'd/db/Paula.png'     + _S,
+  'Ao Yue':    _W + '1/15/Ao_Yue.png'    + _S,
+  'Jessica':   _W + 'e/e8/Jessica.png'   + _S,
+  'Pedra':     _W + 'c/c0/Pedra.png'     + _S,
+  'Lilani':    _W + 'd/dc/Lilani.png'    + _S,
+  'Vera':      _W + 'a/a0/Vera.png'      + _S,
+  'Parr':      _W + '3/36/Parr.png'      + _S,
+  'Maud':      _W + '6/68/Maud.png'      + _S,
+  'Nathaniel': _W + '9/9c/Nathaniel.png' + _S,
+  'Rudolph':   _W + '7/7c/Rudolph.png'   + _S,
+  'Hadi':      _W + 'a/a1/Hadi.png'      + _S,
+  'Nicole':    _W + '8/82/Nicole.png'    + _S,
+  'Ralph':     _W + 'd/dc/Ralph.png'     + _S,
+  'Merlin':    _W + '8/8c/Merl%C3%ADn.png' + _S,
+};
+function heroAvatar(name) { return HERO_AVATAR[name] || null; }
 
 /* ── Hero Roster & Recommendations ─────────────────────────────── */
 (function () {
@@ -1838,8 +1910,9 @@ const ELEMENT_ORDER = ['archer', 'fire', 'ice', 'goblin'];
   var recommendTabContent = document.getElementById('recommendTabContent');
   var recResults          = document.getElementById('recResults');
 
-  function leaderScore(h)    { return h.march * 10 + h.firstAid * 2 + (h.regen ? 5 : 0); }
-  function assistantScore(h) { return h.guerrilla * 3 + h.load * 1.5 + h.firstAid + (h.regen ? 5 : 0); }
+  var TIER_WEIGHT = { leader: 15, asst: 10 };
+  function leaderScore(h)    { return h.march * 10 + h.firstAid * 2 + (h.regen ? 5 : 0) + (h.tier || 1) * TIER_WEIGHT.leader; }
+  function assistantScore(h) { return h.guerrilla * 3 + h.load * 1.5 + h.firstAid + (h.regen ? 5 : 0) + (h.tier || 1) * TIER_WEIGHT.asst; }
 
   function getAvailable() {
     return HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return s && s.owned && s.fiveStar; });
@@ -1888,7 +1961,11 @@ const ELEMENT_ORDER = ['archer', 'fire', 'ice', 'goblin'];
         var s = _heroRoster[hero.name] || {};
         var row = document.createElement('div');
         row.className = 'roster-hero-row';
+        var av = heroAvatar(hero.name);
+        var tierLbl = TIER_LABEL[hero.tier] || 'C';
         row.innerHTML =
+          (av ? '<img class="roster-hero-avatar" src="' + av + '" alt="" loading="lazy">' : '<span class="roster-hero-avatar-ph"></span>') +
+          '<span class="roster-tier-badge tier-' + tierLbl.toLowerCase() + '">' + tierLbl + '</span>' +
           '<span class="roster-hero-name">' + hero.name + '</span>' +
           '<label class="roster-cb-label"><input type="checkbox" data-hero="' + hero.name + '" data-type="owned"' + (s.owned ? ' checked' : '') + '> Owned</label>' +
           '<label class="roster-cb-label roster-five-label"><input type="checkbox" data-hero="' + hero.name + '" data-type="fiveStar"' + (s.fiveStar ? ' checked' : '') + (!s.owned ? ' disabled' : '') + '> 5\u2605</label>';
@@ -1911,6 +1988,18 @@ const ELEMENT_ORDER = ['archer', 'fire', 'ice', 'goblin'];
     });
   }
 
+  function recHeroRow(role, h, stat, isLeader) {
+    var av = heroAvatar(h.name);
+    var tl = TIER_LABEL[h.tier] || 'C';
+    return '<div class="rec-hero-row' + (isLeader ? ' leader' : '') + '">' +
+      '<span class="' + (isLeader ? 'rec-leader-badge' : 'rec-role-badge') + '">' + role + '</span>' +
+      (av ? '<img class="rec-hero-avatar" src="' + av + '" alt="" loading="lazy">' : '') +
+      '<span class="rec-tier-badge tier-' + tl.toLowerCase() + '">' + tl + '</span>' +
+      '<span class="rec-hero-name">' + h.name + '</span>' +
+      '<span class="rec-stat">' + stat + '</span>' +
+      '</div>';
+  }
+
   function renderRecommendations() {
     var result = buildRecommendedTroops();
     recResults.innerHTML = '';
@@ -1924,9 +2013,9 @@ const ELEMENT_ORDER = ['archer', 'fire', 'ice', 'goblin'];
         card.className = 'rec-troop-card rec-troop-' + t.element;
         card.innerHTML =
           '<div class="rec-troop-header"><img src="' + t.element + (t.element === 'ice' ? '.jpeg' : '.jpg') + '" class="rec-element-icon" alt=""> ' + ELEMENT_LABEL[t.element] + ' \u2014 Troop ' + (i + 1) + '</div>' +
-          '<div class="rec-hero-row leader"><span class="rec-leader-badge">Leader</span><span class="rec-hero-name">' + t.leader.name + '</span><span class="rec-stat">March +' + t.leader.march + '%</span></div>' +
-          '<div class="rec-hero-row"><span class="rec-role-badge">Asst</span><span class="rec-hero-name">' + t.a1.name + '</span><span class="rec-stat">+' + t.a1.guerrilla + '% pwr</span></div>' +
-          '<div class="rec-hero-row"><span class="rec-role-badge">Asst</span><span class="rec-hero-name">' + t.a2.name + '</span><span class="rec-stat">+' + t.a2.guerrilla + '% pwr</span></div>';
+          recHeroRow('Leader', t.leader, 'March +' + t.leader.march + '%', true) +
+          recHeroRow('Asst', t.a1, '+' + t.a1.guerrilla + '% pwr', false) +
+          recHeroRow('Asst', t.a2, '+' + t.a2.guerrilla + '% pwr', false);
         grid.appendChild(card);
       });
       recResults.appendChild(grid);

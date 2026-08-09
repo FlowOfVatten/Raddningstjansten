@@ -1049,13 +1049,45 @@ body {
 .roster-hero-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 14px;
+  gap: 8px;
+  padding: 5px 14px;
   border-top: 1px solid #edf3fc;
   background: #fff;
 }
 
 .roster-hero-row:hover { background: #f8fbff; }
+
+.roster-hero-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #dde9f8;
+}
+
+.roster-hero-avatar-ph {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #eef4fb;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.roster-tier-badge, .rec-tier-badge {
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.tier-s { background: #fef3cd; color: #7a5200; }
+.tier-a { background: #e3f4fd; color: #0a5a84; }
+.tier-b { background: #e8f9ef; color: #1a6b3a; }
+.tier-c { background: #f1f1f1; color: #666; }
 
 .roster-hero-name {
   flex: 1;
@@ -1129,12 +1161,21 @@ body {
 .rec-hero-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
+  gap: 6px;
+  padding: 6px 12px;
   border-top: 1px solid #edf3fc;
 }
 
 .rec-hero-row.leader { background: #f4fbff; }
+
+.rec-hero-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #dde9f8;
+}
 
 .rec-leader-badge {
   font-size: 0.63rem;
