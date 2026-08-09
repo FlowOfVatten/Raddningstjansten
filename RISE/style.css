@@ -1123,10 +1123,41 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 12px;
 }
+.rec-mode-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rec-mode-btn {
+  padding: 6px 16px;
+  border-radius: 9px;
+  border: 2px solid #c4d9f4;
+  background: transparent;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #4a6fa5;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.rec-mode-btn.active {
+  background: linear-gradient(135deg, #00b8d9, #087eb8);
+  color: #fff;
+  border-color: transparent;
+}
+
+.rec-troops-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
 
 .rec-troop-card {
   border-radius: 14px;
   border: 2px solid #dde9f8;
+  font-size: 0.82rem;
   overflow: hidden;
   background: #fff;
 }
@@ -1140,9 +1171,9 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 14px;
+  padding: 7px 10px;
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
 }
 
 .rec-element-icon {
@@ -1162,7 +1193,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 5px 8px;
   border-top: 1px solid #edf3fc;
 }
 
@@ -1238,9 +1269,13 @@ body {
   color: #33557f;
 }
 
-@media (max-width: 720px) {
-  .rec-troops-grid {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 1000px) {
+  .rec-troops-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+  .rec-troops-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 460px) {
+  .rec-troops-grid { grid-template-columns: 1fr; }
 }
 /* -------------------------------------------------------------- */

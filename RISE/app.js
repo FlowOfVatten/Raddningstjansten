@@ -1913,21 +1913,41 @@ function heroAvatar(name) { return HERO_AVATAR[name] || null; }
   var TIER_WEIGHT = { leader: 15, asst: 10 };
   function leaderScore(h)    { return h.march * 10 + h.firstAid * 2 + (h.regen ? 5 : 0) + (h.tier || 1) * TIER_WEIGHT.leader; }
   function assistantScore(h) { return h.guerrilla * 3 + h.load * 1.5 + h.firstAid + (h.regen ? 5 : 0) + (h.tier || 1) * TIER_WEIGHT.asst; }
+    var HERO_MONSTER_AP = {
+      'Miku': 20, 'Jessica': 10, 'Harold': 10, 'Hana': 10,
+      'Pythia': 10, 'Fatima': 10, 'Giselle': 10, 'Pedra': 10
+    };
+    var _recMode = 'pvp';
+
+    function leaderScore(h, mode) {
+      var ap = HERO_MONSTER_AP[h.name] || 0, t = (h.tier || 1);
+      if (mode === 'farming') return ap * 50 + h.march * 5  + (h.regen ? 5 : 0) + t * 10;
+      if (mode === 'power')   return h.march * 5 + h.guerrilla * 3 + h.load * 2 + t * 10;
+      return h.march * 10 + h.firstAid * 2 + (h.regen ? 5 : 0) + t * 15;
+    }
+
+    function assistantScore(h, mode) {
+      var ap = HERO_MONSTER_AP[h.name] || 0, t = (h.tier || 1);
+      if (mode === 'farming') return ap * 30 + h.guerrilla * 2 + (h.regen ? 5 : 0) + t * 8;
+      if (mode === 'power')   return h.guerrilla * 5 + h.load * 3 + h.firstAid + t * 10;
+      return h.guerrilla * 3 + h.load * 1.5 + h.firstAid + (h.regen ? 5 : 0) + t * 10;
+    }
 
   function getAvailable() {
     return HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return s && s.owned && s.fiveStar; });
   }
 
   function buildRecommendedTroops() {
-    var avail = getAvailable(), used = {}, troops = [], suggestions = [];
+      var mode = _recMode || 'pvp';
+      var avail = getAvailable(), used = {}, troops = [], suggestions = [];
 
     function tryBuild(el) {
       var pool = avail.filter(function (h) { return h.element === el && !used[h.name]; });
       if (pool.length < 3) return false;
-      var leaders = pool.filter(function (h) { return h.march > 0; }).sort(function (a, b) { return leaderScore(b) - leaderScore(a); });
+        var leaders = pool.filter(function (h) { return h.march > 0; }).sort(function (a, b) { return leaderScore(b, mode) - leaderScore(a, mode); });
       if (!leaders.length) return false;
       var ldr = leaders[0];
-      var assts = pool.filter(function (h) { return h.name !== ldr.name; }).sort(function (a, b) { return assistantScore(b) - assistantScore(a); });
+        var assts = pool.filter(function (h) { return h.name !== ldr.name; }).sort(function (a, b) { return assistantScore(b, mode) - assistantScore(a, mode); });
       if (assts.length < 2) return false;
       troops.push({ element: el, leader: ldr, a1: assts[0], a2: assts[1] });
       used[ldr.name] = used[assts[0].name] = used[assts[1].name] = true;
@@ -1941,8 +1961,16 @@ function heroAvatar(name) { return HERO_AVATAR[name] || null; }
     ELEMENT_ORDER.forEach(function (el) {
       var count = avail.filter(function (h) { return h.element === el; }).length;
       if (count > 0 && count < 3) suggestions.push('You have ' + count + ' 5\u2605 ' + el + ' hero' + (count > 1 ? 'es' : '') + ' \u2014 need 3 for a full troop.');
-      var best = HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return h.element === el && s && s.owned && !s.fiveStar && h.march >= 25; }).sort(function (a, b) { return leaderScore(b) - leaderScore(a); })[0];
-      if (best) suggestions.push(best.name + ' (' + el + ') is not 5\u2605 yet \u2014 upgrading would make an excellent leader.');
+        if (mode === 'pvp') {
+          var best = HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return h.element === el && s && s.owned && !s.fiveStar && h.march >= 25; }).sort(function (a, b) { return leaderScore(b, mode) - leaderScore(a, mode); })[0];
+          if (best) suggestions.push(best.name + ' (' + el + ') is not 5\u2605 yet \u2014 would be an excellent march leader.');
+        } else if (mode === 'farming') {
+          var apHero = HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return h.element === el && s && s.owned && !s.fiveStar && (HERO_MONSTER_AP[h.name] || 0) > 0; }).sort(function (a, b) { return (HERO_MONSTER_AP[b.name] || 0) - (HERO_MONSTER_AP[a.name] || 0); })[0];
+          if (apHero) suggestions.push(apHero.name + ' saves -' + HERO_MONSTER_AP[apHero.name] + '% AP vs monsters \u2014 upgrade to 5\u2605 for cheaper farming.');
+        } else if (mode === 'power') {
+          var pw = HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return h.element === el && s && s.owned && !s.fiveStar && h.guerrilla >= 25; }).sort(function (a, b) { return assistantScore(b, mode) - assistantScore(a, mode); })[0];
+          if (pw) suggestions.push(pw.name + ' has +' + pw.guerrilla + '% guerrilla \u2014 upgrade to 5\u2605 to boost troop power.');
+        }
     });
 
     return { troops: troops.slice(0, 5), suggestions: suggestions };
@@ -2001,7 +2029,7 @@ function heroAvatar(name) { return HERO_AVATAR[name] || null; }
   }
 
   function renderRecommendations() {
-    var result = buildRecommendedTroops();
+     var result = buildRecommendedTroops(_recMode);
     recResults.innerHTML = '';
     if (!result.troops.length) {
       recResults.innerHTML = '<p class="roster-empty">Mark heroes as Owned + 5\u2605 in My Heroes to see recommendations.</p>';
@@ -2041,5 +2069,14 @@ function heroAvatar(name) { return HERO_AVATAR[name] || null; }
       if (tab === 'recommend') renderRecommendations();
     });
   });
+
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.rec-mode-btn');
+      if (!btn) return;
+      document.querySelectorAll('.rec-mode-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      _recMode = btn.dataset.mode;
+      renderRecommendations();
+    });
 })();
 /* ─────────────────────────────────────────────────────────────── */
