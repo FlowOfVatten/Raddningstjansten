@@ -40,6 +40,16 @@ function getTroopUnit(troopId) {
   return active ? active.dataset.unit : '';
 }
 
+function getPowerDigits(rawValue) {
+  return String(rawValue || '').replace(/\D/g, '');
+}
+
+function formatPowerInputValue(rawValue) {
+  const digits = getPowerDigits(rawValue);
+  if (!digits) return '';
+  return BigInt(digits).toLocaleString('en-US');
+}
+
 function setTroopUnit(troopId, unitValue) {
   const normalized = normalizeUnitValue(unitValue);
   const options = document.querySelectorAll(`.troop-unit-picker[data-troop="${troopId}"] .unit-option-btn`);
@@ -79,7 +89,7 @@ async function loadTroopsFromDB() {
     if (!data.troops) return;
     Object.entries(data.troops).forEach(([t, troop]) => {
       const powerEl = document.querySelector(`.troop-power-input[data-troop="${t}"]`);
-      if (powerEl && troop.power !== undefined) powerEl.value = troop.power;
+      if (powerEl && troop.power !== undefined) powerEl.value = formatPowerInputValue(troop.power);
       if (troop.unit !== undefined) setTroopUnit(t, troop.unit);
     });
     recalcTotal();
@@ -98,7 +108,7 @@ async function saveTroopsToDB() {
   const troops = {};
   document.querySelectorAll('.troop-power-input').forEach(input => {
     const t = input.dataset.troop;
-    troops[t] = { power: input.value, unit: getTroopUnit(t) };
+    troops[t] = { power: getPowerDigits(input.value), unit: getTroopUnit(t) };
   });
   try {
     await riseApi({ action: 'saveTroops', username: _loginUsername, token: _sessionToken, troops });
@@ -149,12 +159,16 @@ document.getElementById('setPasswordBtn').addEventListener('click', async () => 
 
 /* -- RISE Troop Manager ---------------------------------------- */
 function recalcTotal() {
-  let total = 0;
+  let total = 0n;
+  let hasAny = false;
   document.querySelectorAll('.troop-power-input').forEach(input => {
-    const v = parseFloat(input.value);
-    if (!isNaN(v) && v > 0) total += v;
+    const digits = getPowerDigits(input.value);
+    if (digits) {
+      total += BigInt(digits);
+      hasAny = true;
+    }
   });
-  document.getElementById('totalPowerDisplay').textContent = total.toLocaleString('en-US');
+  document.getElementById('totalPowerDisplay').textContent = hasAny ? total.toLocaleString('en-US') : '0';
 }
 
 document.querySelectorAll('.troop-tab').forEach(btn => {
@@ -167,7 +181,15 @@ document.querySelectorAll('.troop-tab').forEach(btn => {
 });
 
 document.querySelectorAll('.troop-power-input').forEach(input => {
-  input.addEventListener('input', () => { recalcTotal(); scheduleSave(); });
+  input.addEventListener('input', () => {
+    input.value = formatPowerInputValue(input.value);
+    recalcTotal();
+    scheduleSave();
+  });
+
+  input.addEventListener('blur', () => {
+    input.value = formatPowerInputValue(input.value);
+  });
 });
 
 document.querySelectorAll('.unit-option-btn').forEach(btn => {
