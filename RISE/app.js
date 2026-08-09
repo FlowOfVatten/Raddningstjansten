@@ -1455,12 +1455,27 @@ if (window.location.protocol === "file:") {
 (function () {
   var adminModal   = document.getElementById('adminModal');
   var adminBtn     = document.getElementById('adminBtn');
+  var chartModal   = document.getElementById('chartModal');
+  var chartBtn     = document.getElementById('chartBtn');
+  var chartCloseBtn= document.getElementById('chartCloseBtn');
+  var chartUnitFilter = document.getElementById('chartUnitFilter');
+  var chartSortBy  = document.getElementById('chartSortBy');
+  var chartSortDir = document.getElementById('chartSortDir');
+  var chartTableBody = document.getElementById('chartTableBody');
   var adminCloseBtn= document.getElementById('adminCloseBtn');
   var adminNewUser = document.getElementById('adminNewUsername');
   var adminIsAdmin = document.getElementById('adminMakeAdmin');
   var adminCreateBtn=document.getElementById('adminCreateBtn');
   var adminCreateMsg=document.getElementById('adminCreateMsg');
   var adminUserList= document.getElementById('adminUserList');
+  var chartUsersCache = [];
+
+  var UNIT_ICON_BY_KEY = {
+    archer: 'archer.jpg',
+    goblin: 'goblin.jpg',
+    ice: 'ice.jpeg',
+    fire: 'fire.jpg'
+  };
 
   function showAdminMsg(msg, isOk) {
     adminCreateMsg.textContent = msg;
@@ -1474,6 +1489,7 @@ if (window.location.protocol === "file:") {
     try {
       var data = await riseApi({ action: 'listUsers', username: _loginUsername, token: _sessionToken });
       if (data.error) { adminUserList.textContent = data.error; return; }
+      chartUsersCache = Array.isArray(data.users) ? data.users : [];
       adminUserList.innerHTML = '';
       data.users.forEach(function(u) {
         var row = document.createElement('div');
@@ -1510,12 +1526,147 @@ if (window.location.protocol === "file:") {
     } catch(e) { adminUserList.textContent = 'Failed to load users.'; }
   }
 
+  function getTroopPowerValue(troop) {
+    if (!troop || troop.power === undefined || troop.power === null || troop.power === '') return 0;
+    var n = Number(troop.power);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function renderTroopCell(troop, selectedUnit) {
+    var td = document.createElement('td');
+    td.className = 'chart-troop-cell';
+    if (!troop || !troop.unit) {
+      td.innerHTML = '<span class="chart-empty">-</span>';
+      return td;
+    }
+
+    var normalizedUnit = normalizeUnitValue(troop.unit);
+    if (selectedUnit !== 'all' && normalizedUnit !== selectedUnit) {
+      td.innerHTML = '<span class="chart-empty">-</span>';
+      return td;
+    }
+
+    var img = UNIT_ICON_BY_KEY[normalizedUnit];
+    var power = getTroopPowerValue(troop).toLocaleString('en-US');
+    td.innerHTML = '<span class="chart-unit-chip"><img src="' + img + '" alt="' + normalizedUnit + '">' + power + '</span>';
+    return td;
+  }
+
+  function buildUserChartRows(users, selectedUnit, sortBy, sortDir) {
+    var rows = users.map(function(u) {
+      var troops = u.troops && typeof u.troops === 'object' ? u.troops : {};
+      var troopEntries = [1,2,3,4,5].map(function(i) {
+        var t = troops[String(i)] || {};
+        return {
+          index: i,
+          power: getTroopPowerValue(t),
+          unit: normalizeUnitValue(t.unit || '')
+        };
+      });
+
+      var hasSelectedUnit = selectedUnit === 'all' || troopEntries.some(function(t) { return t.unit === selectedUnit; });
+      var total = troopEntries.reduce(function(acc, t) {
+        if (selectedUnit !== 'all' && t.unit !== selectedUnit) return acc;
+        return acc + t.power;
+      }, 0);
+
+      return {
+        username: u.username,
+        hasSelectedUnit: hasSelectedUnit,
+        troops: troopEntries,
+        total: total
+      };
+    }).filter(function(r) { return r.hasSelectedUnit; });
+
+    rows.sort(function(a, b) {
+      var av;
+      var bv;
+      if (sortBy === 'total') {
+        av = a.total;
+        bv = b.total;
+      } else {
+        var idx = Number(sortBy);
+        av = a.troops[idx - 1] ? a.troops[idx - 1].power : 0;
+        bv = b.troops[idx - 1] ? b.troops[idx - 1].power : 0;
+      }
+
+      if (av === bv) return a.username.localeCompare(b.username);
+      return sortDir === 'asc' ? av - bv : bv - av;
+    });
+
+    return rows;
+  }
+
+  function renderChart() {
+    if (!chartTableBody) return;
+    var selectedUnit = chartUnitFilter ? chartUnitFilter.value : 'all';
+    var sortBy = chartSortBy ? chartSortBy.value : 'total';
+    var sortDir = chartSortDir ? chartSortDir.value : 'desc';
+    var rows = buildUserChartRows(chartUsersCache, selectedUnit, sortBy, sortDir);
+
+    if (rows.length === 0) {
+      chartTableBody.innerHTML = '<tr><td colspan="7">No users match this filter.</td></tr>';
+      return;
+    }
+
+    chartTableBody.innerHTML = '';
+    rows.forEach(function(r) {
+      var tr = document.createElement('tr');
+
+      var nameTd = document.createElement('td');
+      nameTd.className = 'chart-name-cell';
+      nameTd.textContent = r.username;
+      tr.appendChild(nameTd);
+
+      [1,2,3,4,5].forEach(function(i) {
+        var t = r.troops[i - 1];
+        var displayTroop = {
+          power: t.power,
+          unit: t.unit
+        };
+        tr.appendChild(renderTroopCell(displayTroop, selectedUnit));
+      });
+
+      var totalTd = document.createElement('td');
+      totalTd.className = 'chart-total-cell';
+      totalTd.textContent = r.total.toLocaleString('en-US');
+      tr.appendChild(totalTd);
+
+      chartTableBody.appendChild(tr);
+    });
+  }
+
+  async function openChartModal() {
+    if (chartTableBody) {
+      chartTableBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+    }
+    chartModal.hidden = false;
+    try {
+      var data = await riseApi({ action: 'listUsers', username: _loginUsername, token: _sessionToken });
+      if (data.error) {
+        chartTableBody.innerHTML = '<tr><td colspan="7">' + data.error + '</td></tr>';
+        return;
+      }
+      chartUsersCache = Array.isArray(data.users) ? data.users : [];
+      renderChart();
+    } catch (e) {
+      chartTableBody.innerHTML = '<tr><td colspan="7">Failed to load user chart.</td></tr>';
+    }
+  }
+
   adminBtn.addEventListener('click', function() {
     adminModal.hidden = false;
     loadUsers();
   });
 
   adminCloseBtn.addEventListener('click', function() { adminModal.hidden = true; });
+
+  chartBtn.addEventListener('click', openChartModal);
+  chartCloseBtn.addEventListener('click', function() { chartModal.hidden = true; });
+
+  chartUnitFilter.addEventListener('change', renderChart);
+  chartSortBy.addEventListener('change', renderChart);
+  chartSortDir.addEventListener('change', renderChart);
 
   adminCreateBtn.addEventListener('click', async function() {
     var nu = adminNewUser.value.trim();
@@ -1534,6 +1685,9 @@ if (window.location.protocol === "file:") {
   adminNewUser.addEventListener('keydown', function(e) { if (e.key === 'Enter') adminCreateBtn.click(); });
 
   // Expose function to show admin button after login
-  window._riseShowAdminBtn = function() { adminBtn.hidden = false; };
+  window._riseShowAdminBtn = function() {
+    adminBtn.hidden = false;
+    chartBtn.hidden = false;
+  };
 })();
 /* -------------------------------------------------------------- */

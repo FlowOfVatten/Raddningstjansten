@@ -73,13 +73,72 @@
       </div>
     </div>
   </div>
+
+  <div id="chartModal" class="admin-modal" hidden>
+    <div class="admin-box chart-box">
+      <div class="admin-header">
+        <h2>User Troop Chart</h2>
+        <button id="chartCloseBtn" class="admin-close" title="Close">x</button>
+      </div>
+
+      <div class="chart-filters">
+        <label for="chartUnitFilter">Unit filter</label>
+        <select id="chartUnitFilter" class="admin-input chart-select">
+          <option value="all">All units</option>
+          <option value="archer">Archer (yellow)</option>
+          <option value="goblin">Goblin (green)</option>
+          <option value="ice">Ice (blue)</option>
+          <option value="fire">Fire (red)</option>
+        </select>
+
+        <label for="chartSortBy">Sort by</label>
+        <select id="chartSortBy" class="admin-input chart-select">
+          <option value="total">Total power</option>
+          <option value="1">Troop 1 power</option>
+          <option value="2">Troop 2 power</option>
+          <option value="3">Troop 3 power</option>
+          <option value="4">Troop 4 power</option>
+          <option value="5">Troop 5 power</option>
+        </select>
+
+        <label for="chartSortDir">Order</label>
+        <select id="chartSortDir" class="admin-input chart-select">
+          <option value="desc">Highest first</option>
+          <option value="asc">Lowest first</option>
+        </select>
+      </div>
+
+      <div class="chart-table-wrap">
+        <table class="chart-table" id="chartTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Troop 1</th>
+              <th>Troop 2</th>
+              <th>Troop 3</th>
+              <th>Troop 4</th>
+              <th>Troop 5</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="chartTableBody">
+            <tr><td colspan="7">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <main class="container" id="appMain" style="display:none">
 
     <!-- Welcome header -->
     <header class="hero">
       <p class="eyebrow" id="welcomeMsg">Welcome, a proud member of RISE.</p>
       <h1>RISE Power Tracker</h1>
-      <button id="adminBtn" class="btn btn-secondary admin-trigger-btn" hidden>Admin Panel</button>
+      <div class="hero-actions">
+        <button id="adminBtn" class="btn btn-secondary admin-trigger-btn" hidden>Admin Panel</button>
+        <button id="chartBtn" class="btn btn-secondary admin-trigger-btn" hidden>User Chart</button>
+      </div>
     </header>
 
     <!-- Total Power card -->

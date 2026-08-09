@@ -54,7 +54,7 @@ module.exports = async function (context, req) {
         return { status: 403, headers: cors, body: JSON.stringify({ error: 'Admin access required' }) };
 
       if (action === 'listUsers') {
-        const r = await ac.query('SELECT id, username, is_admin, must_change_password, created_at FROM users ORDER BY username');
+        const r = await ac.query('SELECT id, username, is_admin, must_change_password, created_at, troops FROM users ORDER BY username');
         return { status: 200, headers: cors, body: JSON.stringify({ users: r.rows }) };
       }
 

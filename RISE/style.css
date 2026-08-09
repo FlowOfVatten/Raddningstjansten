@@ -670,6 +670,12 @@ body {
   padding: 7px 16px;
 }
 
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .admin-modal {
   position: fixed;
   inset: 0;
@@ -693,6 +699,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.chart-box {
+  width: min(96vw, 1100px);
 }
 
 .admin-header {
@@ -814,4 +824,97 @@ body {
 }
 
 .admin-del-btn:hover { background: #fcc; }
+
+.chart-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.chart-filters label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #40618b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.chart-select {
+  width: 100%;
+}
+
+.chart-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #dde9f8;
+  border-radius: 12px;
+}
+
+.chart-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+  background: #fff;
+}
+
+.chart-table th,
+.chart-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8f0fb;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.chart-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f4f8ff;
+  color: #23466f;
+  font-weight: 800;
+}
+
+.chart-name-cell {
+  font-weight: 800;
+  color: #1b3a71;
+}
+
+.chart-troop-cell {
+  white-space: nowrap;
+}
+
+.chart-unit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 2px;
+  border: 1px solid #d8e6f9;
+  border-radius: 999px;
+  background: #f7fbff;
+  font-weight: 700;
+  color: #16345e;
+}
+
+.chart-unit-chip img {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.chart-empty {
+  color: #8ba6c8;
+}
+
+.chart-total-cell {
+  font-weight: 800;
+  color: #0a2550;
+}
+
+@media (max-width: 900px) {
+  .chart-filters {
+    grid-template-columns: 1fr;
+  }
+}
 /* -------------------------------------------------------------- */
