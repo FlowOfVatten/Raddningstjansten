@@ -1071,6 +1071,8 @@ body {
 }
 
 .roster-hero-avatar-wrap {
+  position: relative;
+  display: inline-block;
   width: 32px;
   height: 32px;
   flex-shrink: 0;
@@ -1220,6 +1222,8 @@ body {
 }
 
 .rec-hero-avatar-wrap {
+  position: relative;
+  display: inline-block;
   width: 28px;
   height: 28px;
   flex-shrink: 0;
