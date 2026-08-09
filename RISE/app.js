@@ -29,12 +29,13 @@ async function riseApi(body) {
   return res.json();
 }
 
-async function onLoginSuccess(token) {
+async function onLoginSuccess(token, isAdmin) {
   _sessionToken = token;
   loginOverlay.remove();
   appMain.style.display = '';
   document.getElementById('welcomeMsg').textContent =
     `Welcome ${_loginUsername}, a proud member of RISE.`;
+  if (isAdmin && window._riseShowAdminBtn) window._riseShowAdminBtn();
   await loadTroopsFromDB();
 }
 
