@@ -1976,24 +1976,66 @@ function heroAvatarMarkup(type, heroName) {
       var mode = _recMode || 'pvp';
       var avail = getAvailable(mode), used = {}, troops = [], suggestions = [];
 
-    function tryBuild(el) {
+    function troopScore(t) {
+      return leaderScore(t.leader, mode) + assistantScore(t.a1, mode) + assistantScore(t.a2, mode);
+    }
+
+    function bestTroopForElement(el) {
       var pool = avail.filter(function (h) { return h.element === el && !used[h.name]; });
-      if (pool.length < 3) return false;
+      if (pool.length < 3) return null;
+
       var leaders = mode === 'farming'
         ? pool.slice().sort(function (a, b) { return leaderScore(b, mode) - leaderScore(a, mode); })
         : pool.filter(function (h) { return h.march > 0; }).sort(function (a, b) { return leaderScore(b, mode) - leaderScore(a, mode); });
-      if (!leaders.length) return false;
-      var ldr = leaders[0];
-      var assts = pool.filter(function (h) { return h.name !== ldr.name; }).sort(function (a, b) { return assistantScore(b, mode) - assistantScore(a, mode); });
-      if (assts.length < 2) return false;
-      troops.push({ element: el, leader: ldr, a1: assts[0], a2: assts[1] });
-      used[ldr.name] = used[assts[0].name] = used[assts[1].name] = true;
-      return true;
+      if (!leaders.length) return null;
+
+      var best = null;
+      leaders.forEach(function (ldr) {
+        var assts = pool
+          .filter(function (h) { return h.name !== ldr.name; })
+          .sort(function (a, b) { return assistantScore(b, mode) - assistantScore(a, mode); });
+        if (assts.length < 2) return;
+        var cand = { element: el, leader: ldr, a1: assts[0], a2: assts[1] };
+        cand._score = troopScore(cand);
+        if (!best || cand._score > best._score) best = cand;
+      });
+
+      return best;
     }
 
-    ELEMENT_ORDER.forEach(tryBuild);
-    var pass = 0;
-    while (troops.length < 5 && pass++ < 4) ELEMENT_ORDER.forEach(function (el) { if (troops.length < 5) tryBuild(el); });
+    function lockTroop(t) {
+      troops.push({ element: t.element, leader: t.leader, a1: t.a1, a2: t.a2 });
+      used[t.leader.name] = true;
+      used[t.a1.name] = true;
+      used[t.a2.name] = true;
+    }
+
+    // Phase 1: try to secure one best troop per element (if possible).
+    ELEMENT_ORDER.forEach(function (el) {
+      if (troops.length >= 5) return;
+      var t = bestTroopForElement(el);
+      if (t) lockTroop(t);
+    });
+
+    // Phase 2: fill remaining slots with strongest available troop overall.
+    while (troops.length < 5) {
+      var bestOverall = null;
+      ELEMENT_ORDER.forEach(function (el) {
+        var t = bestTroopForElement(el);
+        if (!t) return;
+        if (!bestOverall || t._score > bestOverall._score) bestOverall = t;
+      });
+      if (!bestOverall) break;
+      lockTroop(bestOverall);
+    }
+
+    var bestCurrentLeaderByElement = {};
+    ELEMENT_ORDER.forEach(function (el) {
+      var leaders = avail
+        .filter(function (h) { return h.element === el && (mode === 'farming' || h.march > 0); })
+        .sort(function (a, b) { return leaderScore(b, mode) - leaderScore(a, mode); });
+      if (leaders.length) bestCurrentLeaderByElement[el] = leaders[0];
+    });
 
     ELEMENT_ORDER.forEach(function (el) {
       var count = avail.filter(function (h) { return h.element === el; }).length;
@@ -2003,7 +2045,10 @@ function heroAvatarMarkup(type, heroName) {
       }
         if (mode === 'pvp') {
           var best = HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return h.element === el && s && s.owned && !s.fiveStar && h.march >= 25; }).sort(function (a, b) { return leaderScore(b, mode) - leaderScore(a, mode); })[0];
-          if (best) suggestions.push('You should upgrade ' + best.name + ' to 5\u2605 for a stronger PvP troop (best leader candidate for ' + ELEMENT_LABEL[el] + ').');
+          var currentLeader = bestCurrentLeaderByElement[el] || null;
+          if (best && (!currentLeader || leaderScore(best, mode) > leaderScore(currentLeader, mode) + 5)) {
+            suggestions.push('You should upgrade ' + best.name + ' to 5\u2605 for a stronger PvP troop (best leader candidate for ' + ELEMENT_LABEL[el] + ').');
+          }
         } else if (mode === 'farming') {
           var apLeader = avail.filter(function (h) { return h.element === el && (HERO_MONSTER_AP[h.name] || 0) > 0; }).sort(function (a, b) { return (HERO_MONSTER_AP[b.name] || 0) - (HERO_MONSTER_AP[a.name] || 0); })[0];
           if (apLeader) suggestions.push('Use ' + apLeader.name + ' as leader for ' + ELEMENT_LABEL[el] + ' to get AP -' + HERO_MONSTER_AP[apLeader.name] + '%. 5\u2605 is not required for AP savings.');
