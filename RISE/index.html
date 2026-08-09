@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -46,12 +46,40 @@
   <div class="bg-shape bg-shape-a"></div>
   <div class="bg-shape bg-shape-b"></div>
 
+  <!-- Admin panel modal -->
+  <div id="adminModal" class="admin-modal" hidden>
+    <div class="admin-box">
+      <div class="admin-header">
+        <h2>Admin Panel</h2>
+        <button id="adminCloseBtn" class="admin-close" title="Close">x</button>
+      </div>
+
+      <div class="admin-create">
+        <h3>Create new user</h3>
+        <div class="admin-form-row">
+          <input id="adminNewUsername" type="text" placeholder="Username" class="admin-input" />
+          <label class="admin-checkbox-label">
+            <input id="adminMakeAdmin" type="checkbox" />
+            Admin
+          </label>
+          <button id="adminCreateBtn" class="btn btn-primary">Create</button>
+        </div>
+        <p id="adminCreateMsg" class="admin-msg" hidden></p>
+      </div>
+
+      <div class="admin-users">
+        <h3>All users</h3>
+        <div id="adminUserList" class="admin-user-list">Loading...</div>
+      </div>
+    </div>
+  </div>
   <main class="container" id="appMain" style="display:none">
 
     <!-- Welcome header -->
     <header class="hero">
       <p class="eyebrow" id="welcomeMsg">Welcome, a proud member of RISE.</p>
       <h1>RISE Power Tracker</h1>
+      <button id="adminBtn" class="btn btn-secondary admin-trigger-btn" hidden>Admin Panel</button>
     </header>
 
     <!-- Total Power card -->
@@ -80,7 +108,7 @@
           <input type="number" class="troop-power-input" data-troop="1" placeholder="Enter power..." min="0" />
           <label>Unit Type</label>
           <select class="troop-unit-select" data-troop="1">
-            <option value="">— Select unit type —</option>
+            <option value="">â€” Select unit type â€”</option>
             <option value="Yellow">Yellow</option>
             <option value="Green">Green</option>
             <option value="Blue">Blue</option>
@@ -92,7 +120,7 @@
           <input type="number" class="troop-power-input" data-troop="2" placeholder="Enter power..." min="0" />
           <label>Unit Type</label>
           <select class="troop-unit-select" data-troop="2">
-            <option value="">— Select unit type —</option>
+            <option value="">â€” Select unit type â€”</option>
             <option value="Yellow">Yellow</option>
             <option value="Green">Green</option>
             <option value="Blue">Blue</option>
@@ -104,7 +132,7 @@
           <input type="number" class="troop-power-input" data-troop="3" placeholder="Enter power..." min="0" />
           <label>Unit Type</label>
           <select class="troop-unit-select" data-troop="3">
-            <option value="">— Select unit type —</option>
+            <option value="">â€” Select unit type â€”</option>
             <option value="Yellow">Yellow</option>
             <option value="Green">Green</option>
             <option value="Blue">Blue</option>
@@ -116,7 +144,7 @@
           <input type="number" class="troop-power-input" data-troop="4" placeholder="Enter power..." min="0" />
           <label>Unit Type</label>
           <select class="troop-unit-select" data-troop="4">
-            <option value="">— Select unit type —</option>
+            <option value="">â€” Select unit type â€”</option>
             <option value="Yellow">Yellow</option>
             <option value="Green">Green</option>
             <option value="Blue">Blue</option>
@@ -128,7 +156,7 @@
           <input type="number" class="troop-power-input" data-troop="5" placeholder="Enter power..." min="0" />
           <label>Unit Type</label>
           <select class="troop-unit-select" data-troop="5">
-            <option value="">— Select unit type —</option>
+            <option value="">â€” Select unit type â€”</option>
             <option value="Yellow">Yellow</option>
             <option value="Green">Green</option>
             <option value="Blue">Blue</option>
@@ -154,13 +182,13 @@
         </div>
         <div id="modeTroops" class="upload-mode" hidden>
           <div class="troop-slots">
-            <div class="troop-slot" data-troop="1"><span class="slot-label">Troop 1</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="1"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
-            <div class="troop-slot" data-troop="2"><span class="slot-label">Troop 2</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="2"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
-            <div class="troop-slot" data-troop="3"><span class="slot-label">Troop 3</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="3"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
-            <div class="troop-slot" data-troop="4"><span class="slot-label">Troop 4</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="4"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
-            <div class="troop-slot" data-troop="5"><span class="slot-label">Troop 5</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="5"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="1"><span class="slot-label">Troop 1</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="1"><span class="slot-placeholder">Select imageâ€¦</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="2"><span class="slot-label">Troop 2</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="2"><span class="slot-placeholder">Select imageâ€¦</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="3"><span class="slot-label">Troop 3</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="3"><span class="slot-placeholder">Select imageâ€¦</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="4"><span class="slot-label">Troop 4</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="4"><span class="slot-placeholder">Select imageâ€¦</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="5"><span class="slot-label">Troop 5</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="5"><span class="slot-placeholder">Select imageâ€¦</span></label><img class="slot-preview" alt="" hidden></div>
           </div>
-          <label class="slot-file-label" style="width:100%"><input type="file" accept="image/*" id="nameImageInput"><span class="slot-placeholder">Select name image…</span></label>
+          <label class="slot-file-label" style="width:100%"><input type="file" accept="image/*" id="nameImageInput"><span class="slot-placeholder">Select name imageâ€¦</span></label>
         </div>
         <div class="buttons" style="margin-top:12px">
           <button id="analyzeBtn" type="button" class="btn btn-primary">Analyse</button>
@@ -205,26 +233,26 @@
       <p id="loginSubtitle" class="login-subtitle">RISE Power Reader</p>
 
       <div id="loginStep" class="login-step">
-        <label for="loginUsername">Användarnamn</label>
-        <input id="loginUsername" type="text" autocomplete="username" placeholder="Ditt användarnamn" />
-        <button id="loginNextBtn" class="btn btn-primary login-btn">Fortsätt</button>
+        <label for="loginUsername">AnvÃ¤ndarnamn</label>
+        <input id="loginUsername" type="text" autocomplete="username" placeholder="Ditt anvÃ¤ndarnamn" />
+        <button id="loginNextBtn" class="btn btn-primary login-btn">FortsÃ¤tt</button>
         <p id="loginError" class="login-error" hidden></p>
       </div>
 
       <div id="passwordStep" class="login-step" hidden>
-        <label for="loginPassword">Lösenord</label>
-        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Lösenord" />
+        <label for="loginPassword">LÃ¶senord</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="LÃ¶senord" />
         <button id="loginSubmitBtn" class="btn btn-primary login-btn">Logga in</button>
         <p id="passwordError" class="login-error" hidden></p>
       </div>
 
       <div id="setPasswordStep" class="login-step" hidden>
-        <p class="login-info">Välkommen! Sätt ett lösenord för att fortsätta.</p>
-        <label for="newPassword">Nytt lösenord <span class="req">(minst 8 tecken)</span></label>
-        <input id="newPassword" type="password" autocomplete="new-password" placeholder="Nytt lösenord" />
-        <label for="confirmPassword">Bekräfta lösenord</label>
-        <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Bekräfta" />
-        <button id="setPasswordBtn" class="btn btn-primary login-btn">Sätt lösenord &amp; logga in</button>
+        <p class="login-info">VÃ¤lkommen! SÃ¤tt ett lÃ¶senord fÃ¶r att fortsÃ¤tta.</p>
+        <label for="newPassword">Nytt lÃ¶senord <span class="req">(minst 8 tecken)</span></label>
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="Nytt lÃ¶senord" />
+        <label for="confirmPassword">BekrÃ¤fta lÃ¶senord</label>
+        <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="BekrÃ¤fta" />
+        <button id="setPasswordBtn" class="btn btn-primary login-btn">SÃ¤tt lÃ¶senord &amp; logga in</button>
         <p id="setPasswordError" class="login-error" hidden></p>
       </div>
     </div>
@@ -233,12 +261,39 @@
   <div class="bg-shape bg-shape-a"></div>
   <div class="bg-shape bg-shape-b"></div>
 
+  <!-- Admin panel modal -->
+  <div id="adminModal" class="admin-modal" hidden>
+    <div class="admin-box">
+      <div class="admin-header">
+        <h2>Admin Panel</h2>
+        <button id="adminCloseBtn" class="admin-close" title="Close">x</button>
+      </div>
+
+      <div class="admin-create">
+        <h3>Create new user</h3>
+        <div class="admin-form-row">
+          <input id="adminNewUsername" type="text" placeholder="Username" class="admin-input" />
+          <label class="admin-checkbox-label">
+            <input id="adminMakeAdmin" type="checkbox" />
+            Admin
+          </label>
+          <button id="adminCreateBtn" class="btn btn-primary">Create</button>
+        </div>
+        <p id="adminCreateMsg" class="admin-msg" hidden></p>
+      </div>
+
+      <div class="admin-users">
+        <h3>All users</h3>
+        <div id="adminUserList" class="admin-user-list">Loading...</div>
+      </div>
+    </div>
+  </div>
   <main class="container" id="appMain" style="display:none">
     <header class="hero">
       <p class="eyebrow">Azure Web Application</p>
       <h1>RISE Power Reader</h1>
       <p class="lead">
-        Ladda upp en screenshot och få ut Namn, Power och Troop 1-5 snyggt presenterat direkt under bilden.
+        Ladda upp en screenshot och fÃ¥ ut Namn, Power och Troop 1-5 snyggt presenterat direkt under bilden.
       </p>
     </header>
 
@@ -247,7 +302,7 @@
       <!-- Mode tabs -->
       <div class="mode-tabs" role="tablist">
         <button class="mode-tab active" id="tabOverview" role="tab" aria-selected="true" data-mode="overview">
-          Helskärm (stats-panel)
+          HelskÃ¤rm (stats-panel)
         </button>
         <button class="mode-tab" id="tabTroops" role="tab" aria-selected="false" data-mode="troops">
           5 truppbilder
@@ -256,22 +311,22 @@
 
       <!-- Overview mode -->
       <div id="modeOverview" class="upload-mode">
-        <label for="imageInput" class="upload-label">Välj bild (hela stats-panelen)</label>
+        <label for="imageInput" class="upload-label">VÃ¤lj bild (hela stats-panelen)</label>
         <input id="imageInput" type="file" accept="image/*">
         <div class="buttons">
-          <button id="useSampleBtn" type="button" class="btn btn-secondary">Använd exempelbild</button>
+          <button id="useSampleBtn" type="button" class="btn btn-secondary">AnvÃ¤nd exempelbild</button>
         </div>
       </div>
 
       <!-- Troop-tabs mode -->
       <div id="modeTroops" class="upload-mode" hidden>
-        <p class="upload-label" style="margin:0 0 10px">Ladda upp en bild per truppflik (du kan hoppa över flikar du inte har)</p>
+        <p class="upload-label" style="margin:0 0 10px">Ladda upp en bild per truppflik (du kan hoppa Ã¶ver flikar du inte har)</p>
         <div class="troop-slots">
           <div class="troop-slot" data-troop="1">
             <span class="slot-label">Troop 1</span>
             <label class="slot-file-label">
               <input type="file" accept="image/*" class="troop-input" data-troop="1">
-              <span class="slot-placeholder">Välj bild…</span>
+              <span class="slot-placeholder">VÃ¤lj bildâ€¦</span>
             </label>
             <img class="slot-preview" alt="" hidden>
           </div>
@@ -279,7 +334,7 @@
             <span class="slot-label">Troop 2</span>
             <label class="slot-file-label">
               <input type="file" accept="image/*" class="troop-input" data-troop="2">
-              <span class="slot-placeholder">Välj bild…</span>
+              <span class="slot-placeholder">VÃ¤lj bildâ€¦</span>
             </label>
             <img class="slot-preview" alt="" hidden>
           </div>
@@ -287,7 +342,7 @@
             <span class="slot-label">Troop 3</span>
             <label class="slot-file-label">
               <input type="file" accept="image/*" class="troop-input" data-troop="3">
-              <span class="slot-placeholder">Välj bild…</span>
+              <span class="slot-placeholder">VÃ¤lj bildâ€¦</span>
             </label>
             <img class="slot-preview" alt="" hidden>
           </div>
@@ -295,7 +350,7 @@
             <span class="slot-label">Troop 4</span>
             <label class="slot-file-label">
               <input type="file" accept="image/*" class="troop-input" data-troop="4">
-              <span class="slot-placeholder">Välj bild…</span>
+              <span class="slot-placeholder">VÃ¤lj bildâ€¦</span>
             </label>
             <img class="slot-preview" alt="" hidden>
           </div>
@@ -303,35 +358,35 @@
             <span class="slot-label">Troop 5</span>
             <label class="slot-file-label">
               <input type="file" accept="image/*" class="troop-input" data-troop="5">
-              <span class="slot-placeholder">Välj bild…</span>
+              <span class="slot-placeholder">VÃ¤lj bildâ€¦</span>
             </label>
             <img class="slot-preview" alt="" hidden>
           </div>
         </div>
-        <p class="upload-label" style="margin:10px 0 4px">Namnbild (valfri – för att läsa spelarens namn)</p>
+        <p class="upload-label" style="margin:10px 0 4px">Namnbild (valfri â€“ fÃ¶r att lÃ¤sa spelarens namn)</p>
         <label class="slot-file-label" style="width:100%">
           <input type="file" accept="image/*" id="nameImageInput">
-          <span class="slot-placeholder">Välj namnbild…</span>
+          <span class="slot-placeholder">VÃ¤lj namnbildâ€¦</span>
         </label>
       </div>
 
       <div class="buttons" style="margin-top:12px">
         <button id="analyzeBtn" type="button" class="btn btn-primary">Analysera</button>
       </div>
-      <p id="status" class="status">Väntar på bild...</p>
+      <p id="status" class="status">VÃ¤ntar pÃ¥ bild...</p>
       <div class="progress-wrap" aria-hidden="true">
         <div id="progressBar" class="progress-bar"></div>
       </div>
     </section>
 
     <section class="panel preview-panel" id="previewPanel">
-      <h2>Förhandsvisning</h2>
-      <img id="preview" alt="Förhandsvisning av uppladdad bild">
+      <h2>FÃ¶rhandsvisning</h2>
+      <img id="preview" alt="FÃ¶rhandsvisning av uppladdad bild">
     </section>
 
     <section class="panel results-panel">
       <h2>Extraherad information</h2>
-      <div id="resultsEmpty" class="empty">Ingen data ännu.</div>
+      <div id="resultsEmpty" class="empty">Ingen data Ã¤nnu.</div>
       <div id="results" class="results" hidden>
         <article class="result-card">
           <h3>Namn</h3>
@@ -354,3 +409,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+

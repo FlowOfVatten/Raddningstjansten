@@ -589,3 +589,156 @@ body {
   color: #8faecf;
 }
 /* ────────────────────────────────────────────────────────────── */
+
+/* -- Admin Panel ----------------------------------------------- */
+.admin-trigger-btn {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  padding: 7px 16px;
+}
+
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(5,18,40,0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.admin-modal[hidden] { display: none; }
+
+.admin-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 28px 24px;
+  width: min(96vw, 560px);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-header h2 {
+  margin: 0;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: #1b3a71;
+}
+
+.admin-close {
+  border: none;
+  background: #eef2f9;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #445f8a;
+}
+
+.admin-create h3,
+.admin-users h3 {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #40618b;
+}
+
+.admin-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 9px 12px;
+  border: 1.5px solid #c4d9f4;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.admin-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #33557f;
+  white-space: nowrap;
+}
+
+.admin-msg {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.admin-msg.ok  { background: #e6f9ef; color: #0a6b37; border: 1px solid #a3dfc0; }
+.admin-msg.err { background: #fde8e8; color: #7b1616; border: 1px solid #f5b0b0; }
+
+.admin-user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #dde9f8;
+  border-radius: 10px;
+  background: #f7faff;
+}
+
+.admin-user-name {
+  flex: 1;
+  font-weight: 700;
+  color: #1b3a71;
+}
+
+.admin-user-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.badge-admin   { background: #fef3cd; color: #7a5c00; }
+.badge-pending { background: #e8f4fd; color: #0069a7; }
+
+.admin-del-btn {
+  border: none;
+  background: #fee;
+  color: #c0392b;
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-del-btn:hover { background: #fcc; }
+/* -------------------------------------------------------------- */

@@ -1,4 +1,4 @@
-/* -- RISE Login ------------------------------------------------ */
+﻿/* -- RISE Login ------------------------------------------------ */
 const API_BASE = '/api/rise-login';
 
 const loginOverlay   = document.getElementById('loginOverlay');
@@ -96,7 +96,7 @@ document.getElementById('loginSubmitBtn').addEventListener('click', async () => 
     const data = await riseApi({ action: 'login', username: _loginUsername, password });
     if (data.error) { showLoginError(passwordError, data.error); return; }
     if (data.mustChangePassword) { passwordStep.hidden = true; setPasswordStep.hidden = false; return; }
-    await onLoginSuccess(data.token);
+    await onLoginSuccess(data.token, data.isAdmin);
   } catch { showLoginError(passwordError, 'Could not reach the server. Please try again.'); }
 });
 
@@ -110,7 +110,7 @@ document.getElementById('setPasswordBtn').addEventListener('click', async () => 
   try {
     const data = await riseApi({ action: 'setPassword', username: _loginUsername, newPassword: pw });
     if (data.error) { showLoginError(setPasswordError, data.error); return; }
-    await onLoginSuccess(data.token);
+    await onLoginSuccess(data.token, data.isAdmin);
   } catch { showLoginError(setPasswordError, 'Could not reach the server. Please try again.'); }
 });
 /* -------------------------------------------------------------- */
@@ -208,8 +208,8 @@ function showResults(data) {
   resultsEmpty.hidden = true;
   results.hidden = false;
 
-  nameValue.textContent = data.name || "Kunde inte läsa namn";
-  powerValue.textContent = data.power || "Kunde inte läsa power";
+  nameValue.textContent = data.name || "Kunde inte lÃ¤sa namn";
+  powerValue.textContent = data.power || "Kunde inte lÃ¤sa power";
 
   troopsGrid.innerHTML = "";
   if (!data.troops.length) {
@@ -694,7 +694,7 @@ function mergeTroopCandidates(...maps) {
 function parseFromText(rawText, croppedName = "", troopText = "") {
   const text = rawText
     .replace(/[|]/g, "I")
-    .replace(/[“”]/g, '"')
+    .replace(/[â€œâ€]/g, '"')
     .replace(/\r/g, "\n");
 
   const lines = text
@@ -711,7 +711,7 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
   const cropTroops = parseTroopMapFromText(troopText);
   const troopMap = mergeTroopCandidates(fullTroops, cropTroops);
 
-  // Keep rawTroopDigits sorted by troop number so index 0=Troop1 … 4=Troop5.
+  // Keep rawTroopDigits sorted by troop number so index 0=Troop1 â€¦ 4=Troop5.
   const troopDigitValues = Array.from(troopMap.entries())
     .sort((a, b) => a[0] - b[0])
     .map(([, v]) => v);
@@ -734,7 +734,7 @@ function parseFromText(rawText, croppedName = "", troopText = "") {
 function buildTroopCandidates(digits) {
   const set = new Set([digits]);
 
-  // Leading 1 ↔ 7.
+  // Leading 1 â†” 7.
   if (digits[0] === "1") set.add("7" + digits.slice(1));
   if (digits[0] === "7") set.add("1" + digits.slice(1));
 
@@ -743,7 +743,7 @@ function buildTroopCandidates(digits) {
     for (let d = 1; d <= 9; d++) set.add(String(d) + digits);
   }
 
-  // Single 5 ↔ 6 swap at every position, plus all pairs within same value.
+  // Single 5 â†” 6 swap at every position, plus all pairs within same value.
   const fiveOrSixPos = [];
   for (let i = 0; i < digits.length; i++) {
     if (digits[i] === "5" || digits[i] === "6") {
@@ -761,7 +761,7 @@ function buildTroopCandidates(digits) {
     }
   }
 
-  // Adjacent digit transposition at every position (catches 14↔41, 17↔71, etc.).
+  // Adjacent digit transposition at every position (catches 14â†”41, 17â†”71, etc.).
   for (let i = 0; i < digits.length - 1; i++) {
     if (digits[i] !== digits[i + 1]) {
       set.add(digits.slice(0, i) + digits[i + 1] + digits[i] + digits.slice(i + 2));
@@ -878,12 +878,12 @@ function repairTroopsWithTotalPower(result) {
     const currentSum = calcSum(result.rawTroopDigits);
     const currentDiff = absDiff(currentSum, total);
 
-    // Already within tolerance – nothing to do.
+    // Already within tolerance â€“ nothing to do.
     if (currentDiff <= tolerance) {
       return result;
     }
 
-    // OCR total too far off (>50%) – it's probably from the wrong image area. Trust sum.
+    // OCR total too far off (>50%) â€“ it's probably from the wrong image area. Trust sum.
     if (currentDiff > currentSum / 2n) {
       return { ...result, power: formatDigits(String(currentSum)) };
     }
@@ -963,7 +963,7 @@ function isTroopSumConsistent(result) {
   }
 
   if (!result.rawTotalPowerDigits) {
-    // No extracted total power — fall back to digit-length check only.
+    // No extracted total power â€” fall back to digit-length check only.
     return result.rawTroopDigits.every((digits) => {
       return digits.length >= 12 && digits.length <= 14 && digits[0] !== "0";
     });
@@ -1017,7 +1017,7 @@ function cropImageToDataUrl(img, box, scale = 4, filter = "grayscale(100%) contr
 }
 
 async function extractNameFromImage(imageSrc) {
-  setStatus("OCR steg 1/2: läser namn...");
+  setStatus("OCR steg 1/2: lÃ¤ser namn...");
 
   const img = await loadImageElement(imageSrc);
   const candidates = [];
@@ -1079,7 +1079,7 @@ async function extractTroopTextFromImage(imageSrc) {
 }
 
 // The big POWER number lives in the stats-panel header (top-right area of the panel).
-// OCR picks it up with separators like 27/996'596'617:786 — strip non-digits and we get the total.
+// OCR picks it up with separators like 27/996'596'617:786 â€” strip non-digits and we get the total.
 async function extractTotalPowerFromImage(imageSrc) {
   const img = await loadImageElement(imageSrc);
 
@@ -1099,7 +1099,7 @@ async function extractTotalPowerFromImage(imageSrc) {
       const result = await Tesseract.recognize(cropUrl, "eng");
       const raw = result.data.text.replace(/[^0-9]/g, "");
 
-      // Find the longest consecutive digit sequence of 13–14 digits.
+      // Find the longest consecutive digit sequence of 13â€“14 digits.
       const matches = result.data.text.match(/[0-9][0-9\s,\./'`:']{10,}/g) || [];
       for (const m of matches) {
         const digits = m.replace(/[^0-9]/g, "");
@@ -1114,7 +1114,7 @@ async function extractTotalPowerFromImage(imageSrc) {
 }
 
 async function extractTextFromImage(imageSrc) {
-  setStatus("OCR steg 2/2: läser power och trupper...");
+  setStatus("OCR steg 2/2: lÃ¤ser power och trupper...");
   setProgress(1);
 
   const result = await Tesseract.recognize(imageSrc, "eng", {
@@ -1129,7 +1129,7 @@ async function extractTextFromImage(imageSrc) {
   return result.data.text;
 }
 
-// ─── Banner-read for single-troop-tab screenshots ─────────────────────────
+// â”€â”€â”€ Banner-read for single-troop-tab screenshots â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function setPreview(src, fileName = "") {
   selectedImageSrc = src;
   selectedImageName = fileName;
@@ -1164,12 +1164,12 @@ async function readTroopBannerDigits(imageSrc) {
   return null;
 }
 
-// ─── Mode state ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Mode state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let currentMode = "overview"; // "overview" | "troops"
 const troopImageSrcs = {}; // { 1: objectUrl, 2: ..., ... }
 let nameImageSrc = null;
 
-// ─── Mode tab switching ──────────────────────────────────────────────────────
+// â”€â”€â”€ Mode tab switching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.querySelectorAll(".mode-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".mode-tab").forEach((t) => {
@@ -1182,12 +1182,12 @@ document.querySelectorAll(".mode-tab").forEach((tab) => {
     document.getElementById("modeOverview").hidden = currentMode !== "overview";
     document.getElementById("modeTroops").hidden = currentMode !== "troops";
     document.getElementById("previewPanel").hidden = currentMode !== "overview";
-    setStatus("Väntar på bild...");
+    setStatus("VÃ¤ntar pÃ¥ bild...");
     setProgress(0);
   });
 });
 
-// ─── Overview mode: single image ────────────────────────────────────────────
+// â”€â”€â”€ Overview mode: single image â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 imageInput.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -1201,7 +1201,7 @@ useSampleBtn.addEventListener("click", () => {
   setStatus("Exempelbild laddad.");
 });
 
-// ─── Troops mode: 5 individual images ───────────────────────────────────────
+// â”€â”€â”€ Troops mode: 5 individual images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.querySelectorAll(".troop-input").forEach((input) => {
   input.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
@@ -1216,7 +1216,7 @@ document.querySelectorAll(".troop-input").forEach((input) => {
     const previewImg = slot.querySelector(".slot-preview");
 
     label.classList.add("has-image");
-    placeholder.textContent = file.name.slice(0, 18) + (file.name.length > 18 ? "…" : "");
+    placeholder.textContent = file.name.slice(0, 18) + (file.name.length > 18 ? "â€¦" : "");
     previewImg.src = url;
     previewImg.hidden = false;
 
@@ -1231,7 +1231,7 @@ document.getElementById("nameImageInput")?.addEventListener("change", (e) => {
   setStatus(`Namnbild vald: ${file.name}`);
 });
 
-// ─── Analyze button ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Analyze button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 analyzeBtn.addEventListener("click", async () => {
   analyzeBtn.disabled = true;
   if (useSampleBtn) useSampleBtn.disabled = true;
@@ -1239,7 +1239,7 @@ analyzeBtn.addEventListener("click", async () => {
   try {
     const hasTesseract = await ensureTesseractLoaded();
     if (!hasTesseract) {
-      setStatus("OCR-biblioteket kunde inte laddas. Kontrollera internet eller kör via localhost/Live Server.");
+      setStatus("OCR-biblioteket kunde inte laddas. Kontrollera internet eller kÃ¶r via localhost/Live Server.");
       return;
     }
 
@@ -1250,14 +1250,14 @@ analyzeBtn.addEventListener("click", async () => {
     }
   } catch (error) {
     console.error(error);
-    setStatus("Ett fel uppstod vid OCR. Kontrollera internetanslutning och försök igen.");
+    setStatus("Ett fel uppstod vid OCR. Kontrollera internetanslutning och fÃ¶rsÃ¶k igen.");
   } finally {
     analyzeBtn.disabled = false;
     if (useSampleBtn) useSampleBtn.disabled = false;
   }
 });
 
-// ─── Troop-tab mode analysis ─────────────────────────────────────────────────
+// â”€â”€â”€ Troop-tab mode analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function analyzeTroopImages() {
   const slots = Object.keys(troopImageSrcs).map(Number).sort((a, b) => a - b);
   if (!slots.length) {
@@ -1265,13 +1265,13 @@ async function analyzeTroopImages() {
     return;
   }
 
-  setStatus(`Läser ${slots.length} truppbild${slots.length > 1 ? "er" : ""}...`);
+  setStatus(`LÃ¤ser ${slots.length} truppbild${slots.length > 1 ? "er" : ""}...`);
   setProgress(0);
 
   const rawTroopDigits = {};
   for (let i = 0; i < slots.length; i++) {
     const n = slots[i];
-    setStatus(`Läser Troop ${n} (${i + 1}/${slots.length})...`);
+    setStatus(`LÃ¤ser Troop ${n} (${i + 1}/${slots.length})...`);
     setProgress(Math.round(((i + 0.5) / slots.length) * 90));
     const digits = await readTroopBannerDigits(troopImageSrcs[n]);
     if (digits) rawTroopDigits[n] = digits;
@@ -1311,16 +1311,16 @@ async function analyzeTroopImages() {
   showResults(resultData);
   const loaded = troops.length;
   if (loaded < 5) {
-    setStatus(`Klar! ${loaded}/5 trupper inlästa. Ladda upp fler bilder för full summering.`);
+    setStatus(`Klar! ${loaded}/5 trupper inlÃ¤sta. Ladda upp fler bilder fÃ¶r full summering.`);
   } else {
-    setStatus("Klar! Alla 5 trupper inlästa.");
+    setStatus("Klar! Alla 5 trupper inlÃ¤sta.");
   }
 }
 
-// ─── Overview (stats-panel) mode analysis ────────────────────────────────────
+// â”€â”€â”€ Overview (stats-panel) mode analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function analyzeOverviewImage() {
   if (!selectedImageSrc) {
-    setStatus("Välj en bild först.");
+    setStatus("VÃ¤lj en bild fÃ¶rst.");
     return;
   }
 
@@ -1333,7 +1333,7 @@ async function analyzeOverviewImage() {
   while (attempt < MAX_OCR_ATTEMPTS) {
     attempt += 1;
     if (attempt > 1) {
-      setStatus(`Kontroll misslyckades – kör OCR igen (försök ${attempt}/${MAX_OCR_ATTEMPTS})...`);
+      setStatus(`Kontroll misslyckades â€“ kÃ¶r OCR igen (fÃ¶rsÃ¶k ${attempt}/${MAX_OCR_ATTEMPTS})...`);
     }
 
     const [nameFromCrop, text, troopText, rawTotalPowerDigits] = await Promise.all([
@@ -1400,16 +1400,103 @@ async function analyzeOverviewImage() {
     const label = resultData.repairedTroops.map((n) => `Troop ${n}`).join(", ");
     setStatus(`Klar! ${label} reparerades automatiskt.`);
   } else if (!isTroopSumConsistent(resultData)) {
-    setStatus(`Klar (${MAX_OCR_ATTEMPTS} försök) – truppernas summa matchar inte total power, siffrorna kan vara osäkra.`);
+    setStatus(`Klar (${MAX_OCR_ATTEMPTS} fÃ¶rsÃ¶k) â€“ truppernas summa matchar inte total power, siffrorna kan vara osÃ¤kra.`);
   } else {
-    setStatus("Klar! Truppernas summa stämmer med total power.");
+    setStatus("Klar! Truppernas summa stÃ¤mmer med total power.");
   }
 }
 
-// ─── Init ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 setPreview(SAMPLE_IMAGE, SAMPLE_IMAGE);
 if (window.location.protocol === "file:") {
-  setStatus("Tips: kör via localhost/Live Server för stabil OCR.");
+  setStatus("Tips: kÃ¶r via localhost/Live Server fÃ¶r stabil OCR.");
 } else {
-  setStatus("Välj läge och ladda upp bild/bilder.");
+  setStatus("VÃ¤lj lÃ¤ge och ladda upp bild/bilder.");
 }
+
+/* -- Admin Panel ----------------------------------------------- */
+(function () {
+  var adminModal   = document.getElementById('adminModal');
+  var adminBtn     = document.getElementById('adminBtn');
+  var adminCloseBtn= document.getElementById('adminCloseBtn');
+  var adminNewUser = document.getElementById('adminNewUsername');
+  var adminIsAdmin = document.getElementById('adminMakeAdmin');
+  var adminCreateBtn=document.getElementById('adminCreateBtn');
+  var adminCreateMsg=document.getElementById('adminCreateMsg');
+  var adminUserList= document.getElementById('adminUserList');
+
+  function showAdminMsg(msg, isOk) {
+    adminCreateMsg.textContent = msg;
+    adminCreateMsg.className = 'admin-msg ' + (isOk ? 'ok' : 'err');
+    adminCreateMsg.hidden = false;
+    setTimeout(function() { adminCreateMsg.hidden = true; }, 4000);
+  }
+
+  async function loadUsers() {
+    adminUserList.textContent = 'Loading...';
+    try {
+      var data = await riseApi({ action: 'listUsers', username: _loginUsername, token: _sessionToken });
+      if (data.error) { adminUserList.textContent = data.error; return; }
+      adminUserList.innerHTML = '';
+      data.users.forEach(function(u) {
+        var row = document.createElement('div');
+        row.className = 'admin-user-row';
+        var name = document.createElement('span');
+        name.className = 'admin-user-name';
+        name.textContent = u.username;
+        row.appendChild(name);
+        if (u.is_admin) {
+          var b = document.createElement('span');
+          b.className = 'admin-user-badge badge-admin';
+          b.textContent = 'Admin';
+          row.appendChild(b);
+        }
+        if (u.must_change_password) {
+          var b2 = document.createElement('span');
+          b2.className = 'admin-user-badge badge-pending';
+          b2.textContent = 'Pending';
+          row.appendChild(b2);
+        }
+        if (u.username.toLowerCase() !== _loginUsername.toLowerCase()) {
+          var delBtn = document.createElement('button');
+          delBtn.className = 'admin-del-btn';
+          delBtn.textContent = 'Delete';
+          delBtn.addEventListener('click', async function() {
+            if (!confirm('Delete user "' + u.username + '"?')) return;
+            var res = await riseApi({ action: 'deleteUser', username: _loginUsername, token: _sessionToken, targetUsername: u.username });
+            if (res.ok) loadUsers(); else alert(res.error);
+          });
+          row.appendChild(delBtn);
+        }
+        adminUserList.appendChild(row);
+      });
+    } catch(e) { adminUserList.textContent = 'Failed to load users.'; }
+  }
+
+  adminBtn.addEventListener('click', function() {
+    adminModal.hidden = false;
+    loadUsers();
+  });
+
+  adminCloseBtn.addEventListener('click', function() { adminModal.hidden = true; });
+
+  adminCreateBtn.addEventListener('click', async function() {
+    var nu = adminNewUser.value.trim();
+    if (!nu) { showAdminMsg('Please enter a username.', false); return; }
+    var data = await riseApi({ action: 'createUser', username: _loginUsername, token: _sessionToken, newUsername: nu, makeAdmin: adminIsAdmin.checked });
+    if (data.ok) {
+      showAdminMsg('User "' + data.username + '" created!', true);
+      adminNewUser.value = '';
+      adminIsAdmin.checked = false;
+      loadUsers();
+    } else {
+      showAdminMsg(data.error || 'Failed to create user.', false);
+    }
+  });
+
+  adminNewUser.addEventListener('keydown', function(e) { if (e.key === 'Enter') adminCreateBtn.click(); });
+
+  // Expose function to show admin button after login
+  window._riseShowAdminBtn = function() { adminBtn.hidden = false; };
+})();
+/* -------------------------------------------------------------- */
