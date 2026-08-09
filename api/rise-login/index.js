@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const pool = new Pool({
   connectionString:
     process.env.RISE_PG_CONNECTION_STRING ||
-    'postgresql://azure_app:N8mvQ2rT7xP4kL9zC5dH1sW3fY6@158.174.114.209:5432/smallprojects?sslmode=require',
+    'postgresql://azure_app:N8mvQ2rT7xP4kL9zC5dH1sW3fY6@158.174.114.209:5432/smallprojects?sslmode=no-verify',
   ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
