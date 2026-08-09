@@ -17,6 +17,39 @@ const setPasswordError=document.getElementById('setPasswordError');
 let _loginUsername = '';
 let _sessionToken  = '';
 
+const LEGACY_UNIT_TO_IMAGE = {
+  Yellow: 'archer',
+  Green: 'goblin',
+  Blue: 'ice',
+  Red: 'fire',
+  image0: 'archer',
+  image1: 'goblin',
+  image2: 'ice',
+  image3: 'fire'
+};
+
+function normalizeUnitValue(rawUnit) {
+  if (!rawUnit) return '';
+  if (LEGACY_UNIT_TO_IMAGE[rawUnit]) return LEGACY_UNIT_TO_IMAGE[rawUnit];
+  if (/^(archer|goblin|ice|fire)$/.test(rawUnit)) return rawUnit;
+  return '';
+}
+
+function getTroopUnit(troopId) {
+  const active = document.querySelector(`.troop-unit-picker[data-troop="${troopId}"] .unit-option-btn.active`);
+  return active ? active.dataset.unit : '';
+}
+
+function setTroopUnit(troopId, unitValue) {
+  const normalized = normalizeUnitValue(unitValue);
+  const options = document.querySelectorAll(`.troop-unit-picker[data-troop="${troopId}"] .unit-option-btn`);
+  options.forEach(btn => {
+    const isActive = normalized && btn.dataset.unit === normalized;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+}
+
 function showLoginError(el, msg) { el.textContent = msg; el.hidden = false; }
 function clearLoginError(el) { el.hidden = true; }
 
@@ -46,9 +79,8 @@ async function loadTroopsFromDB() {
     if (!data.troops) return;
     Object.entries(data.troops).forEach(([t, troop]) => {
       const powerEl = document.querySelector(`.troop-power-input[data-troop="${t}"]`);
-      const unitEl  = document.querySelector(`.troop-unit-select[data-troop="${t}"]`);
       if (powerEl && troop.power !== undefined) powerEl.value = troop.power;
-      if (unitEl  && troop.unit  !== undefined) unitEl.value  = troop.unit;
+      if (troop.unit !== undefined) setTroopUnit(t, troop.unit);
     });
     recalcTotal();
   } catch { /* non-critical, ignore */ }
@@ -66,8 +98,7 @@ async function saveTroopsToDB() {
   const troops = {};
   document.querySelectorAll('.troop-power-input').forEach(input => {
     const t = input.dataset.troop;
-    const unitEl = document.querySelector(`.troop-unit-select[data-troop="${t}"]`);
-    troops[t] = { power: input.value, unit: unitEl ? unitEl.value : '' };
+    troops[t] = { power: input.value, unit: getTroopUnit(t) };
   });
   try {
     await riseApi({ action: 'saveTroops', username: _loginUsername, token: _sessionToken, troops });
@@ -139,8 +170,13 @@ document.querySelectorAll('.troop-power-input').forEach(input => {
   input.addEventListener('input', () => { recalcTotal(); scheduleSave(); });
 });
 
-document.querySelectorAll('.troop-unit-select').forEach(sel => {
-  sel.addEventListener('change', scheduleSave);
+document.querySelectorAll('.unit-option-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const troopId = btn.closest('.troop-unit-picker')?.dataset.troop;
+    if (!troopId) return;
+    setTroopUnit(troopId, btn.dataset.unit);
+    scheduleSave();
+  });
 });
 /* -------------------------------------------------------------- */
 const imageInput = document.getElementById("imageInput");

@@ -563,8 +563,7 @@ body {
   letter-spacing: 0.06em;
 }
 
-.troop-power-input,
-.troop-unit-select {
+.troop-power-input {
   padding: 12px 14px;
   border-radius: 10px;
   border: 1.5px solid #c4d9f4;
@@ -579,14 +578,53 @@ body {
   box-sizing: border-box;
 }
 
-.troop-power-input:focus,
-.troop-unit-select:focus {
+.troop-power-input:focus {
   border-color: #087eb8;
 }
 
 .troop-power-input::placeholder {
   font-weight: 400;
   color: #8faecf;
+}
+
+.troop-unit-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(70px, 1fr));
+  gap: 10px;
+}
+
+.unit-option-btn {
+  border: 2px solid #c4d9f4;
+  border-radius: 12px;
+  padding: 0;
+  background: #f5f9ff;
+  cursor: pointer;
+  line-height: 0;
+  overflow: hidden;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.unit-option-btn img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.unit-option-btn:hover {
+  transform: translateY(-1px);
+  border-color: #7db8eb;
+}
+
+.unit-option-btn.active {
+  border-color: #087eb8;
+  box-shadow: 0 0 0 3px rgba(8, 126, 184, 0.2);
+  transform: translateY(-1px);
+}
+
+.unit-option-btn:focus-visible {
+  outline: 3px solid rgba(8, 126, 184, 0.25);
+  outline-offset: 1px;
 }
 /* ────────────────────────────────────────────────────────────── */
 
