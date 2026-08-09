@@ -5,6 +5,9 @@ const pool = new Pool({
   connectionString:
     process.env.RISE_PG_CONNECTION_STRING ||
     'postgresql://azure_app:N8mvQ2rT7xP4kL9zC5dH1sW3fY6@158.174.114.209:5432/smallprojects?sslmode=require',
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
 });
 
 function hashPassword(password, salt) {
@@ -95,7 +98,7 @@ module.exports = async function (context, req) {
     return { status: 400, headers: cors, body: JSON.stringify({ error: 'Okänd action' }) };
   } catch (err) {
     context.log.error('rise-login error:', err.message);
-    return { status: 500, headers: cors, body: JSON.stringify({ error: 'Serverfel' }) };
+    return { status: 500, headers: cors, body: JSON.stringify({ error: 'Serverfel: ' + err.message }) };
   } finally {
     if (client) client.release();
   }
