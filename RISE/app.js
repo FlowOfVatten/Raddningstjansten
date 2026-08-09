@@ -1901,15 +1901,33 @@ const HERO_AVATAR = {
 };
 function heroAvatar(name) { return HERO_AVATAR[name] || null; }
 
+function avatarFromCdnToFilePath(url) {
+  if (!url) return null;
+  var m = String(url).match(/\/images\/[0-9a-z]\/[^/]+\/([^/?]+)\//i);
+  if (!m || !m[1]) return null;
+  return 'https://kingdom-guard.fandom.com/wiki/Special:FilePath/' + m[1];
+}
+
+function heroAvatarSources(name) {
+  var cdn = HERO_AVATAR[name] || null;
+  var fp = avatarFromCdnToFilePath(cdn);
+  if (fp && cdn) return [fp, cdn];
+  if (fp) return [fp];
+  if (cdn) return [cdn];
+  return [];
+}
+
 function heroAvatarMarkup(type, heroName) {
-  var av = heroAvatar(heroName);
+  var avSources = heroAvatarSources(heroName);
+  var av = avSources[0] || null;
+  var av2 = avSources[1] || '';
   var imgClass = type === 'rec' ? 'rec-hero-avatar' : 'roster-hero-avatar';
   var phClass = type === 'rec' ? 'rec-hero-avatar-ph' : 'roster-hero-avatar-ph';
   var initial = (heroName && heroName.charAt(0).toUpperCase()) || '?';
   if (!av) return '<span class="' + phClass + '">' + initial + '</span>';
   return '<span class="' + imgClass + '-wrap">' +
     '<span class="' + phClass + '">' + initial + '</span>' +
-    '<img class="' + imgClass + '" src="' + av + '" alt="" loading="lazy" style="display:none" onload="this.style.display=\'block\';this.previousElementSibling.style.display=\'none\';" onerror="this.style.display=\'none\';this.previousElementSibling.style.display=\'inline-flex\';">' +
+    '<img class="' + imgClass + '" src="' + av + '" data-src2="' + av2 + '" data-fallback-used="0" alt="" loading="lazy" style="display:none" onload="this.style.display=\'block\';this.previousElementSibling.style.display=\'none\';" onerror="if(this.dataset.fallbackUsed===\'0\'&&this.dataset.src2){this.dataset.fallbackUsed=\'1\';this.src=this.dataset.src2;return;}this.style.display=\'none\';this.previousElementSibling.style.display=\'inline-flex\';">' +
     '</span>';
 }
 
