@@ -1924,26 +1924,43 @@ function avatarFromCdnToFilePath(url) {
   return 'https://kingdom-guard.fandom.com/wiki/Special:FilePath/' + m[1];
 }
 
+function localElementAvatar(name) {
+  var hero = HERO_DATA.find(function (h) { return h.name === name; });
+  if (!hero || !hero.element) return null;
+  if (hero.element === 'ice') return 'ice.jpeg';
+  if (hero.element === 'archer' || hero.element === 'fire' || hero.element === 'goblin') {
+    return hero.element + '.jpg';
+  }
+  return null;
+}
+
+function pushUnique(list, value) {
+  if (!value) return;
+  if (list.indexOf(value) === -1) list.push(value);
+}
+
 function heroAvatarSources(name) {
   var cdn = HERO_AVATAR[name] || null;
   var fp = avatarFromCdnToFilePath(cdn);
-  if (fp && cdn) return [fp, cdn];
-  if (fp) return [fp];
-  if (cdn) return [cdn];
-  return [];
+  var local = localElementAvatar(name);
+  var sources = [];
+  pushUnique(sources, fp);
+  pushUnique(sources, cdn);
+  pushUnique(sources, local);
+  return sources;
 }
 
 function heroAvatarMarkup(type, heroName) {
   var avSources = heroAvatarSources(heroName);
   var av = avSources[0] || null;
-  var av2 = avSources[1] || '';
+  var avList = avSources.join('|');
   var imgClass = type === 'rec' ? 'rec-hero-avatar' : 'roster-hero-avatar';
   var phClass = type === 'rec' ? 'rec-hero-avatar-ph' : 'roster-hero-avatar-ph';
   var initial = (heroName && heroName.charAt(0).toUpperCase()) || '?';
   if (!av) return '<span class="' + phClass + '">' + initial + '</span>';
   return '<span class="' + imgClass + '-wrap">' +
     '<span class="' + phClass + '">' + initial + '</span>' +
-    '<img class="' + imgClass + '" src="' + av + '" data-src2="' + av2 + '" data-fallback-used="0" alt="" loading="lazy" style="display:none" onload="this.style.display=\'block\';this.previousElementSibling.style.display=\'none\';" onerror="if(this.dataset.fallbackUsed===\'0\'&&this.dataset.src2){this.dataset.fallbackUsed=\'1\';this.src=this.dataset.src2;return;}this.style.display=\'none\';this.previousElementSibling.style.display=\'inline-flex\';">' +
+    '<img class="' + imgClass + '" src="' + av + '" data-src-list="' + avList + '" data-src-index="0" alt="" loading="lazy" style="display:none" onload="this.style.display=\'block\';this.previousElementSibling.style.display=\'none\';" onerror="var list=(this.dataset.srcList||\'\').split(\'|\');var i=parseInt(this.dataset.srcIndex||\'0\',10)+1;if(i<list.length){this.dataset.srcIndex=String(i);this.src=list[i];return;}this.style.display=\'none\';this.previousElementSibling.style.display=\'inline-flex\';">' +
     '</span>';
 }
 
