@@ -13,9 +13,12 @@ const confirmPassword= document.getElementById('confirmPassword');
 const loginError     = document.getElementById('loginError');
 const passwordError  = document.getElementById('passwordError');
 const setPasswordError=document.getElementById('setPasswordError');
+const castleLevelInput = document.getElementById('castleLevelInput');
+const heroBondInput = document.getElementById('heroBondInput');
 
 let _loginUsername = '';
 let _sessionToken  = '';
+let _heroRoster    = {};
 
 const LEGACY_UNIT_TO_IMAGE = {
   Yellow: 'archer',
@@ -78,6 +81,7 @@ async function onLoginSuccess(token, isAdmin) {
   appMain.style.display = '';
   document.getElementById('welcomeMsg').textContent =
     `Welcome ${_loginUsername}, a proud member of RISE.`;
+  document.getElementById('rosterBtn').hidden = false;
   if (isAdmin && window._riseShowAdminBtn) window._riseShowAdminBtn();
   await loadTroopsFromDB();
 }
@@ -87,7 +91,11 @@ async function loadTroopsFromDB() {
   try {
     const data = await riseApi({ action: 'loadTroops', username: _loginUsername, token: _sessionToken });
     if (!data.troops) return;
+    if (castleLevelInput) castleLevelInput.value = formatPowerInputValue(data.troops._castleLevel || '');
+    if (heroBondInput) heroBondInput.value = formatPowerInputValue(data.troops._heroBond || '');
+    if (data.troops._heroes && typeof data.troops._heroes === 'object') _heroRoster = data.troops._heroes;
     Object.entries(data.troops).forEach(([t, troop]) => {
+      if (t.startsWith('_')) return;
       const powerEl = document.querySelector(`.troop-power-input[data-troop="${t}"]`);
       if (powerEl && troop.power !== undefined) powerEl.value = formatPowerInputValue(troop.power);
       if (troop.unit !== undefined) setTroopUnit(t, troop.unit);
@@ -106,6 +114,9 @@ function scheduleSave() {
 async function saveTroopsToDB() {
   if (!_sessionToken) return;
   const troops = {};
+  troops._castleLevel = getPowerDigits(castleLevelInput ? castleLevelInput.value : '');
+  troops._heroBond = getPowerDigits(heroBondInput ? heroBondInput.value : '');
+  troops._heroes = _heroRoster;
   document.querySelectorAll('.troop-power-input').forEach(input => {
     const t = input.dataset.troop;
     troops[t] = { power: getPowerDigits(input.value), unit: getTroopUnit(t) };
@@ -184,6 +195,18 @@ document.querySelectorAll('.troop-power-input').forEach(input => {
   input.addEventListener('input', () => {
     input.value = formatPowerInputValue(input.value);
     recalcTotal();
+    scheduleSave();
+  });
+
+  input.addEventListener('blur', () => {
+    input.value = formatPowerInputValue(input.value);
+  });
+});
+
+[castleLevelInput, heroBondInput].forEach(input => {
+  if (!input) return;
+  input.addEventListener('input', () => {
+    input.value = formatPowerInputValue(input.value);
     scheduleSave();
   });
 
@@ -1726,3 +1749,208 @@ if (window.location.protocol === "file:") {
   };
 })();
 /* -------------------------------------------------------------- */
+
+/* ── HERO DATA ─────────────────────────────────────────────────── */
+const HERO_DATA = [
+  // Archer
+  { name: 'Sahar',     element: 'archer', march: 20, guerrilla: 25, load:  0, firstAid: 25, regen: true },
+  { name: "O'Neil",    element: 'archer', march: 20, guerrilla: 25, load: 20, firstAid: 20, regen: false },
+  { name: 'Ariza',     element: 'archer', march: 20, guerrilla: 25, load: 15, firstAid: 20, regen: false },
+  { name: 'Gabrielle', element: 'archer', march: 20, guerrilla: 20, load: 20, firstAid: 10, regen: true },
+  { name: 'Jennifer',  element: 'archer', march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
+  { name: 'Arthur',    element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Harold',    element: 'archer', march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Arwyn',     element: 'archer', march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Ptolomeo',  element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Johannes',  element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Bella',     element: 'archer', march: 20, guerrilla:  0, load: 20, firstAid: 15, regen: true },
+  { name: 'Montag',    element: 'archer', march: 20, guerrilla:  0, load: 20, firstAid:  0, regen: true },
+  { name: 'Sebastian', element: 'archer', march: 20, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Padme',     element: 'archer', march: 30, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Meg',       element: 'archer', march: 20, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Maya',      element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Trist',     element: 'archer', march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Fatima',    element: 'archer', march: 20, guerrilla:  0, load: 20, firstAid:  0, regen: true },
+  // Fire
+  { name: 'Tracy',     element: 'fire',   march: 30, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Erika',     element: 'fire',   march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Lovelace',  element: 'fire',   march: 30, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Daria',     element: 'fire',   march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Cosette',   element: 'fire',   march: 20, guerrilla: 30, load: 30, firstAid: 25, regen: false },
+  { name: 'Vanessa',   element: 'fire',   march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Simon',     element: 'fire',   march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Miku',      element: 'fire',   march: 15, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Paul',      element: 'fire',   march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
+  { name: 'Wallis',    element: 'fire',   march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
+  { name: 'Dolvar',    element: 'fire',   march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
+  { name: 'Allen',     element: 'fire',   march: 20, guerrilla: 25, load: 10, firstAid: 15, regen: false },
+  { name: 'Giselle',   element: 'fire',   march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Dain',      element: 'fire',   march: 20, guerrilla:  0, load: 20, firstAid: 15, regen: true },
+  { name: 'Apollo',    element: 'fire',   march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Anko',      element: 'fire',   march: 30, guerrilla: 20, load:  0, firstAid: 15, regen: true },
+  { name: 'Gro',       element: 'fire',   march: 15, guerrilla:  0, load:  0, firstAid: 15, regen: false },
+  { name: 'Kris',      element: 'fire',   march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Ophelia',   element: 'fire',   march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Samar',     element: 'fire',   march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  // Ice
+  { name: 'Keith',     element: 'ice',    march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Maud',      element: 'ice',    march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Nathaniel', element: 'ice',    march: 30, guerrilla:  0, load: 20, firstAid: 15, regen: true },
+  { name: 'Filius',    element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Hana',      element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Ao Deng',   element: 'ice',    march: 20, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Judy',      element: 'ice',    march: 20, guerrilla: 40, load:  0, firstAid:  0, regen: true },
+  { name: 'Paula',     element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Ao Yue',    element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Jessica',   element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Pedra',     element: 'ice',    march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Lilani',    element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Vera',      element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Parr',      element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Rudolph',   element: 'ice',    march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
+  { name: 'Hadi',      element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Nicole',    element: 'ice',    march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Ralph',     element: 'ice',    march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
+  { name: 'Merlin',    element: 'ice',    march: 15, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  // Goblin
+  { name: 'Chiyoko',   element: 'goblin', march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  { name: 'Rosamond',  element: 'goblin', march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
+  { name: 'Gruen',     element: 'goblin', march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Rogers',    element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Pythia',    element: 'goblin', march: 15, guerrilla:  0, load: 20, firstAid:  0, regen: true },
+  { name: 'Rila',      element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Lilith',    element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Meniere',   element: 'goblin', march: 20, guerrilla: 25, load: 15, firstAid:  0, regen: true },
+  { name: 'Catherine', element: 'goblin', march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
+  { name: 'Claudia',   element: 'goblin', march:  0, guerrilla:  0, load: 20, firstAid: 15, regen: false },
+  { name: 'Isaac',     element: 'goblin', march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
+  { name: 'Alucard',   element: 'goblin', march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+];
+const ELEMENT_LABEL = { archer: 'Archer', fire: 'Fire', ice: 'Ice', goblin: 'Goblin' };
+const ELEMENT_ORDER = ['archer', 'fire', 'ice', 'goblin'];
+
+/* ── Hero Roster & Recommendations ─────────────────────────────── */
+(function () {
+  var rosterModal         = document.getElementById('rosterModal');
+  var rosterBtn           = document.getElementById('rosterBtn');
+  var rosterCloseBtn      = document.getElementById('rosterCloseBtn');
+  var rosterTabContent    = document.getElementById('rosterTabContent');
+  var recommendTabContent = document.getElementById('recommendTabContent');
+  var recResults          = document.getElementById('recResults');
+
+  function leaderScore(h)    { return h.march * 10 + h.firstAid * 2 + (h.regen ? 5 : 0); }
+  function assistantScore(h) { return h.guerrilla * 3 + h.load * 1.5 + h.firstAid + (h.regen ? 5 : 0); }
+
+  function getAvailable() {
+    return HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return s && s.owned && s.fiveStar; });
+  }
+
+  function buildRecommendedTroops() {
+    var avail = getAvailable(), used = {}, troops = [], suggestions = [];
+
+    function tryBuild(el) {
+      var pool = avail.filter(function (h) { return h.element === el && !used[h.name]; });
+      if (pool.length < 3) return false;
+      var leaders = pool.filter(function (h) { return h.march > 0; }).sort(function (a, b) { return leaderScore(b) - leaderScore(a); });
+      if (!leaders.length) return false;
+      var ldr = leaders[0];
+      var assts = pool.filter(function (h) { return h.name !== ldr.name; }).sort(function (a, b) { return assistantScore(b) - assistantScore(a); });
+      if (assts.length < 2) return false;
+      troops.push({ element: el, leader: ldr, a1: assts[0], a2: assts[1] });
+      used[ldr.name] = used[assts[0].name] = used[assts[1].name] = true;
+      return true;
+    }
+
+    ELEMENT_ORDER.forEach(tryBuild);
+    var pass = 0;
+    while (troops.length < 5 && pass++ < 4) ELEMENT_ORDER.forEach(function (el) { if (troops.length < 5) tryBuild(el); });
+
+    ELEMENT_ORDER.forEach(function (el) {
+      var count = avail.filter(function (h) { return h.element === el; }).length;
+      if (count > 0 && count < 3) suggestions.push('You have ' + count + ' 5\u2605 ' + el + ' hero' + (count > 1 ? 'es' : '') + ' \u2014 need 3 for a full troop.');
+      var best = HERO_DATA.filter(function (h) { var s = _heroRoster[h.name]; return h.element === el && s && s.owned && !s.fiveStar && h.march >= 25; }).sort(function (a, b) { return leaderScore(b) - leaderScore(a); })[0];
+      if (best) suggestions.push(best.name + ' (' + el + ') is not 5\u2605 yet \u2014 upgrading would make an excellent leader.');
+    });
+
+    return { troops: troops.slice(0, 5), suggestions: suggestions };
+  }
+
+  function renderRoster() {
+    rosterTabContent.innerHTML = '';
+    ELEMENT_ORDER.forEach(function (el) {
+      var group = document.createElement('div');
+      group.className = 'roster-element-group roster-element-' + el;
+      var hdr = document.createElement('div');
+      hdr.className = 'roster-element-header';
+      hdr.textContent = ELEMENT_LABEL[el];
+      group.appendChild(hdr);
+      HERO_DATA.filter(function (h) { return h.element === el; }).forEach(function (hero) {
+        var s = _heroRoster[hero.name] || {};
+        var row = document.createElement('div');
+        row.className = 'roster-hero-row';
+        row.innerHTML =
+          '<span class="roster-hero-name">' + hero.name + '</span>' +
+          '<label class="roster-cb-label"><input type="checkbox" data-hero="' + hero.name + '" data-type="owned"' + (s.owned ? ' checked' : '') + '> Owned</label>' +
+          '<label class="roster-cb-label roster-five-label"><input type="checkbox" data-hero="' + hero.name + '" data-type="fiveStar"' + (s.fiveStar ? ' checked' : '') + (!s.owned ? ' disabled' : '') + '> 5\u2605</label>';
+        group.appendChild(row);
+      });
+      rosterTabContent.appendChild(group);
+    });
+    rosterTabContent.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var name = cb.dataset.hero, type = cb.dataset.type;
+        if (!_heroRoster[name]) _heroRoster[name] = { owned: false, fiveStar: false };
+        _heroRoster[name][type] = cb.checked;
+        if (type === 'owned') {
+          var fiveCb = rosterTabContent.querySelector('[data-hero="' + name + '"][data-type="fiveStar"]');
+          if (!cb.checked) { _heroRoster[name].fiveStar = false; if (fiveCb) { fiveCb.checked = false; fiveCb.disabled = true; } }
+          else { if (fiveCb) fiveCb.disabled = false; }
+        }
+        scheduleSave();
+      });
+    });
+  }
+
+  function renderRecommendations() {
+    var result = buildRecommendedTroops();
+    recResults.innerHTML = '';
+    if (!result.troops.length) {
+      recResults.innerHTML = '<p class="roster-empty">Mark heroes as Owned + 5\u2605 in My Heroes to see recommendations.</p>';
+    } else {
+      var grid = document.createElement('div');
+      grid.className = 'rec-troops-grid';
+      result.troops.forEach(function (t, i) {
+        var card = document.createElement('div');
+        card.className = 'rec-troop-card rec-troop-' + t.element;
+        card.innerHTML =
+          '<div class="rec-troop-header"><img src="' + t.element + (t.element === 'ice' ? '.jpeg' : '.jpg') + '" class="rec-element-icon" alt=""> ' + ELEMENT_LABEL[t.element] + ' \u2014 Troop ' + (i + 1) + '</div>' +
+          '<div class="rec-hero-row leader"><span class="rec-leader-badge">Leader</span><span class="rec-hero-name">' + t.leader.name + '</span><span class="rec-stat">March +' + t.leader.march + '%</span></div>' +
+          '<div class="rec-hero-row"><span class="rec-role-badge">Asst</span><span class="rec-hero-name">' + t.a1.name + '</span><span class="rec-stat">+' + t.a1.guerrilla + '% pwr</span></div>' +
+          '<div class="rec-hero-row"><span class="rec-role-badge">Asst</span><span class="rec-hero-name">' + t.a2.name + '</span><span class="rec-stat">+' + t.a2.guerrilla + '% pwr</span></div>';
+        grid.appendChild(card);
+      });
+      recResults.appendChild(grid);
+    }
+    if (result.suggestions.length) {
+      var sg = document.createElement('div'); sg.className = 'rec-suggestions';
+      sg.innerHTML = '<p class="rec-suggestions-title">Suggestions</p>';
+      result.suggestions.forEach(function (s) { var p = document.createElement('p'); p.className = 'rec-suggestion-item'; p.textContent = '\u2022 ' + s; sg.appendChild(p); });
+      recResults.appendChild(sg);
+    }
+  }
+
+  rosterBtn.addEventListener('click', function () { rosterModal.hidden = false; renderRoster(); });
+  rosterCloseBtn.addEventListener('click', function () { rosterModal.hidden = true; });
+
+  document.querySelectorAll('.roster-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.roster-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var tab = btn.dataset.tab;
+      rosterTabContent.hidden = tab !== 'roster';
+      recommendTabContent.hidden = tab !== 'recommend';
+      if (tab === 'recommend') renderRecommendations();
+    });
+  });
+})();
+/* ─────────────────────────────────────────────────────────────── */

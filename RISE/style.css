@@ -507,6 +507,49 @@ body {
   line-height: 1;
 }
 
+.profile-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 16px;
+  animation: reveal 0.58s ease-out;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-field label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #33557f;
+}
+
+.profile-input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #c4d9f4;
+  background: #f5f9ff;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0a2550;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.profile-input:focus {
+  border-color: #087eb8;
+}
+
+.profile-input::placeholder {
+  font-weight: 400;
+  color: #8faecf;
+}
+
 /* ── Troops panel ────────────────────────────────────────────── */
 .troops-panel {
   animation: reveal 0.65s ease-out;
@@ -550,7 +593,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "power-label unit-label"
+    "power-label unit-picker"
     "power-input unit-picker";
   column-gap: 14px;
   row-gap: 8px;
@@ -570,8 +613,7 @@ body {
 
 .troop-panel > label:nth-of-type(1) { grid-area: power-label; }
 .troop-panel > label:nth-of-type(2) {
-  grid-area: unit-label;
-  text-align: right;
+  display: none;
 }
 
 .troop-power-input {
@@ -606,6 +648,7 @@ body {
   grid-auto-rows: 52px;
   gap: 6px;
   justify-self: end;
+  align-self: start;
 }
 
 .unit-option-btn {
@@ -643,18 +686,17 @@ body {
 }
 
 @media (max-width: 720px) {
+  .profile-panel {
+    grid-template-columns: 1fr;
+  }
+
   .troop-panel {
     grid-template-columns: 1fr;
     grid-template-areas:
       "power-label"
       "power-input"
-      "unit-label"
       "unit-picker";
     row-gap: 10px;
-  }
-
-  .troop-panel > label:nth-of-type(2) {
-    text-align: left;
   }
 
   .troop-unit-picker {
@@ -943,6 +985,220 @@ body {
 
 @media (max-width: 900px) {
   .chart-filters {
+    grid-template-columns: 1fr;
+  }
+}
+/* -------------------------------------------------------------- */
+
+/* ── Hero Roster ─────────────────────────────────────────────── */
+.roster-box {
+  width: min(98vw, 900px);
+}
+
+.roster-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 2px solid #e8f0fb;
+  padding-bottom: 12px;
+}
+
+.roster-tab-btn {
+  padding: 7px 18px;
+  border-radius: 9px;
+  border: 2px solid #c4d9f4;
+  background: transparent;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #4a6fa5;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.roster-tab-btn.active {
+  background: linear-gradient(135deg, #00b8d9, #087eb8);
+  color: #fff;
+  border-color: transparent;
+}
+
+.roster-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roster-element-group {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #dde9f8;
+}
+
+.roster-element-header {
+  padding: 8px 14px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.roster-element-archer .roster-element-header { background: #fff8e1; color: #7a5c00; }
+.roster-element-fire   .roster-element-header { background: #fdecea; color: #8b1a0e; }
+.roster-element-ice    .roster-element-header { background: #e3f4fd; color: #0a5a84; }
+.roster-element-goblin .roster-element-header { background: #e8f9ef; color: #1a6b3a; }
+
+.roster-hero-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-top: 1px solid #edf3fc;
+  background: #fff;
+}
+
+.roster-hero-row:hover { background: #f8fbff; }
+
+.roster-hero-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: #1b3a71;
+}
+
+.roster-cb-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4a6fa5;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.roster-five-label { color: #b07d00; }
+
+.roster-empty {
+  color: #8ba6c8;
+  text-align: center;
+  padding: 24px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* ── Recommendations ─────────────────────────────────────────── */
+.rec-troops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.rec-troop-card {
+  border-radius: 14px;
+  border: 2px solid #dde9f8;
+  overflow: hidden;
+  background: #fff;
+}
+
+.rec-troop-archer { border-color: #f4d875; }
+.rec-troop-fire   { border-color: #f4a875; }
+.rec-troop-ice    { border-color: #75c4f4; }
+.rec-troop-goblin { border-color: #75f4a0; }
+
+.rec-troop-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.rec-element-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.rec-troop-archer .rec-troop-header { background: #fff8e1; color: #7a5c00; }
+.rec-troop-fire   .rec-troop-header { background: #fdecea; color: #8b1a0e; }
+.rec-troop-ice    .rec-troop-header { background: #e3f4fd; color: #0a5a84; }
+.rec-troop-goblin .rec-troop-header { background: #e8f9ef; color: #1a6b3a; }
+
+.rec-hero-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-top: 1px solid #edf3fc;
+}
+
+.rec-hero-row.leader { background: #f4fbff; }
+
+.rec-leader-badge {
+  font-size: 0.63rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #00b8d9, #087eb8);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.rec-role-badge {
+  font-size: 0.63rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #4a6fa5;
+  white-space: nowrap;
+}
+
+.rec-hero-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: #1b3a71;
+}
+
+.rec-stat {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #6883a9;
+  white-space: nowrap;
+}
+
+.rec-suggestions {
+  border: 1px solid #dde9f8;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #f8fbff;
+}
+
+.rec-suggestions-title {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #40618b;
+}
+
+.rec-suggestion-item {
+  margin: 0 0 5px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #33557f;
+}
+
+@media (max-width: 720px) {
+  .rec-troops-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -135,6 +135,24 @@
     </div>
   </div>
 
+  <!-- Hero Roster modal -->
+  <div id="rosterModal" class="admin-modal" hidden>
+    <div class="admin-box roster-box">
+      <div class="admin-header">
+        <h2>Hero Roster</h2>
+        <button id="rosterCloseBtn" class="admin-close" title="Close">x</button>
+      </div>
+      <div class="roster-tabs">
+        <button class="roster-tab-btn active" data-tab="roster">My Heroes</button>
+        <button class="roster-tab-btn" data-tab="recommend">Recommendations</button>
+      </div>
+      <div id="rosterTabContent" class="roster-tab-content"></div>
+      <div id="recommendTabContent" class="roster-tab-content" hidden>
+        <div id="recResults"></div>
+      </div>
+    </div>
+  </div>
+
   <main class="container" id="appMain" style="display:none">
 
     <!-- Welcome header -->
@@ -144,6 +162,7 @@
       <div class="hero-actions">
         <button id="adminBtn" class="btn btn-secondary admin-trigger-btn" hidden>Admin Panel</button>
         <button id="chartBtn" class="btn btn-secondary admin-trigger-btn" hidden>User Chart</button>
+        <button id="rosterBtn" class="btn btn-secondary admin-trigger-btn" hidden>Hero Roster</button>
       </div>
     </header>
 
@@ -151,6 +170,17 @@
     <section class="panel total-power-panel">
       <p class="total-power-label">Total Power</p>
       <p class="total-power-value" id="totalPowerDisplay">0</p>
+    </section>
+
+    <section class="panel profile-panel">
+      <div class="profile-field">
+        <label for="castleLevelInput">Castle Level</label>
+        <input id="castleLevelInput" type="text" class="profile-input" inputmode="numeric" autocomplete="off" placeholder="Enter castle level..." />
+      </div>
+      <div class="profile-field">
+        <label for="heroBondInput">Hero Bond</label>
+        <input id="heroBondInput" type="text" class="profile-input" inputmode="numeric" autocomplete="off" placeholder="Enter hero bond..." />
+      </div>
     </section>
 
     <!-- Troops section -->
