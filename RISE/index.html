@@ -1,5 +1,192 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RISE Power Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Login overlay -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+      <h2 id="loginTitle">Sign in</h2>
+      <p id="loginSubtitle" class="login-subtitle">RISE Power Tracker</p>
+
+      <div id="loginStep" class="login-step">
+        <label for="loginUsername">Username</label>
+        <input id="loginUsername" type="text" autocomplete="username" placeholder="Your username" />
+        <button id="loginNextBtn" class="btn btn-primary login-btn">Continue</button>
+        <p id="loginError" class="login-error" hidden></p>
+      </div>
+
+      <div id="passwordStep" class="login-step" hidden>
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password" />
+        <button id="loginSubmitBtn" class="btn btn-primary login-btn">Sign in</button>
+        <p id="passwordError" class="login-error" hidden></p>
+      </div>
+
+      <div id="setPasswordStep" class="login-step" hidden>
+        <p class="login-info">Welcome! Please set a password to continue.</p>
+        <label for="newPassword">New password <span class="req">(min. 8 characters)</span></label>
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="New password" />
+        <label for="confirmPassword">Confirm password</label>
+        <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Confirm" />
+        <button id="setPasswordBtn" class="btn btn-primary login-btn">Set password &amp; sign in</button>
+        <p id="setPasswordError" class="login-error" hidden></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-shape bg-shape-a"></div>
+  <div class="bg-shape bg-shape-b"></div>
+
+  <main class="container" id="appMain" style="display:none">
+
+    <!-- Welcome header -->
+    <header class="hero">
+      <p class="eyebrow" id="welcomeMsg">Welcome, a proud member of RISE.</p>
+      <h1>RISE Power Tracker</h1>
+    </header>
+
+    <!-- Total Power card -->
+    <section class="panel total-power-panel">
+      <p class="total-power-label">Total Power</p>
+      <p class="total-power-value" id="totalPowerDisplay">0</p>
+    </section>
+
+    <!-- Troops section -->
+    <section class="panel troops-panel">
+      <h2>Troops</h2>
+
+      <!-- Troop tabs -->
+      <div class="troop-tabs" role="tablist">
+        <button class="troop-tab active" role="tab" data-troop="1">Troop 1</button>
+        <button class="troop-tab" role="tab" data-troop="2">Troop 2</button>
+        <button class="troop-tab" role="tab" data-troop="3">Troop 3</button>
+        <button class="troop-tab" role="tab" data-troop="4">Troop 4</button>
+        <button class="troop-tab" role="tab" data-troop="5">Troop 5</button>
+      </div>
+
+      <!-- Troop panels -->
+      <div id="troopPanels">
+        <div class="troop-panel" data-troop="1">
+          <label>Troop Power</label>
+          <input type="number" class="troop-power-input" data-troop="1" placeholder="Enter power..." min="0" />
+          <label>Unit Type</label>
+          <select class="troop-unit-select" data-troop="1">
+            <option value="">— Select unit type —</option>
+            <option value="Yellow">Yellow</option>
+            <option value="Green">Green</option>
+            <option value="Blue">Blue</option>
+            <option value="Red">Red</option>
+          </select>
+        </div>
+        <div class="troop-panel" data-troop="2" hidden>
+          <label>Troop Power</label>
+          <input type="number" class="troop-power-input" data-troop="2" placeholder="Enter power..." min="0" />
+          <label>Unit Type</label>
+          <select class="troop-unit-select" data-troop="2">
+            <option value="">— Select unit type —</option>
+            <option value="Yellow">Yellow</option>
+            <option value="Green">Green</option>
+            <option value="Blue">Blue</option>
+            <option value="Red">Red</option>
+          </select>
+        </div>
+        <div class="troop-panel" data-troop="3" hidden>
+          <label>Troop Power</label>
+          <input type="number" class="troop-power-input" data-troop="3" placeholder="Enter power..." min="0" />
+          <label>Unit Type</label>
+          <select class="troop-unit-select" data-troop="3">
+            <option value="">— Select unit type —</option>
+            <option value="Yellow">Yellow</option>
+            <option value="Green">Green</option>
+            <option value="Blue">Blue</option>
+            <option value="Red">Red</option>
+          </select>
+        </div>
+        <div class="troop-panel" data-troop="4" hidden>
+          <label>Troop Power</label>
+          <input type="number" class="troop-power-input" data-troop="4" placeholder="Enter power..." min="0" />
+          <label>Unit Type</label>
+          <select class="troop-unit-select" data-troop="4">
+            <option value="">— Select unit type —</option>
+            <option value="Yellow">Yellow</option>
+            <option value="Green">Green</option>
+            <option value="Blue">Blue</option>
+            <option value="Red">Red</option>
+          </select>
+        </div>
+        <div class="troop-panel" data-troop="5" hidden>
+          <label>Troop Power</label>
+          <input type="number" class="troop-power-input" data-troop="5" placeholder="Enter power..." min="0" />
+          <label>Unit Type</label>
+          <select class="troop-unit-select" data-troop="5">
+            <option value="">— Select unit type —</option>
+            <option value="Yellow">Yellow</option>
+            <option value="Green">Green</option>
+            <option value="Blue">Blue</option>
+            <option value="Red">Red</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- OCR section (hidden, preserved for future use) -->
+    <section id="ocrSection" style="display:none">
+      <section class="panel upload-panel">
+        <div class="mode-tabs" role="tablist">
+          <button class="mode-tab active" id="tabOverview" role="tab" aria-selected="true" data-mode="overview">Full screen (stats panel)</button>
+          <button class="mode-tab" id="tabTroops" role="tab" aria-selected="false" data-mode="troops">5 troop images</button>
+        </div>
+        <div id="modeOverview" class="upload-mode">
+          <label for="imageInput" class="upload-label">Select image (full stats panel)</label>
+          <input id="imageInput" type="file" accept="image/*">
+          <div class="buttons">
+            <button id="useSampleBtn" type="button" class="btn btn-secondary">Use sample image</button>
+          </div>
+        </div>
+        <div id="modeTroops" class="upload-mode" hidden>
+          <div class="troop-slots">
+            <div class="troop-slot" data-troop="1"><span class="slot-label">Troop 1</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="1"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="2"><span class="slot-label">Troop 2</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="2"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="3"><span class="slot-label">Troop 3</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="3"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="4"><span class="slot-label">Troop 4</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="4"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
+            <div class="troop-slot" data-troop="5"><span class="slot-label">Troop 5</span><label class="slot-file-label"><input type="file" accept="image/*" class="troop-input" data-troop="5"><span class="slot-placeholder">Select image…</span></label><img class="slot-preview" alt="" hidden></div>
+          </div>
+          <label class="slot-file-label" style="width:100%"><input type="file" accept="image/*" id="nameImageInput"><span class="slot-placeholder">Select name image…</span></label>
+        </div>
+        <div class="buttons" style="margin-top:12px">
+          <button id="analyzeBtn" type="button" class="btn btn-primary">Analyse</button>
+        </div>
+        <p id="status" class="status">Waiting for image...</p>
+        <div class="progress-wrap" aria-hidden="true"><div id="progressBar" class="progress-bar"></div></div>
+      </section>
+      <section class="panel preview-panel" id="previewPanel"><h2>Preview</h2><img id="preview" alt="Preview"></section>
+      <section class="panel results-panel">
+        <h2>Extracted data</h2>
+        <div id="resultsEmpty" class="empty">No data yet.</div>
+        <div id="results" class="results" hidden>
+          <article class="result-card"><h3>Name</h3><p id="nameValue">-</p></article>
+          <article class="result-card"><h3>Total Power</h3><p id="powerValue">-</p></article>
+          <article class="result-card troop-card"><h3>Troops</h3><div id="troopsGrid" class="troops-grid"></div></article>
+        </div>
+      </section>
+    </section>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="digit-matcher.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">

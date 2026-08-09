@@ -22,6 +22,13 @@ function showLoginError(el, msg) {
 }
 function clearLoginError(el) { el.hidden = true; }
 
+function onLoginSuccess() {
+  loginOverlay.remove();
+  appMain.style.display = '';
+  document.getElementById('welcomeMsg').textContent =
+    `Welcome ${_loginUsername}, a proud member of RISE.`;
+}
+
 async function riseApi(body) {
   const res = await fetch(API_BASE, {
     method: 'POST',
@@ -34,7 +41,7 @@ async function riseApi(body) {
 document.getElementById('loginNextBtn').addEventListener('click', async () => {
   clearLoginError(loginError);
   const username = loginUsername.value.trim();
-  if (!username) { showLoginError(loginError, 'Ange användarnamn.'); return; }
+  if (!username) { showLoginError(loginError, 'Please enter your username.'); return; }
 
   try {
     const data = await riseApi({ action: 'check', username });
@@ -48,7 +55,7 @@ document.getElementById('loginNextBtn').addEventListener('click', async () => {
       passwordStep.hidden = false;
       loginPassword.focus();
     }
-  } catch { showLoginError(loginError, 'Kunde inte nå servern. Försök igen.'); }
+  } catch { showLoginError(loginError, 'Could not reach the server. Please try again.'); }
 });
 
 loginUsername.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginNextBtn').click(); });
@@ -56,7 +63,7 @@ loginUsername.addEventListener('keydown', e => { if (e.key === 'Enter') document
 document.getElementById('loginSubmitBtn').addEventListener('click', async () => {
   clearLoginError(passwordError);
   const password = loginPassword.value;
-  if (!password) { showLoginError(passwordError, 'Ange lösenord.'); return; }
+  if (!password) { showLoginError(passwordError, 'Please enter your password.'); return; }
 
   try {
     const data = await riseApi({ action: 'login', username: _loginUsername, password });
@@ -66,9 +73,8 @@ document.getElementById('loginSubmitBtn').addEventListener('click', async () => 
       setPasswordStep.hidden = false;
       return;
     }
-    loginOverlay.remove();
-    appMain.style.display = '';
-  } catch { showLoginError(passwordError, 'Kunde inte nå servern. Försök igen.'); }
+    onLoginSuccess();
+  } catch { showLoginError(passwordError, 'Could not reach the server. Please try again.'); }
 });
 
 loginPassword.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginSubmitBtn').click(); });
@@ -77,16 +83,47 @@ document.getElementById('setPasswordBtn').addEventListener('click', async () => 
   clearLoginError(setPasswordError);
   const pw  = newPassword.value;
   const pw2 = confirmPassword.value;
-  if (pw.length < 8) { showLoginError(setPasswordError, 'Lösenordet måste vara minst 8 tecken.'); return; }
-  if (pw !== pw2)    { showLoginError(setPasswordError, 'Lösenorden matchar inte.'); return; }
+  if (pw.length < 8) { showLoginError(setPasswordError, 'Password must be at least 8 characters.'); return; }
+  if (pw !== pw2)    { showLoginError(setPasswordError, 'Passwords do not match.'); return; }
 
   try {
     const data = await riseApi({ action: 'setPassword', username: _loginUsername, newPassword: pw });
     if (data.error) { showLoginError(setPasswordError, data.error); return; }
-    loginOverlay.remove();
-    appMain.style.display = '';
-  } catch { showLoginError(setPasswordError, 'Kunde inte nå servern. Försök igen.'); }
+    onLoginSuccess();
+  } catch { showLoginError(setPasswordError, 'Could not reach the server. Please try again.'); }
 });
+/* ────────────────────────────────────────────────────────────── */
+
+/* ── RISE Troop Manager ──────────────────────────────────────── */
+(function () {
+  const totalDisplay = document.getElementById('totalPowerDisplay');
+
+  // Tab switching
+  document.querySelectorAll('.troop-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.troop;
+      document.querySelectorAll('.troop-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.troop-panel').forEach(p => {
+        p.hidden = p.dataset.troop !== t;
+      });
+    });
+  });
+
+  // Recalculate total power on any change
+  function recalcTotal() {
+    let total = 0;
+    document.querySelectorAll('.troop-power-input').forEach(input => {
+      const v = parseFloat(input.value);
+      if (!isNaN(v) && v > 0) total += v;
+    });
+    totalDisplay.textContent = total.toLocaleString('en-US');
+  }
+
+  document.querySelectorAll('.troop-power-input').forEach(input => {
+    input.addEventListener('input', recalcTotal);
+  });
+})();
 /* ────────────────────────────────────────────────────────────── */
 
 const imageInput = document.getElementById("imageInput");
