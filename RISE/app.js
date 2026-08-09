@@ -1,4 +1,4 @@
-/* ── RISE Login ──────────────────────────────────────────────── */
+/* -- RISE Login ------------------------------------------------ */
 const API_BASE = '/api/rise-login';
 
 const loginOverlay   = document.getElementById('loginOverlay');
@@ -15,19 +15,10 @@ const passwordError  = document.getElementById('passwordError');
 const setPasswordError=document.getElementById('setPasswordError');
 
 let _loginUsername = '';
+let _sessionToken  = '';
 
-function showLoginError(el, msg) {
-  el.textContent = msg;
-  el.hidden = false;
-}
+function showLoginError(el, msg) { el.textContent = msg; el.hidden = false; }
 function clearLoginError(el) { el.hidden = true; }
-
-function onLoginSuccess() {
-  loginOverlay.remove();
-  appMain.style.display = '';
-  document.getElementById('welcomeMsg').textContent =
-    `Welcome ${_loginUsername}, a proud member of RISE.`;
-}
 
 async function riseApi(body) {
   const res = await fetch(API_BASE, {
@@ -38,23 +29,60 @@ async function riseApi(body) {
   return res.json();
 }
 
+async function onLoginSuccess(token) {
+  _sessionToken = token;
+  loginOverlay.remove();
+  appMain.style.display = '';
+  document.getElementById('welcomeMsg').textContent =
+    `Welcome ${_loginUsername}, a proud member of RISE.`;
+  await loadTroopsFromDB();
+}
+
+// -- Load saved troops from DB --
+async function loadTroopsFromDB() {
+  try {
+    const data = await riseApi({ action: 'loadTroops', username: _loginUsername, token: _sessionToken });
+    if (!data.troops) return;
+    Object.entries(data.troops).forEach(([t, troop]) => {
+      const powerEl = document.querySelector(`.troop-power-input[data-troop="${t}"]`);
+      const unitEl  = document.querySelector(`.troop-unit-select[data-troop="${t}"]`);
+      if (powerEl && troop.power !== undefined) powerEl.value = troop.power;
+      if (unitEl  && troop.unit  !== undefined) unitEl.value  = troop.unit;
+    });
+    recalcTotal();
+  } catch { /* non-critical, ignore */ }
+}
+
+// -- Auto-save troops to DB (debounced 1.5s) --
+let _saveTimer = null;
+function scheduleSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveTroopsToDB, 1500);
+}
+
+async function saveTroopsToDB() {
+  if (!_sessionToken) return;
+  const troops = {};
+  document.querySelectorAll('.troop-power-input').forEach(input => {
+    const t = input.dataset.troop;
+    const unitEl = document.querySelector(`.troop-unit-select[data-troop="${t}"]`);
+    troops[t] = { power: input.value, unit: unitEl ? unitEl.value : '' };
+  });
+  try {
+    await riseApi({ action: 'saveTroops', username: _loginUsername, token: _sessionToken, troops });
+  } catch { /* non-critical */ }
+}
+
 document.getElementById('loginNextBtn').addEventListener('click', async () => {
   clearLoginError(loginError);
   const username = loginUsername.value.trim();
   if (!username) { showLoginError(loginError, 'Please enter your username.'); return; }
-
   try {
     const data = await riseApi({ action: 'check', username });
     if (data.error) { showLoginError(loginError, data.error); return; }
     _loginUsername = username;
-    if (data.mustChangePassword) {
-      loginStep.hidden = true;
-      setPasswordStep.hidden = false;
-    } else {
-      loginStep.hidden = true;
-      passwordStep.hidden = false;
-      loginPassword.focus();
-    }
+    if (data.mustChangePassword) { loginStep.hidden = true; setPasswordStep.hidden = false; }
+    else { loginStep.hidden = true; passwordStep.hidden = false; loginPassword.focus(); }
   } catch { showLoginError(loginError, 'Could not reach the server. Please try again.'); }
 });
 
@@ -64,16 +92,11 @@ document.getElementById('loginSubmitBtn').addEventListener('click', async () => 
   clearLoginError(passwordError);
   const password = loginPassword.value;
   if (!password) { showLoginError(passwordError, 'Please enter your password.'); return; }
-
   try {
     const data = await riseApi({ action: 'login', username: _loginUsername, password });
     if (data.error) { showLoginError(passwordError, data.error); return; }
-    if (data.mustChangePassword) {
-      passwordStep.hidden = true;
-      setPasswordStep.hidden = false;
-      return;
-    }
-    onLoginSuccess();
+    if (data.mustChangePassword) { passwordStep.hidden = true; setPasswordStep.hidden = false; return; }
+    await onLoginSuccess(data.token);
   } catch { showLoginError(passwordError, 'Could not reach the server. Please try again.'); }
 });
 
@@ -81,51 +104,44 @@ loginPassword.addEventListener('keydown', e => { if (e.key === 'Enter') document
 
 document.getElementById('setPasswordBtn').addEventListener('click', async () => {
   clearLoginError(setPasswordError);
-  const pw  = newPassword.value;
-  const pw2 = confirmPassword.value;
+  const pw = newPassword.value, pw2 = confirmPassword.value;
   if (pw.length < 8) { showLoginError(setPasswordError, 'Password must be at least 8 characters.'); return; }
   if (pw !== pw2)    { showLoginError(setPasswordError, 'Passwords do not match.'); return; }
-
   try {
     const data = await riseApi({ action: 'setPassword', username: _loginUsername, newPassword: pw });
     if (data.error) { showLoginError(setPasswordError, data.error); return; }
-    onLoginSuccess();
+    await onLoginSuccess(data.token);
   } catch { showLoginError(setPasswordError, 'Could not reach the server. Please try again.'); }
 });
-/* ────────────────────────────────────────────────────────────── */
+/* -------------------------------------------------------------- */
 
-/* ── RISE Troop Manager ──────────────────────────────────────── */
-(function () {
-  const totalDisplay = document.getElementById('totalPowerDisplay');
-
-  // Tab switching
-  document.querySelectorAll('.troop-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const t = btn.dataset.troop;
-      document.querySelectorAll('.troop-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelectorAll('.troop-panel').forEach(p => {
-        p.hidden = p.dataset.troop !== t;
-      });
-    });
-  });
-
-  // Recalculate total power on any change
-  function recalcTotal() {
-    let total = 0;
-    document.querySelectorAll('.troop-power-input').forEach(input => {
-      const v = parseFloat(input.value);
-      if (!isNaN(v) && v > 0) total += v;
-    });
-    totalDisplay.textContent = total.toLocaleString('en-US');
-  }
-
+/* -- RISE Troop Manager ---------------------------------------- */
+function recalcTotal() {
+  let total = 0;
   document.querySelectorAll('.troop-power-input').forEach(input => {
-    input.addEventListener('input', recalcTotal);
+    const v = parseFloat(input.value);
+    if (!isNaN(v) && v > 0) total += v;
   });
-})();
-/* ────────────────────────────────────────────────────────────── */
+  document.getElementById('totalPowerDisplay').textContent = total.toLocaleString('en-US');
+}
 
+document.querySelectorAll('.troop-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const t = btn.dataset.troop;
+    document.querySelectorAll('.troop-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.troop-panel').forEach(p => { p.hidden = p.dataset.troop !== t; });
+  });
+});
+
+document.querySelectorAll('.troop-power-input').forEach(input => {
+  input.addEventListener('input', () => { recalcTotal(); scheduleSave(); });
+});
+
+document.querySelectorAll('.troop-unit-select').forEach(sel => {
+  sel.addEventListener('change', scheduleSave);
+});
+/* -------------------------------------------------------------- */
 const imageInput = document.getElementById("imageInput");
 const useSampleBtn = document.getElementById("useSampleBtn");
 const analyzeBtn = document.getElementById("analyzeBtn");
