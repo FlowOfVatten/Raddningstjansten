@@ -1,3 +1,94 @@
+/* ── RISE Login ──────────────────────────────────────────────── */
+const API_BASE = '/api/rise-login';
+
+const loginOverlay   = document.getElementById('loginOverlay');
+const appMain        = document.getElementById('appMain');
+const loginStep      = document.getElementById('loginStep');
+const passwordStep   = document.getElementById('passwordStep');
+const setPasswordStep= document.getElementById('setPasswordStep');
+const loginUsername  = document.getElementById('loginUsername');
+const loginPassword  = document.getElementById('loginPassword');
+const newPassword    = document.getElementById('newPassword');
+const confirmPassword= document.getElementById('confirmPassword');
+const loginError     = document.getElementById('loginError');
+const passwordError  = document.getElementById('passwordError');
+const setPasswordError=document.getElementById('setPasswordError');
+
+let _loginUsername = '';
+
+function showLoginError(el, msg) {
+  el.textContent = msg;
+  el.hidden = false;
+}
+function clearLoginError(el) { el.hidden = true; }
+
+async function riseApi(body) {
+  const res = await fetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+document.getElementById('loginNextBtn').addEventListener('click', async () => {
+  clearLoginError(loginError);
+  const username = loginUsername.value.trim();
+  if (!username) { showLoginError(loginError, 'Ange användarnamn.'); return; }
+
+  try {
+    const data = await riseApi({ action: 'check', username });
+    if (data.error) { showLoginError(loginError, data.error); return; }
+    _loginUsername = username;
+    if (data.mustChangePassword) {
+      loginStep.hidden = true;
+      setPasswordStep.hidden = false;
+    } else {
+      loginStep.hidden = true;
+      passwordStep.hidden = false;
+      loginPassword.focus();
+    }
+  } catch { showLoginError(loginError, 'Kunde inte nå servern. Försök igen.'); }
+});
+
+loginUsername.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginNextBtn').click(); });
+
+document.getElementById('loginSubmitBtn').addEventListener('click', async () => {
+  clearLoginError(passwordError);
+  const password = loginPassword.value;
+  if (!password) { showLoginError(passwordError, 'Ange lösenord.'); return; }
+
+  try {
+    const data = await riseApi({ action: 'login', username: _loginUsername, password });
+    if (data.error) { showLoginError(passwordError, data.error); return; }
+    if (data.mustChangePassword) {
+      passwordStep.hidden = true;
+      setPasswordStep.hidden = false;
+      return;
+    }
+    loginOverlay.remove();
+    appMain.style.display = '';
+  } catch { showLoginError(passwordError, 'Kunde inte nå servern. Försök igen.'); }
+});
+
+loginPassword.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginSubmitBtn').click(); });
+
+document.getElementById('setPasswordBtn').addEventListener('click', async () => {
+  clearLoginError(setPasswordError);
+  const pw  = newPassword.value;
+  const pw2 = confirmPassword.value;
+  if (pw.length < 8) { showLoginError(setPasswordError, 'Lösenordet måste vara minst 8 tecken.'); return; }
+  if (pw !== pw2)    { showLoginError(setPasswordError, 'Lösenorden matchar inte.'); return; }
+
+  try {
+    const data = await riseApi({ action: 'setPassword', username: _loginUsername, newPassword: pw });
+    if (data.error) { showLoginError(setPasswordError, data.error); return; }
+    loginOverlay.remove();
+    appMain.style.display = '';
+  } catch { showLoginError(setPasswordError, 'Kunde inte nå servern. Försök igen.'); }
+});
+/* ────────────────────────────────────────────────────────────── */
+
 const imageInput = document.getElementById("imageInput");
 const useSampleBtn = document.getElementById("useSampleBtn");
 const analyzeBtn = document.getElementById("analyzeBtn");

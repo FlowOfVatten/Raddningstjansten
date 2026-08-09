@@ -10,10 +10,43 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- Login overlay -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+      <h2 id="loginTitle">Logga in</h2>
+      <p id="loginSubtitle" class="login-subtitle">RISE Power Reader</p>
+
+      <div id="loginStep" class="login-step">
+        <label for="loginUsername">Användarnamn</label>
+        <input id="loginUsername" type="text" autocomplete="username" placeholder="Ditt användarnamn" />
+        <button id="loginNextBtn" class="btn btn-primary login-btn">Fortsätt</button>
+        <p id="loginError" class="login-error" hidden></p>
+      </div>
+
+      <div id="passwordStep" class="login-step" hidden>
+        <label for="loginPassword">Lösenord</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Lösenord" />
+        <button id="loginSubmitBtn" class="btn btn-primary login-btn">Logga in</button>
+        <p id="passwordError" class="login-error" hidden></p>
+      </div>
+
+      <div id="setPasswordStep" class="login-step" hidden>
+        <p class="login-info">Välkommen! Sätt ett lösenord för att fortsätta.</p>
+        <label for="newPassword">Nytt lösenord <span class="req">(minst 8 tecken)</span></label>
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="Nytt lösenord" />
+        <label for="confirmPassword">Bekräfta lösenord</label>
+        <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Bekräfta" />
+        <button id="setPasswordBtn" class="btn btn-primary login-btn">Sätt lösenord &amp; logga in</button>
+        <p id="setPasswordError" class="login-error" hidden></p>
+      </div>
+    </div>
+  </div>
+
   <div class="bg-shape bg-shape-a"></div>
   <div class="bg-shape bg-shape-b"></div>
 
-  <main class="container">
+  <main class="container" id="appMain" style="display:none">
     <header class="hero">
       <p class="eyebrow">Azure Web Application</p>
       <h1>RISE Power Reader</h1>

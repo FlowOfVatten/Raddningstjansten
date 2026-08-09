@@ -11,6 +11,100 @@
   --line: #d8e3f4;
 }
 
+/* ── Login overlay ─────────────────────────────────────────── */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(1200px 450px at -10% -20%, #295aa6 0%, transparent 65%),
+    radial-gradient(1000px 600px at 100% 0%, #1b3a71 0%, transparent 65%),
+    linear-gradient(140deg, #0b1d38, #143463);
+}
+
+.login-box {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 380px;
+  color: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-box h2 {
+  margin: 0 0 4px;
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+
+.login-subtitle {
+  margin: 0 0 24px;
+  opacity: .6;
+  font-size: .9rem;
+}
+
+.login-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-step label {
+  font-size: .85rem;
+  font-weight: 700;
+  opacity: .8;
+}
+
+.login-step .req {
+  font-weight: 400;
+  opacity: .6;
+}
+
+.login-step input[type="text"],
+.login-step input[type="password"] {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+  color: var(--paper);
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.login-step input::placeholder { opacity: .45; }
+.login-step input:focus { border-color: var(--accent); }
+
+.login-btn { width: 100%; margin-top: 4px; }
+
+.login-error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(220,50,50,.25);
+  border: 1px solid rgba(220,50,50,.4);
+  font-size: .85rem;
+  color: #ffc8c8;
+}
+
+.login-info {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(0,184,217,.15);
+  border: 1px solid rgba(0,184,217,.3);
+  font-size: .9rem;
+  color: #b9f0ff;
+}
+/* ────────────────────────────────────────────────────────────── */
+
 * {
   box-sizing: border-box;
 }
