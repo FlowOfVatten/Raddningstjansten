@@ -1770,6 +1770,10 @@ const HERO_DATA = [
   { name: 'Padme',     element: 'archer', tier: 4, march: 30, guerrilla: 40, load:  0, firstAid:  0, regen: true },
   { name: 'Meg',       element: 'archer', tier: 2, march: 20, guerrilla: 25, load:  0, firstAid: 15, regen: true },
   { name: 'Maya',      element: 'archer', tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 20, regen: true },
+  { name: 'Dakota',    element: 'archer', tier: 3, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Bully',     element: 'archer', tier: 3, march:  0, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Nisara',    element: 'archer', tier: 3, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Colvin',    element: 'archer', tier: 3, march: 20, guerrilla: 25, load:  0, firstAid: 10, regen: false },
   { name: 'Trist',     element: 'archer', tier: 1, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
   { name: 'Fatima',    element: 'archer', tier: 1, march: 20, guerrilla:  0, load: 20, firstAid:  0, regen: true },
   // Fire
@@ -1780,7 +1784,7 @@ const HERO_DATA = [
   { name: 'Cosette',   element: 'fire',   tier: 4, march: 20, guerrilla: 30, load: 30, firstAid: 25, regen: false },
   { name: 'Vanessa',   element: 'fire',   tier: 2, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: true },
   { name: 'Simon',     element: 'fire',   tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
-  { name: 'Miku',      element: 'fire',   tier: 3, march: 15, guerrilla: 25, load:  0, firstAid:  0, regen: true },
+  { name: 'Miku',      element: 'fire',   tier: 3, march: 20, guerrilla: 25, load:  0, firstAid:  0, regen: true },
   { name: 'Paul',      element: 'fire',   tier: 3, march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
   { name: 'Wallis',    element: 'fire',   tier: 2, march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
   { name: 'Dolvar',    element: 'fire',   tier: 2, march: 20, guerrilla: 25, load: 15, firstAid: 15, regen: false },
@@ -1793,6 +1797,10 @@ const HERO_DATA = [
   { name: 'Kris',      element: 'fire',   tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
   { name: 'Ophelia',   element: 'fire',   tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
   { name: 'Samar',     element: 'fire',   tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Prometheus',  element: 'fire', tier: 3, march: 20, guerrilla: 25, load: 20, firstAid: 15, regen: false },
+  { name: 'Luna Vesper', element: 'fire', tier: 3, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Ignis',       element: 'fire', tier: 3, march: 20, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Frem',        element: 'fire', tier: 3, march: 20, guerrilla: 25, load:  0, firstAid: 10, regen: false },
   // Ice
   { name: 'Keith',     element: 'ice',    tier: 4, march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
   { name: 'Maud',      element: 'ice',    tier: 4, march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
@@ -1813,6 +1821,8 @@ const HERO_DATA = [
   { name: 'Nicole',    element: 'ice',    tier: 1, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: false },
   { name: 'Ralph',     element: 'ice',    tier: 1, march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
   { name: 'Merlin',    element: 'ice',    tier: 1, march: 15, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Gracia',    element: 'ice',    tier: 3, march: 30, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Valkyrie Elwin', element: 'ice', tier: 4, march: 20, guerrilla: 25, load:  0, firstAid: 10, regen: false },
   // Goblin
   { name: 'Chiyoko',   element: 'goblin', tier: 4, march: 30, guerrilla: 20, load: 20, firstAid:  0, regen: true },
   { name: 'Rosamond',  element: 'goblin', tier: 4, march: 20, guerrilla: 30, load: 20, firstAid: 25, regen: false },
@@ -1826,6 +1836,12 @@ const HERO_DATA = [
   { name: 'Claudia',   element: 'goblin', tier: 1, march:  0, guerrilla:  0, load: 20, firstAid: 15, regen: false },
   { name: 'Isaac',     element: 'goblin', tier: 1, march: 20, guerrilla: 20, load: 10, firstAid:  0, regen: false },
   { name: 'Alucard',   element: 'goblin', tier: 1, march:  0, guerrilla:  0, load:  0, firstAid:  0, regen: false },
+  { name: 'Medusa',    element: 'goblin', tier: 3, march:  0, guerrilla: 20, load:  0, firstAid: 15, regen: false },
+  { name: 'Hades',     element: 'goblin', tier: 3, march: 25, guerrilla: 25, load:  0, firstAid: 15, regen: true },
+  { name: 'Salorien',  element: 'goblin', tier: 3, march: 20, guerrilla: 20, load:  0, firstAid: 10, regen: false },
+  { name: 'Cindy',     element: 'goblin', tier: 3, march: 20, guerrilla: 20, load: 20, firstAid:  0, regen: true },
+  // Archer (continued)
+  { name: 'Doris',     element: 'archer', tier: 2, march: 20, guerrilla: 20, load:  0, firstAid:  0, regen: true },
 ];
 const ELEMENT_LABEL = { archer: 'Archer', fire: 'Fire', ice: 'Ice', goblin: 'Goblin' };
 const ELEMENT_ORDER = ['archer', 'fire', 'ice', 'goblin'];
