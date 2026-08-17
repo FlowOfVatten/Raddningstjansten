@@ -2,10 +2,11 @@ const { Pool } = require("pg");
 
 function resolvePgConnectionString() {
   return (
+    process.env.UTBBOKNING_PG_CONNECTION_STRING ||
     process.env.RISE_PG_CONNECTION_STRING ||
     process.env.PG_CONNECTION_STRING ||
     process.env.DATABASE_URL ||
-    "postgresql://azure_app:N8mvQ2rT7xP4kL9zC5dH1sW3fY6@158.174.114.209:5432/smallprojects?sslmode=no-verify"
+    ""
   ).trim();
 }
 
@@ -268,7 +269,7 @@ module.exports = async function (context, req) {
 
   if (!pgConnectionString) {
     return json(500, {
-      error: "Missing PostgreSQL connection string. Set RISE_PG_CONNECTION_STRING, PG_CONNECTION_STRING or DATABASE_URL."
+      error: "Missing PostgreSQL connection string. Set UTBBOKNING_PG_CONNECTION_STRING (preferred) or RISE_PG_CONNECTION_STRING / PG_CONNECTION_STRING / DATABASE_URL."
     });
   }
 
