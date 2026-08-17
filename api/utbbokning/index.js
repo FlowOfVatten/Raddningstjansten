@@ -19,8 +19,6 @@ const pool = new Pool({
   idleTimeoutMillis: 30000
 });
 
-let schemaReady = false;
-
 const corsHeaders = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
@@ -103,79 +101,6 @@ function collectDemandByDate(payload) {
   });
 
   return usageMap;
-}
-
-async function ensureSchema(client) {
-  if (schemaReady) {
-    return;
-  }
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS public.utbbokning_resources (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      normalized_name TEXT NOT NULL UNIQUE,
-      category TEXT NOT NULL DEFAULT '',
-      notes TEXT NOT NULL DEFAULT '',
-      total_quantity INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS public.utbbokning_bookings (
-      id TEXT PRIMARY KEY,
-      payload JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  schemaReady = true;
-}
-
-async function ensureSchemaWithTolerance(client, context) {
-  try {
-    await ensureSchema(client);
-    return { ok: true };
-  } catch (error) {
-    const code = String(error?.code || "");
-    const message = String(error?.message || "");
-    const permissionDenied = code === "42501" || /permission denied/i.test(message);
-
-    if (permissionDenied) {
-      const existence = await client.query(`
-        SELECT
-          to_regclass('public.utbbokning_resources') AS resources_table,
-          to_regclass('public.utbbokning_bookings') AS bookings_table;
-      `);
-
-      const resourcesTable = existence.rows?.[0]?.resources_table || null;
-      const bookingsTable = existence.rows?.[0]?.bookings_table || null;
-      const tablesExist = Boolean(resourcesTable && bookingsTable);
-
-      context.log.warn("utbbokning schema ensure skipped due to DB permissions", {
-        code,
-        message,
-        resourcesTable,
-        bookingsTable
-      });
-
-      if (tablesExist) {
-        return { ok: true, skipped: true, reason: "permission-denied-but-tables-exist" };
-      }
-
-      return {
-        ok: false,
-        skipped: true,
-        reason: "permission-denied-and-missing-tables",
-        resourcesTable,
-        bookingsTable
-      };
-    }
-
-    throw error;
-  }
 }
 
 async function listResources(client) {
@@ -310,11 +235,12 @@ module.exports = async function (context, req) {
 
     if (method === "GET" && entity === "debug") {
       const probe = await probeDatabase(client);
-      const schemaAttempt = await ensureSchemaWithTolerance(client, context);
+      const existence = await client.query(`SELECT to_regclass('public.utbbokning_resources') AS r, to_regclass('public.utbbokning_bookings') AS b`);
+      const tablesExist = Boolean(existence.rows?.[0]?.r && existence.rows?.[0]?.b);
       return json(200, {
         ok: probe.ok,
         probe,
-        schema: schemaAttempt,
+        schema: { ok: tablesExist, tablesExist },
         env: {
           hasRisePgConnectionString: Boolean(process.env.RISE_PG_CONNECTION_STRING),
           hasPgConnectionString: Boolean(process.env.PG_CONNECTION_STRING),
@@ -324,16 +250,6 @@ module.exports = async function (context, req) {
           masked: maskConnectionString(pgConnectionString),
           length: pgConnectionString.length
         }
-      });
-    }
-
-    const schemaAttempt = await ensureSchemaWithTolerance(client, context);
-    const requiresSchema = entity === "resources" || entity === "bookings" || entity === "resource" || entity === "booking";
-
-    if (requiresSchema && !schemaAttempt.ok) {
-      return json(503, {
-        error: "UtbBokning schema saknas och kunde inte skapas med aktuella databasrattigheter.",
-        schema: schemaAttempt
       });
     }
 
