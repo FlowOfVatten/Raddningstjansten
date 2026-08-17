@@ -334,6 +334,7 @@ function bindEvents() {
   });
   els.resourcePicker?.addEventListener("change", handleResourceSelection);
   els.resourceLibrary?.addEventListener("click", handleResourceLibraryClick);
+  els.resourceLibrary?.addEventListener("change", handleResourceLibraryChange);
 }
 
 function resolveSignedInProfile() {
@@ -645,26 +646,62 @@ async function handleResourceSubmit(event) {
 }
 
 async function handleResourceLibraryClick(event) {
-  const button = event.target.closest("[data-resource-delete]");
-  if (!button) {
+  // Delete
+  const deleteBtn = event.target.closest("[data-resource-delete]");
+  if (deleteBtn) {
+    const resourceId = deleteBtn.getAttribute("data-resource-delete");
+    const resource = state.resources.find((item) => item.id === resourceId);
+    await deleteStoreItem(RESOURCE_STORE, resourceId);
+    state.selectedResourceIds.delete(resourceId);
+    state.resources = await listStoreItems(RESOURCE_STORE);
+    if (els.resourcePicker) renderResourcePicker();
+    if (els.resourceLibrary) renderResourceLibrary();
+    if (els.draftSummary) renderDraftSummary();
+    setStatus(resource ? `Resursen "${resource.name}" togs bort.` : "Resurs borttagen.");
     return;
   }
 
-  const resourceId = button.getAttribute("data-resource-delete");
+  // Increment
+  const incBtn = event.target.closest("[data-resource-qty-inc]");
+  if (incBtn) {
+    const resourceId = incBtn.getAttribute("data-resource-qty-inc");
+    const input = els.resourceLibrary.querySelector(`[data-resource-qty="${resourceId}"]`);
+    if (input) {
+      input.value = Math.max(0, Number(input.value) + 1);
+      await saveResourceQty(resourceId, Number(input.value));
+    }
+    return;
+  }
+
+  // Decrement
+  const decBtn = event.target.closest("[data-resource-qty-dec]");
+  if (decBtn) {
+    const resourceId = decBtn.getAttribute("data-resource-qty-dec");
+    const input = els.resourceLibrary.querySelector(`[data-resource-qty="${resourceId}"]`);
+    if (input) {
+      input.value = Math.max(0, Number(input.value) - 1);
+      await saveResourceQty(resourceId, Number(input.value));
+    }
+    return;
+  }
+}
+
+async function handleResourceLibraryChange(event) {
+  const input = event.target.closest("[data-resource-qty]");
+  if (!input) return;
+  const resourceId = input.getAttribute("data-resource-qty");
+  const qty = Math.max(0, Number(input.value) || 0);
+  input.value = qty;
+  await saveResourceQty(resourceId, qty);
+}
+
+async function saveResourceQty(resourceId, qty) {
   const resource = state.resources.find((item) => item.id === resourceId);
-  await deleteStoreItem(RESOURCE_STORE, resourceId);
-  state.selectedResourceIds.delete(resourceId);
+  if (!resource) return;
+  const updated = { ...resource, totalQuantity: qty };
+  await putStoreItem(RESOURCE_STORE, updated);
   state.resources = await listStoreItems(RESOURCE_STORE);
-  if (els.resourcePicker) {
-    renderResourcePicker();
-  }
-  if (els.resourceLibrary) {
-    renderResourceLibrary();
-  }
-  if (els.draftSummary) {
-    renderDraftSummary();
-  }
-  setStatus(resource ? `Resursen "${resource.name}" togs bort.` : "Resurs borttagen.");
+  setStatus(`"${resource.name}" uppdaterad: ${qty} st i lager.`);
 }
 
 async function handleBookingSubmit(event) {
@@ -1271,10 +1308,19 @@ function renderResourceLibrary() {
     card.className = "resource-card";
     card.innerHTML = `
       <div class="resource-card-header">
-        <h3>${escapeHtml(resource.name)}</h3>
+        <h3 class="resource-card-name" data-resource-name="${resource.id}">${escapeHtml(resource.name)}</h3>
         <span class="resource-tag">${escapeHtml(resource.category || "Övrigt")}</span>
       </div>
-      <p class="helper-text">Totalt antal: ${escapeHtml(String(resource.totalQuantity ?? 0))}</p>
+      <div class="resource-qty-row">
+        <label class="resource-qty-label">Antal i lager</label>
+        <div class="resource-qty-controls">
+          <button type="button" class="qty-btn" data-resource-qty-dec="${resource.id}">−</button>
+          <input type="number" class="qty-input" min="0" step="1"
+            value="${Number(resource.totalQuantity ?? 0)}"
+            data-resource-qty="${resource.id}" />
+          <button type="button" class="qty-btn" data-resource-qty-inc="${resource.id}">+</button>
+        </div>
+      </div>
       <p class="helper-text">${escapeHtml(resource.notes || "Ingen beskrivning.")}</p>
       <button type="button" class="link-button" data-resource-delete="${resource.id}">Ta bort</button>
     `;
