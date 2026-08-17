@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UtbBokning Resurser</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">Räddningstjänsten Övning</p>
+          <h1>Resursbibliotek</h1>
+          <p class="intro">
+            Hantera resurser som sedan kan väljas inne i bokningsflödet.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <a class="ghost-button" href="index.html">Till bokningssidan</a>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <section class="panel form-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Databas</p>
+              <h2>Lägg till resurs</h2>
+            </div>
+            <p id="saveStatus" class="status-text">Resurser sparas i backend-databasen.</p>
+          </div>
+
+          <form id="resourceForm" class="resource-form">
+            <label>
+              <span>Namn</span>
+              <input name="name" type="text" placeholder="Exempel: Rökcontainer" required />
+            </label>
+            <label>
+              <span>Kategori</span>
+              <input name="category" type="text" placeholder="Exempel: Yta, personal eller utrustning" />
+            </label>
+            <label>
+              <span>Totalt antal</span>
+              <input name="totalQuantity" type="number" min="0" step="1" value="0" placeholder="Exempel: 8" />
+            </label>
+            <label>
+              <span>Beskrivning</span>
+              <textarea name="notes" rows="3" placeholder="Kapacitet, begränsningar eller intern kommentar."></textarea>
+            </label>
+            <div class="form-actions">
+              <button type="submit">Lägg till resurs</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="sidebar sidebar-compact">
+          <section class="panel sidebar-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Bibliotek</p>
+                <h2>Befintliga resurser</h2>
+              </div>
+            </div>
+            <div id="resourceLibrary" class="resource-library"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

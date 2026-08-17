@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UtbBokning</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">Räddningstjänsten Övning</p>
+          <h1>UtbBokning</h1>
+          <p class="intro">
+            En bokningssida som nu följer strukturen i DOCX-underlaget för Viktoria övningsfält.
+            Utkast och resursbibliotek sparas lokalt i webbläsaren medan vi formar den vidare.
+          </p>
+          <div class="hero-badges">
+            <span id="profileStatePill" class="hero-pill">Intern bokning</span>
+            <span class="hero-pill">Live-översikt</span>
+            <span class="hero-pill">Autospar</span>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <a class="ghost-button" href="resources.html">Hantera resurser</a>
+          <button id="loadLatestBooking" type="button">Ladda senaste utkast</button>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <section class="panel form-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Bokningsförfrågan</p>
+              <h2>Skapa utkast</h2>
+            </div>
+            <p id="saveStatus" class="status-text">Ingen sparning genomförd än.</p>
+          </div>
+
+          <div id="profileBanner" class="profile-banner">
+            Beställaruppgifter hämtas från Entra när användaren öppnar sidan.
+          </div>
+
+          <form id="bookingForm" class="booking-form">
+            <fieldset>
+              <legend>Beställare</legend>
+              <div class="form-grid two-columns">
+                <label>
+                  <span>Namn</span>
+                  <input name="requesterName" type="text" placeholder="Hämtas från Entra" readonly />
+                </label>
+                <label>
+                  <span>Mejladress</span>
+                  <input name="email" type="email" placeholder="Hämtas från Entra" readonly />
+                </label>
+                <label>
+                  <span>Telefonnummer</span>
+                  <input name="phone" type="tel" placeholder="Hämtas från Entra" readonly />
+                </label>
+                <label>
+                  <span>Roll</span>
+                  <input name="contactRole" type="text" placeholder="Hämtas från Entra" readonly />
+                </label>
+                <label>
+                  <span>Enhet</span>
+                  <input name="department" type="text" placeholder="Hämtas från Entra" readonly />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Bokning</legend>
+              <div class="form-grid">
+                <div class="form-grid two-columns">
+                  <label>
+                    <span>Bokningens rubrik</span>
+                    <input name="title" type="text" placeholder="Exempel: Säkerhetsutbildning för driftlag" />
+                  </label>
+                  <label>
+                    <span>Syfte</span>
+                    <input name="purpose" type="text" placeholder="Vad ska bokningen leda till?" />
+                  </label>
+                  <label>
+                    <span>Startdatum</span>
+                    <input name="startDate" type="date" />
+                  </label>
+                  <label>
+                    <span>Slutdatum</span>
+                    <input name="endDate" type="date" />
+                  </label>
+                  <label>
+                    <span>Starttid</span>
+                    <select name="startTime">
+                      <option value="">Välj starttid</option>
+                      <option value="06:00">06:00</option>
+                      <option value="07:00">07:00</option>
+                      <option value="08:00">08:00</option>
+                      <option value="09:00">09:00</option>
+                      <option value="10:00">10:00</option>
+                      <option value="11:00">11:00</option>
+                      <option value="12:00">12:00</option>
+                      <option value="13:00">13:00</option>
+                      <option value="14:00">14:00</option>
+                      <option value="15:00">15:00</option>
+                      <option value="16:00">16:00</option>
+                      <option value="17:00">17:00</option>
+                      <option value="18:00">18:00</option>
+                      <option value="19:00">19:00</option>
+                      <option value="20:00">20:00</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Sluttid</span>
+                    <select name="endTime">
+                      <option value="">Välj sluttid</option>
+                      <option value="07:00">07:00</option>
+                      <option value="08:00">08:00</option>
+                      <option value="09:00">09:00</option>
+                      <option value="10:00">10:00</option>
+                      <option value="11:00">11:00</option>
+                      <option value="12:00">12:00</option>
+                      <option value="13:00">13:00</option>
+                      <option value="14:00">14:00</option>
+                      <option value="15:00">15:00</option>
+                      <option value="16:00">16:00</option>
+                      <option value="17:00">17:00</option>
+                      <option value="18:00">18:00</option>
+                      <option value="19:00">19:00</option>
+                      <option value="20:00">20:00</option>
+                      <option value="21:00">21:00</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Antal deltagare</span>
+                    <input name="participantCount" type="number" min="1" placeholder="12" />
+                  </label>
+                </div>
+                <label>
+                  <span>Beskrivning</span>
+                  <textarea name="description" rows="4" placeholder="Kort beskrivning av hela bokningen, syfte och övergripande förväntningar."></textarea>
+                </label>
+                <label>
+                  <span>Särskilda krav</span>
+                  <textarea name="specialRequirements" rows="3" placeholder="Säkerhetskrav, lokalbehov, mat, skyddsutrustning, transporter med mera."></textarea>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Schema</legend>
+              <div class="inline-actions">
+                <p class="helper-text">Lägg upp varje tidssatt moment och ange exakt vad som behövs då, till exempel teorisal.</p>
+                <button id="addAgendaItem" type="button" class="secondary-button">Lägg till moment</button>
+              </div>
+              <div id="agendaList" class="agenda-list"></div>
+            </fieldset>
+
+            <fieldset class="privacy-fieldset">
+              <legend>Personuppgiftshantering</legend>
+              <div class="info-block">
+                <p class="helper-text">
+                  Personuppgifter i formuläret behandlas av Räddningsnämnden för handläggning av bokning enligt GDPR (2016/679) och sparas tills ärendet är avslutat.
+                </p>
+                <p class="helper-text">Mer information finns på uppsala.se/gdpr.</p>
+              </div>
+            </fieldset>
+
+            <div class="form-actions">
+              <button id="saveBooking" type="submit">Spara utkast</button>
+              <button id="exportBooking" type="button" class="secondary-button">Exportera JSON</button>
+              <button id="resetBooking" type="reset" class="secondary-button">Tömställ</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="panel wow-panel">
+          <div class="wow-head">
+            <p class="eyebrow">Operationspanel</p>
+            <h2>Live-lägesbild</h2>
+          </div>
+
+          <div class="completion-wrap">
+            <div class="summary-row">
+              <strong>Formulärstatus</strong>
+              <span id="completionLabel">0%</span>
+            </div>
+            <div class="completion-track">
+              <div id="completionBar" class="completion-bar"></div>
+            </div>
+          </div>
+
+          <div id="quickFacts" class="quick-facts"></div>
+
+          <div>
+            <div class="summary-row">
+              <strong>Smarta tips</strong>
+              <span class="helper-text">Automatisk analys</span>
+            </div>
+            <ul id="smartTips" class="insight-list"></ul>
+          </div>
+
+          <div>
+            <div class="summary-row">
+              <strong>Tidslinje</strong>
+              <span class="helper-text">Momentöversikt</span>
+            </div>
+            <div id="liveTimeline" class="timeline-list"></div>
+          </div>
+
+          <div class="kbd-tips">
+            <strong>Snabbkommandon</strong>
+            <p class="helper-text">Ctrl+S sparar utkast direkt. Ctrl+Shift+M lägger till nytt moment.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel summary-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Sammanfattning</p>
+            <h2>Senaste utkast</h2>
+          </div>
+        </div>
+        <div id="draftSummary" class="draft-summary">
+          <p class="helper-text">Spara ett utkast för att se sammanfattning här.</p>
+        </div>
+      </section>
+    </main>
+
+    <template id="agendaItemTemplate">
+      <article class="agenda-item">
+        <div class="agenda-grid">
+          <label>
+            <span>Dag</span>
+            <select data-field="date"></select>
+          </label>
+          <label>
+            <span>Tid</span>
+            <div class="moment-time-range">
+              <select data-field="timeStart">
+                <option value="">Start</option>
+                <option value="06:00">06:00</option>
+                <option value="07:00">07:00</option>
+                <option value="08:00">08:00</option>
+                <option value="09:00">09:00</option>
+                <option value="10:00">10:00</option>
+                <option value="11:00">11:00</option>
+                <option value="12:00">12:00</option>
+                <option value="13:00">13:00</option>
+                <option value="14:00">14:00</option>
+                <option value="15:00">15:00</option>
+                <option value="16:00">16:00</option>
+                <option value="17:00">17:00</option>
+                <option value="18:00">18:00</option>
+                <option value="19:00">19:00</option>
+                <option value="20:00">20:00</option>
+              </select>
+              <select data-field="timeEnd">
+                <option value="">Slut</option>
+                <option value="07:00">07:00</option>
+                <option value="08:00">08:00</option>
+                <option value="09:00">09:00</option>
+                <option value="10:00">10:00</option>
+                <option value="11:00">11:00</option>
+                <option value="12:00">12:00</option>
+                <option value="13:00">13:00</option>
+                <option value="14:00">14:00</option>
+                <option value="15:00">15:00</option>
+                <option value="16:00">16:00</option>
+                <option value="17:00">17:00</option>
+                <option value="18:00">18:00</option>
+                <option value="19:00">19:00</option>
+                <option value="20:00">20:00</option>
+                <option value="21:00">21:00</option>
+              </select>
+            </div>
+          </label>
+          <label>
+            <span>Moment</span>
+            <input data-field="title" type="text" placeholder="Exempel: Genomgång eller praktiskt pass" />
+          </label>
+        </div>
+        <div class="agenda-grid agenda-grid-wide">
+          <label>
+            <span>Lokal för momentet</span>
+            <select data-field="resources"></select>
+            <small class="helper-text">Välj den lokal eller bokningsbara resurs som behövs vid den här tiden.</small>
+          </label>
+          <label>
+            <span>Instruktör</span>
+            <select data-field="instructor">
+              <option value="">Välj instruktör</option>
+              <option value="Anna Berg">Anna Berg</option>
+              <option value="Johan Lind">Johan Lind</option>
+              <option value="Sara Nord">Sara Nord</option>
+              <option value="Mikael Holm">Mikael Holm</option>
+              <option value="Elin Sjöberg">Elin Sjöberg</option>
+            </select>
+            <small class="helper-text">Tillfälliga namn tills riktiga instruktörer finns.</small>
+          </label>
+        </div>
+        <label>
+          <span>Tillval för lokal</span>
+          <div data-field="locationDetail" class="location-detail-options"></div>
+          <small class="helper-text">Valen uppdateras automatiskt utifrån vald lokal för momentet. Ange antal per tillval.</small>
+        </label>
+        <label>
+          <span>Notering</span>
+          <textarea data-field="notes" rows="2" placeholder="Beskriv exakt vad som ska göras eller behövs under det här momentet."></textarea>
+        </label>
+        <button type="button" class="link-button" data-action="remove-agenda">Ta bort</button>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
