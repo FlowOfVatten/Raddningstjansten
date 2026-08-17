@@ -194,7 +194,6 @@ async function init() {
   bindEvents();
 
   if (hasBookingPage) {
-    addAgendaItem();
     state.userProfile = resolveSignedInProfile();
     applySignedInProfile(state.userProfile);
     bindShortcuts();
@@ -780,7 +779,6 @@ function handleResetBooking() {
   state.selectedResourceIds.clear();
   window.setTimeout(() => {
     els.agendaList.innerHTML = "";
-    addAgendaItem();
     applySignedInProfile(state.userProfile);
     if (els.resourcePicker) {
       renderResourcePicker();
