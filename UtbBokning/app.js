@@ -208,22 +208,26 @@ async function init() {
       setStatus("Du kor via file://. Ange ?apiBase=https://din-host eller kor via localhost.");
     }
 
-    if (!window.indexedDB) {
-      setStatus("Varken backend eller IndexedDB ar tillganglig. Kan inte spara data.");
-      return;
-    }
-
-    state.db = await openDb();
-    setStatus("Backend ej tillganglig. Kor i lokalt fallback-lage.");
+    await enableLocalFallback("Backend ej tillganglig. Kor i lokalt fallback-lage.");
   } else {
     const endpointInfo = API_ENDPOINT.startsWith("http") ? ` via ${API_ENDPOINT}` : "";
     setStatus(`Kopplad mot backend-databasen${endpointInfo}.`);
   }
 
-  await seedDefaultResources();
-  await normalizeLegacyResourceEntries();
-
-  state.resources = await listStoreItems(RESOURCE_STORE);
+  try {
+    await seedDefaultResources();
+    await normalizeLegacyResourceEntries();
+    state.resources = await listStoreItems(RESOURCE_STORE);
+  } catch (error) {
+    if (state.useRemote) {
+      await enableLocalFallback("Remote databas svarade med fel. Kor lokalt tills separat UtbBokning-schema finns.");
+      await seedDefaultResources();
+      await normalizeLegacyResourceEntries();
+      state.resources = await listStoreItems(RESOURCE_STORE);
+    } else {
+      throw error;
+    }
+  }
 
   if (hasBookingPage) {
     refreshAgendaResourceOptions();
@@ -245,6 +249,23 @@ async function init() {
   }
 
   updateExperienceDashboard();
+}
+
+async function enableLocalFallback(message) {
+  state.useRemote = false;
+
+  if (!window.indexedDB) {
+    setStatus("Varken backend eller IndexedDB ar tillganglig. Kan inte spara data.");
+    throw new Error("IndexedDB unavailable");
+  }
+
+  if (!state.db) {
+    state.db = await openDb();
+  }
+
+  if (message) {
+    setStatus(message);
+  }
 }
 
 function bindEvents() {
