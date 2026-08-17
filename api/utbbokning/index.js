@@ -258,6 +258,14 @@ module.exports = async function (context, req) {
     return { status: 204, headers: corsHeaders, body: "" };
   }
 
+  if (method === "GET" && entity === "health") {
+    return json(200, {
+      ok: true,
+      service: "utbbokning",
+      dbConfigured: Boolean(pgConnectionString)
+    });
+  }
+
   if (!pgConnectionString) {
     return json(500, {
       error: "Missing PostgreSQL connection string. Set RISE_PG_CONNECTION_STRING, PG_CONNECTION_STRING or DATABASE_URL."
@@ -268,7 +276,7 @@ module.exports = async function (context, req) {
   try {
     client = await pool.connect();
 
-    if (method === "GET" && entity === "health") {
+    if (method === "GET" && entity === "health-db") {
       const probe = await probeDatabase(client);
       return json(probe.ok ? 200 : 503, {
         ok: probe.ok,
