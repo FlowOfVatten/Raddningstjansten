@@ -998,7 +998,7 @@ function getAgendaDateOptions() {
 
   while (cursor <= end && options.length < 31) {
     const iso = cursor.toISOString().slice(0, 10);
-    const weekday = dayNames[cursor.getDay()];
+    const weekday = dayNames[cursor.getUTCDay()];
     options.push({
       value: iso,
       label: `Dag ${dayIndex} • ${weekday} ${iso}`
