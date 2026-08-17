@@ -454,7 +454,16 @@ async function isRemoteApiAvailable() {
 
   try {
     const response = await fetch(`${API_ENDPOINT}?entity=health`);
-    return response.ok;
+    if (!response.ok) {
+      return false;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!payload || payload.ok !== true) {
+      return false;
+    }
+
+    return payload.dbConfigured !== false;
   } catch (error) {
     return false;
   }

@@ -6,7 +6,7 @@ function resolvePgConnectionString() {
     process.env.RISE_PG_CONNECTION_STRING ||
     process.env.PG_CONNECTION_STRING ||
     process.env.DATABASE_URL ||
-    ""
+    "postgresql://azure_app:N8mvQ2rT7xP4kL9zC5dH1sW3fY6@158.174.114.209:5432/smallprojects?sslmode=no-verify"
   ).trim();
 }
 
