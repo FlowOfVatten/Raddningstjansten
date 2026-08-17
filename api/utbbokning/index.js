@@ -111,7 +111,7 @@ async function ensureSchema(client) {
   }
 
   await client.query(`
-    CREATE TABLE IF NOT EXISTS utbbokning_resources (
+    CREATE TABLE IF NOT EXISTS public.utbbokning_resources (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       normalized_name TEXT NOT NULL UNIQUE,
@@ -124,7 +124,7 @@ async function ensureSchema(client) {
   `);
 
   await client.query(`
-    CREATE TABLE IF NOT EXISTS utbbokning_bookings (
+    CREATE TABLE IF NOT EXISTS public.utbbokning_bookings (
       id TEXT PRIMARY KEY,
       payload JSONB NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -144,11 +144,34 @@ async function ensureSchemaWithTolerance(client, context) {
     const permissionDenied = code === "42501" || /permission denied/i.test(message);
 
     if (permissionDenied) {
+      const existence = await client.query(`
+        SELECT
+          to_regclass('public.utbbokning_resources') AS resources_table,
+          to_regclass('public.utbbokning_bookings') AS bookings_table;
+      `);
+
+      const resourcesTable = existence.rows?.[0]?.resources_table || null;
+      const bookingsTable = existence.rows?.[0]?.bookings_table || null;
+      const tablesExist = Boolean(resourcesTable && bookingsTable);
+
       context.log.warn("utbbokning schema ensure skipped due to DB permissions", {
         code,
-        message
+        message,
+        resourcesTable,
+        bookingsTable
       });
-      return { ok: false, skipped: true, reason: "permission-denied" };
+
+      if (tablesExist) {
+        return { ok: true, skipped: true, reason: "permission-denied-but-tables-exist" };
+      }
+
+      return {
+        ok: false,
+        skipped: true,
+        reason: "permission-denied-and-missing-tables",
+        resourcesTable,
+        bookingsTable
+      };
     }
 
     throw error;
@@ -158,7 +181,7 @@ async function ensureSchemaWithTolerance(client, context) {
 async function listResources(client) {
   const result = await client.query(`
     SELECT id, name, category, notes, total_quantity, updated_at
-    FROM utbbokning_resources
+    FROM public.utbbokning_resources
     ORDER BY lower(name) ASC;
   `);
 
@@ -175,7 +198,7 @@ async function listResources(client) {
 async function listBookings(client) {
   const result = await client.query(`
     SELECT id, payload, updated_at
-    FROM utbbokning_bookings
+    FROM public.utbbokning_bookings
     ORDER BY updated_at DESC;
   `);
 
@@ -194,7 +217,7 @@ async function validateAvailability(client, booking) {
 
   const inventoryResult = await client.query(`
     SELECT normalized_name, name, total_quantity
-    FROM utbbokning_resources;
+    FROM public.utbbokning_resources;
   `);
 
   const inventory = new Map(
@@ -208,7 +231,7 @@ async function validateAvailability(client, booking) {
   );
 
   const existingResult = await client.query(
-    `SELECT payload FROM utbbokning_bookings WHERE id <> $1;`,
+    `SELECT payload FROM public.utbbokning_bookings WHERE id <> $1;`,
     [String(booking.id || "")]
   );
 
@@ -304,7 +327,15 @@ module.exports = async function (context, req) {
       });
     }
 
-    await ensureSchemaWithTolerance(client, context);
+    const schemaAttempt = await ensureSchemaWithTolerance(client, context);
+    const requiresSchema = entity === "resources" || entity === "bookings" || entity === "resource" || entity === "booking";
+
+    if (requiresSchema && !schemaAttempt.ok) {
+      return json(503, {
+        error: "UtbBokning schema saknas och kunde inte skapas med aktuella databasrattigheter.",
+        schema: schemaAttempt
+      });
+    }
 
     if (method === "GET" && entity === "resources") {
       const resources = await listResources(client);
@@ -332,7 +363,7 @@ module.exports = async function (context, req) {
 
       await client.query(
         `
-          INSERT INTO utbbokning_resources (id, name, normalized_name, category, notes, total_quantity, updated_at)
+          INSERT INTO public.utbbokning_resources (id, name, normalized_name, category, notes, total_quantity, updated_at)
           VALUES ($1, $2, $3, $4, $5, $6, NOW())
           ON CONFLICT (id) DO UPDATE
           SET name = EXCLUDED.name,
@@ -354,7 +385,7 @@ module.exports = async function (context, req) {
         return json(400, { error: "id required" });
       }
 
-      await client.query(`DELETE FROM utbbokning_resources WHERE id = $1;`, [id]);
+      await client.query(`DELETE FROM public.utbbokning_resources WHERE id = $1;`, [id]);
       return json(200, { ok: true });
     }
 
@@ -378,7 +409,7 @@ module.exports = async function (context, req) {
 
       await client.query(
         `
-          INSERT INTO utbbokning_bookings (id, payload, updated_at)
+          INSERT INTO public.utbbokning_bookings (id, payload, updated_at)
           VALUES ($1, $2::jsonb, NOW())
           ON CONFLICT (id) DO UPDATE
           SET payload = EXCLUDED.payload,
