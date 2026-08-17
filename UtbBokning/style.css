@@ -81,6 +81,12 @@ p { margin: 0; }
 }
 .topbar-left { display: flex; align-items: center; gap: 14px; }
 .topbar-logo {
+  height: 36px;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
+}
+.topbar-logo {
   width: 34px; height: 34px;
   border-radius: var(--radius-sm);
   background: var(--accent);
