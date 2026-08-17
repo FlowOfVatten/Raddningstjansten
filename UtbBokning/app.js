@@ -1341,7 +1341,6 @@ function renderDraftSummary() {
   const resources = allAgendaResources.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join("");
   const agenda = (draft.agenda || [])
     .map((item) => {
-      const resourcesForItem = (item.resources || []).map((resource) => `<span class="pill">${escapeHtml(resource)}</span>`).join("");
       const locationDetails = normalizeLocationDetails(item.locationDetails, item.locationDetail);
       const locationDetailPills = locationDetails
         .map((entry) => `<span class="pill">${escapeHtml(entry.name)} (${entry.quantity})</span>`)
@@ -1350,11 +1349,8 @@ function renderDraftSummary() {
       return `
         <div class="summary-moment">
           <div class="summary-row"><strong>Dag</strong><span>${escapeHtml(dateLabel)}</span></div>
-          <div class="summary-row"><strong>${escapeHtml(item.time || "Tid saknas")}</strong><span>${escapeHtml(item.title || "Moment utan rubrik")}</span></div>
-          <div class="summary-row"><strong>Instruktör</strong><span>${escapeHtml(item.instructor || "Ingen vald")}</span></div>
-          <div class="summary-row"><strong>Tillval</strong><span>${locationDetails.length ? "" : "Inget valt"}</span></div>
-          <div class="pill-list">${locationDetailPills || '<span class="helper-text">Inga tillval valda</span>'}</div>
-          <div class="pill-list">${resourcesForItem || '<span class="helper-text">Inga resurser kopplade</span>'}</div>
+          <div class="summary-row"><strong>${escapeHtml(item.title || "Moment utan rubrik")}</strong><span>${escapeHtml(item.instructor || "Instruktör saknas")}</span></div>
+          ${locationDetailPills ? `<div class="pill-list">${locationDetailPills}</div>` : ""}
         </div>
       `;
     })
@@ -1370,7 +1366,7 @@ function renderDraftSummary() {
       <p>${escapeHtml(draft.email || "Ingen e-post")}</p>
       <p>${escapeHtml(draft.phone || "Ingen telefon")}</p>
       <div>
-        <strong>Valda resurser</strong>
+        <strong>Valda lokaler</strong>
         <div class="pill-list">${resources || '<span class="helper-text">Inga resurser valda.</span>'}</div>
       </div>
       <div>
@@ -1466,14 +1462,6 @@ function renderQuickFacts(draft) {
     <article class="fact-card">
       <span class="helper-text">Planerade moment</span>
       <strong>${agenda.length}</strong>
-    </article>
-    <article class="fact-card">
-      <span class="helper-text">Total momenttid</span>
-      <strong>${formatMinutes(totalDuration)}</strong>
-    </article>
-    <article class="fact-card">
-      <span class="helper-text">Tillvalsvolym</span>
-      <strong>${totalExtras}</strong>
     </article>
   `;
 }
