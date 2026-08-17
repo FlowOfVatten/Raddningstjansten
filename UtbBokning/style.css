@@ -1,6 +1,6 @@
-﻿/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    DESIGN TOKENS
-───────────────────────────────────────────── */
+--------------------------------------------- */
 :root {
   --bg:           #f4f5f7;
   --surface:      #ffffff;
@@ -22,9 +22,9 @@
   --shadow:       0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    RESET
-───────────────────────────────────────────── */
+--------------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -40,9 +40,9 @@ button, input, textarea, select, a { font: inherit; }
 h1, h2, h3, legend { margin: 0; font-weight: 700; }
 p { margin: 0; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    LAYOUT
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .layout {
   width: min(1320px, calc(100% - 40px));
   margin: 0 auto;
@@ -58,9 +58,9 @@ p { margin: 0; }
 }
 .sidebar { display: grid; gap: 20px; align-content: start; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    PANEL
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -69,18 +69,18 @@ p { margin: 0; }
   box-shadow: var(--shadow-sm);
 }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    HERO / TOP BAR
-───────────────────────────────────────────── */
-.hero {
+--------------------------------------------- */
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
 }
-.hero-left { display: flex; align-items: center; gap: 14px; }
-.hero-logo {
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar-logo {
   width: 34px; height: 34px;
   border-radius: var(--radius-sm);
   background: var(--accent);
@@ -88,14 +88,14 @@ p { margin: 0; }
   color: #fff; font-weight: 800; font-size: 1rem;
   flex-shrink: 0;
 }
-.hero h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
-.hero .eyebrow { font-size: 11px; color: var(--text-3); margin: 0 0 1px; }
-.hero-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.hero-badges, .intro { display: none; }
+.topbar h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
+.topbar .eyebrow { font-size: 11px; color: var(--text-3); margin: 0 0 1px; }
+.topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.topbar-badges, .intro { display: none; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    BUTTONS
-───────────────────────────────────────────── */
+--------------------------------------------- */
 button, .ghost-button {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 14px;
@@ -131,9 +131,9 @@ button:active, .ghost-button:active { opacity: 0.85; }
 }
 .qty-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    FORM ELEMENTS
-───────────────────────────────────────────── */
+--------------------------------------------- */
 input, textarea, select {
   width: 100%; padding: 7px 10px;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -160,9 +160,9 @@ label span {
   border: 1px solid var(--border); font-size: 13px;
 }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    FIELDSET
-───────────────────────────────────────────── */
+--------------------------------------------- */
 fieldset {
   margin: 0; padding: 14px 14px 16px;
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -177,9 +177,9 @@ legend {
 .two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    SECTION HEADING
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .section-heading {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 12px; margin-bottom: 16px;
@@ -190,15 +190,15 @@ legend {
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3);
 }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    TEXT HELPERS
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .status-text, .helper-text { font-size: 12px; color: var(--text-3); line-height: 1.5; }
 small.helper-text { display: block; margin-top: 3px; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    PROFILE BANNER
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .profile-banner {
   padding: 9px 12px;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -206,9 +206,9 @@ small.helper-text { display: block; margin-top: 3px; }
   margin-bottom: 12px;
 }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    AGENDA
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .agenda-list { display: grid; gap: 8px; }
 .agenda-item {
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -235,9 +235,9 @@ small.helper-text { display: block; margin-top: 3px; }
   gap: 12px; margin-bottom: 10px;
 }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    LOCATION DETAIL (TILLVAL)
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .location-detail-options {
   display: grid; gap: 6px; padding: 10px;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -250,9 +250,9 @@ small.helper-text { display: block; margin-top: 3px; }
 .location-detail-custom input[type="text"] { flex: 1; min-width: 0; }
 .location-detail-add { padding: 5px 12px; border-radius: var(--radius-sm); font-size: 12px; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    SIDEBAR / OPERATIONS PANEL
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .wow-panel { position: sticky; top: 18px; display: grid; gap: 14px; }
 .wow-head { display: grid; gap: 3px; }
 .completion-wrap { display: grid; gap: 6px; }
@@ -294,9 +294,9 @@ small.helper-text { display: block; margin-top: 3px; }
 }
 .kbd-tips strong { display: block; margin-bottom: 3px; font-size: 12px; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    RESOURCE PICKER
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .resource-picker { display: grid; gap: 6px; }
 .resource-option {
   display: grid; gap: 3px; padding: 9px 12px;
@@ -307,9 +307,9 @@ small.helper-text { display: block; margin-top: 3px; }
 .resource-option input[type="checkbox"] { width: auto; margin-top: 2px; }
 .resource-meta { font-size: 12px; color: var(--text-3); }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    RESOURCE LIBRARY
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .resource-library { display: grid; gap: 8px; }
 .resource-card {
   display: flex; flex-direction: column; gap: 8px;
@@ -329,9 +329,9 @@ small.helper-text { display: block; margin-top: 3px; }
 .resource-qty-label { font-size: 12px; color: var(--text-3); flex-shrink: 0; }
 .resource-qty-controls { display: flex; align-items: center; gap: 4px; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    DRAFT SUMMARY
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .draft-summary { display: grid; gap: 8px; }
 .summary-card {
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -349,9 +349,9 @@ small.helper-text { display: block; margin-top: 3px; }
   font-size: 12px; font-weight: 600;
 }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    MISC
-───────────────────────────────────────────── */
+--------------------------------------------- */
 .privacy-fieldset { background: var(--surface); }
 .checkbox-row { display: flex; gap: 10px; align-items: flex-start; }
 .checkbox-row input[type="checkbox"] { width: auto; margin-top: 2px; }
@@ -362,16 +362,16 @@ small.helper-text { display: block; margin-top: 3px; }
 .summary-panel { margin-top: 0; }
 .info-block { display: grid; gap: 6px; }
 
-/* ─────────────────────────────────────────────
+/* ---------------------------------------------
    RESPONSIVE
-───────────────────────────────────────────── */
+--------------------------------------------- */
 @media (max-width: 1060px) {
   .content-grid { grid-template-columns: 1fr; }
   .wow-panel, .sidebar-panel { position: static; }
 }
 @media (max-width: 640px) {
   .layout { width: calc(100% - 24px); padding: 16px 0 48px; }
-  .hero { flex-direction: column; align-items: flex-start; }
+  .topbar { flex-direction: column; align-items: flex-start; }
   .two-columns, .agenda-grid, .sidebar { grid-template-columns: 1fr; }
   .panel { padding: 14px; }
   .section-heading { flex-direction: column; align-items: flex-start; }
