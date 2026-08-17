@@ -174,20 +174,20 @@ async function validateAvailability(client, booking) {
     const [date, normalizedName] = key.split("::");
     const inventoryItem = inventory.get(normalizedName);
 
-    if (!inventoryItem || inventoryItem.total <= 0) {
-      return;
-    }
+    // Resource unknown in DB → treat as no stock
+    const total = inventoryItem ? Number(inventoryItem.total) : 0;
+    const resourceName = inventoryItem ? inventoryItem.name : normalizedName;
 
     const alreadyBooked = bookedMap.get(key) || 0;
-    const available = Math.max(0, inventoryItem.total - alreadyBooked);
+    const available = Math.max(0, total - alreadyBooked);
 
     if (requestedQty > available) {
       conflicts.push({
         date,
-        resource: inventoryItem.name,
+        resource: resourceName,
         requested: requestedQty,
         alreadyBooked,
-        total: inventoryItem.total,
+        total,
         available
       });
     }
