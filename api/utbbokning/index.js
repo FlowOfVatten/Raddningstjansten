@@ -133,6 +133,27 @@ async function ensureSchema(client) {
   schemaReady = true;
 }
 
+async function ensureSchemaWithTolerance(client, context) {
+  try {
+    await ensureSchema(client);
+    return { ok: true };
+  } catch (error) {
+    const code = String(error?.code || "");
+    const message = String(error?.message || "");
+    const permissionDenied = code === "42501" || /permission denied/i.test(message);
+
+    if (permissionDenied) {
+      context.log.warn("utbbokning schema ensure skipped due to DB permissions", {
+        code,
+        message
+      });
+      return { ok: false, skipped: true, reason: "permission-denied" };
+    }
+
+    throw error;
+  }
+}
+
 async function listResources(client) {
   const result = await client.query(`
     SELECT id, name, category, notes, total_quantity, updated_at
@@ -246,13 +267,22 @@ module.exports = async function (context, req) {
   let client;
   try {
     client = await pool.connect();
-    await ensureSchema(client);
+
+    if (method === "GET" && entity === "health") {
+      const probe = await probeDatabase(client);
+      return json(probe.ok ? 200 : 503, {
+        ok: probe.ok,
+        probe
+      });
+    }
 
     if (method === "GET" && entity === "debug") {
       const probe = await probeDatabase(client);
+      const schemaAttempt = await ensureSchemaWithTolerance(client, context);
       return json(200, {
         ok: probe.ok,
         probe,
+        schema: schemaAttempt,
         env: {
           hasRisePgConnectionString: Boolean(process.env.RISE_PG_CONNECTION_STRING),
           hasPgConnectionString: Boolean(process.env.PG_CONNECTION_STRING),
@@ -265,9 +295,7 @@ module.exports = async function (context, req) {
       });
     }
 
-    if (method === "GET" && entity === "health") {
-      return json(200, { ok: true });
-    }
+    await ensureSchemaWithTolerance(client, context);
 
     if (method === "GET" && entity === "resources") {
       const resources = await listResources(client);
