@@ -411,7 +411,8 @@ small.helper-text { display: block; margin-top: 3px; }
 .summary-moment {
   display: grid; gap: 6px; padding: 20px 0; border-top: 1px solid var(--border);
 }
-.summary-list, .pill-list { display: flex; gap: 5px; flex-wrap: wrap; }
+.summary-list { display: grid; gap: 0; }
+.pill-list { display: flex; gap: 5px; flex-wrap: wrap; }
 
 .summary-detail-list { display: grid; gap: 2px; margin: 2px 0 4px 0; }
 
