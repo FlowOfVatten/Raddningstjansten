@@ -1208,13 +1208,13 @@ function syncAgendaLocationDetailSelect(agendaItem, preferredValues = []) {
       const stock = resource ? Number(resource.totalQuantity ?? 0) : 0;
       const requested = Math.max(0, Number(quantity.value) || 0);
       if (stock > 0 && requested > stock) {
-        warning.textContent = `Max ${stock} st i lager`;
+        warning.textContent = `Max ${stock} st (${stock} i lager för valt datum)`;
         warning.style.display = "";
-        quantity.style.borderColor = "var(--danger)";
+        quantity.style.borderColor = "#e03131";
       } else if (stock === 0 && requested > 0) {
-        warning.textContent = "Ej i lager";
+        warning.textContent = "Ej i lager för valt datum";
         warning.style.display = "";
-        quantity.style.borderColor = "var(--danger)";
+        quantity.style.borderColor = "#e03131";
       } else {
         warning.style.display = "none";
         quantity.style.borderColor = "";

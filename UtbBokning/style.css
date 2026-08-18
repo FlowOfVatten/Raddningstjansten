@@ -252,9 +252,11 @@ small.helper-text { display: block; margin-top: 3px; }
 .location-detail-option span { font-size: 13px; color: var(--text-2); }
 
 .qty-warning {
-  font-size: 11px;
-  font-weight: 700;
-  color: #e03131;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #e03131 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
   white-space: nowrap;
 }
 .location-detail-custom { display: flex; gap: 8px; margin-top: 4px; }
