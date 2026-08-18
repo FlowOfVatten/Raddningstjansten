@@ -1634,10 +1634,12 @@ function renderDraftSummary() {
         .map((entry) => `<span class="pill">${escapeHtml(entry.name)} (${entry.quantity})</span>`)
         .join("");
       const dateLabel = item.date ? formatAgendaDate(item.date) : "Dag saknas";
+      const lokal = (item.resources || []).join(", ");
       return `
         <div class="summary-moment">
           <div class="summary-row"><strong>Dag</strong><span>${escapeHtml(dateLabel)}</span></div>
           <div class="summary-row"><strong>${escapeHtml(item.title || "Moment utan rubrik")}</strong><span>${escapeHtml(item.instructor || "Instruktör saknas")}</span></div>
+          ${lokal ? `<div class="summary-row"><strong>Lokal</strong><span>${escapeHtml(lokal)}</span></div>` : ""}
           ${locationDetailPills ? `<div class="pill-list">${locationDetailPills}</div>` : ""}
         </div>
       `;
@@ -1654,10 +1656,6 @@ function renderDraftSummary() {
       <p>${escapeHtml(draft.contactRole || "Roll saknas")}</p>
       <p>${escapeHtml(draft.email || "Ingen e-post")}</p>
       <p>${escapeHtml(draft.phone || "Ingen telefon")}</p>
-      <div>
-        <strong>Valda lokaler</strong>
-        <div class="pill-list">${resources || '<span class="helper-text">Inga resurser valda.</span>'}</div>
-      </div>
       <div>
         <strong>Planerade moment</strong>
         <div class="summary-list">${agenda || '<p class="helper-text">Inga moment tillagda.</p>'}</div>
