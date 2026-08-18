@@ -71,8 +71,8 @@
                     <input name="title" type="text" placeholder="Exempel: Säkerhetsutbildning för driftlag" />
                   </label>
                   <label>
-                    <span>Syfte</span>
-                    <input name="purpose" type="text" placeholder="Vad ska bokningen leda till?" />
+                    <span>Antal deltagare</span>
+                    <input name="participantCount" type="number" min="1" placeholder="12" />
                   </label>
                   <label>
                     <span>Startdatum</span>
@@ -124,19 +124,13 @@
                       <option value="21:00">21:00</option>
                     </select>
                   </label>
-                  <label>
-                    <span>Antal deltagare</span>
-                    <input name="participantCount" type="number" min="1" placeholder="12" />
-                  </label>
+
                 </div>
                 <label>
                   <span>Beskrivning</span>
                   <textarea name="description" rows="4" placeholder="Kort beskrivning av hela bokningen, syfte och övergripande förväntningar."></textarea>
                 </label>
-                <label>
-                  <span>Särskilda krav</span>
-                  <textarea name="specialRequirements" rows="3" placeholder="Säkerhetskrav, lokalbehov, mat, skyddsutrustning, transporter med mera."></textarea>
-                </label>
+
               </div>
             </fieldset>
 
