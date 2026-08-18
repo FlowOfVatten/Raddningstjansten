@@ -323,14 +323,6 @@ function bindEvents() {
       updateExperienceDashboard();
       return;
     }
-
-    const addCustomAction = event.target.closest("[data-action='add-custom-location-detail']");
-    if (addCustomAction) {
-      const agendaItem = addCustomAction.closest(".agenda-item");
-      if (agendaItem) {
-        handleAddCustomLocationDetail(agendaItem);
-      }
-    }
   });
   els.agendaList?.addEventListener("change", (event) => {
     const select = event.target;
@@ -1146,22 +1138,85 @@ function createLocationDetailCustomControls(disabled) {
   const wrapper = document.createElement("div");
   wrapper.className = "location-detail-custom";
 
+  const searchWrap = document.createElement("div");
+  searchWrap.className = "resource-search-wrap";
+
   const input = document.createElement("input");
   input.type = "text";
-  input.placeholder = "Eget tillval";
+  input.placeholder = disabled ? "Välj lokal först" : "Sök resurs (t.ex. Rökskydd)...";
   input.setAttribute("data-field", "locationDetailCustomName");
   input.disabled = Boolean(disabled);
+  input.setAttribute("autocomplete", "off");
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "secondary-button location-detail-add";
-  button.setAttribute("data-action", "add-custom-location-detail");
-  button.textContent = "Lägg till";
-  button.disabled = Boolean(disabled);
+  const suggestions = document.createElement("ul");
+  suggestions.className = "resource-suggestions";
+  suggestions.style.display = "none";
 
-  wrapper.appendChild(input);
-  wrapper.appendChild(button);
+  input.addEventListener("input", () => {
+    const query = input.value.trim().toLowerCase();
+    suggestions.innerHTML = "";
+    if (!query) { suggestions.style.display = "none"; return; }
 
+    const matches = state.resources
+      .map(r => r.name)
+      .filter(name => name.toLowerCase().includes(query))
+      .slice(0, 8);
+
+    if (matches.length === 0) { suggestions.style.display = "none"; return; }
+
+    matches.forEach(name => {
+      const li = document.createElement("li");
+      li.className = "resource-suggestion-item";
+      li.textContent = name;
+      li.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        input.value = name;
+        suggestions.style.display = "none";
+        const agendaItem = input.closest(".agenda-item");
+        if (agendaItem) handleAddCustomLocationDetail(agendaItem);
+      });
+      suggestions.appendChild(li);
+    });
+    suggestions.style.display = "";
+  });
+
+  input.addEventListener("blur", () => {
+    setTimeout(() => { suggestions.style.display = "none"; }, 150);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const first = suggestions.querySelector(".resource-suggestion-item");
+      if (first) { input.value = first.textContent; }
+      suggestions.style.display = "none";
+      const agendaItem = input.closest(".agenda-item");
+      if (agendaItem) handleAddCustomLocationDetail(agendaItem);
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const items = suggestions.querySelectorAll(".resource-suggestion-item");
+      if (items.length) { items[0].focus(); }
+    }
+  });
+
+  suggestions.addEventListener("keydown", (e) => {
+    const items = [...suggestions.querySelectorAll(".resource-suggestion-item")];
+    const idx = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" && idx < items.length - 1) { e.preventDefault(); items[idx + 1].focus(); }
+    if (e.key === "ArrowUp") { e.preventDefault(); idx > 0 ? items[idx - 1].focus() : input.focus(); }
+    if (e.key === "Enter" && idx >= 0) {
+      e.preventDefault();
+      input.value = items[idx].textContent;
+      suggestions.style.display = "none";
+      const agendaItem = input.closest(".agenda-item");
+      if (agendaItem) handleAddCustomLocationDetail(agendaItem);
+    }
+  });
+
+  searchWrap.appendChild(input);
+  searchWrap.appendChild(suggestions);
+  wrapper.appendChild(searchWrap);
   return wrapper;
 }
 
