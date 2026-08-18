@@ -1718,6 +1718,7 @@ function renderDraftSummary() {
       return `
         <div class="summary-moment">
           <div class="summary-row"><strong>Dag</strong><span>${escapeHtml(dateLabel)}</span></div>
+          ${item.time ? `<div class="summary-row"><strong>Tid</strong><span>${escapeHtml(item.time)}</span></div>` : ""}
           <div class="summary-row"><strong>${escapeHtml(item.title || "Moment utan rubrik")}</strong><span>${escapeHtml(item.instructor || "Instruktör saknas")}</span></div>
           ${lokal ? `<div class="summary-row"><strong>Lokal</strong><span>${escapeHtml(lokal)}</span></div>` : ""}
           ${locationDetailRows ? `<div class="summary-row"><strong>Tillval</strong></div><div class="summary-detail-list">${locationDetailRows}</div>` : ""}
