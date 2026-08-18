@@ -851,15 +851,14 @@ async function persistDraft(source = "manual") {
 
   const draft = buildBookingDraft();
   draft.updatedAt = new Date().toISOString();
-  draft.status = "confirmed";
+  if (source !== "autosave") {
+    draft.status = "confirmed";
+  }
   try {
     await putStoreItem(BOOKING_STORE, draft);
   } catch (error) {
     if (error?.status === 409 && Array.isArray(error?.payload?.conflicts)) {
       setStatus(formatInventoryConflictMessage(error.payload.conflicts));
-      if (source !== "autosave") {
-        alert(formatInventoryConflictMessage(error.payload.conflicts));
-      }
       return;
     }
 
@@ -1179,11 +1178,36 @@ function syncAgendaLocationDetailSelect(agendaItem, preferredValues = []) {
     quantity.setAttribute("data-location-detail-qty", optionValue);
     quantity.setAttribute("aria-label", `Antal för ${optionValue}`);
 
+    const warning = document.createElement("span");
+    warning.className = "qty-warning";
+    warning.style.display = "none";
+
+    const checkStock = () => {
+      const resource = state.resources.find(r => r.name.toLowerCase() === optionValue.toLowerCase());
+      const stock = resource ? Number(resource.totalQuantity ?? 0) : 0;
+      const requested = Math.max(0, Number(quantity.value) || 0);
+      if (stock > 0 && requested > stock) {
+        warning.textContent = `Max ${stock} st i lager`;
+        warning.style.display = "";
+        quantity.style.borderColor = "var(--danger)";
+      } else if (stock === 0 && requested > 0) {
+        warning.textContent = "Ej i lager";
+        warning.style.display = "";
+        quantity.style.borderColor = "var(--danger)";
+      } else {
+        warning.style.display = "none";
+        quantity.style.borderColor = "";
+      }
+    };
+    quantity.addEventListener("input", checkStock);
+    quantity.addEventListener("change", checkStock);
+
     const text = document.createElement("span");
     text.textContent = optionValue;
 
     row.appendChild(quantity);
     row.appendChild(text);
+    row.appendChild(warning);
     detailContainer.appendChild(row);
   });
 
