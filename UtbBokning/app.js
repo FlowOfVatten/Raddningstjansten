@@ -1157,7 +1157,7 @@ function createLocationDetailCustomControls(disabled) {
     suggestions.innerHTML = "";
     if (!query) { suggestions.style.display = "none"; return; }
 
-    const matches = state.resources
+    const matches = getManagedResources()
       .map(r => r.name)
       .filter(name => name.toLowerCase().includes(query))
       .slice(0, 8);
