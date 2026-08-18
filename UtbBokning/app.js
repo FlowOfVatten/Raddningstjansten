@@ -708,7 +708,6 @@ async function handleResourceSubmit(event) {
   const resource = {
     id: `res-${Date.now()}`,
     name,
-    category: String(formData.get("category") || "").trim() || "Övrigt",
     notes: String(formData.get("notes") || "").trim(),
     totalQuantity: Math.max(0, Number.parseInt(String(formData.get("totalQuantity") || "0"), 10) || 0),
     defaultFor
@@ -1547,7 +1546,6 @@ function renderResourceLibrary() {
       <div class="resource-edit-form" style="display:none">
         <div class="form-grid" style="gap:8px;margin-top:8px">
           <label><span>Namn</span><input type="text" class="edit-name" value="${escapeHtml(resource.name)}" /></label>
-          <label><span>Kategori</span><input type="text" class="edit-category" value="${escapeHtml(resource.category || '')}" /></label>
           <label><span>Beskrivning</span><textarea class="edit-notes" rows="2">${escapeHtml(resource.notes || '')}</textarea></label>
           <label><span>Typ</span>
             <select class="edit-type">
@@ -1603,7 +1601,6 @@ function renderResourceLibrary() {
       const updated = {
         ...resource,
         name,
-        category: card.querySelector(".edit-category").value.trim() || "Övrigt",
         notes: card.querySelector(".edit-notes").value.trim(),
         defaultFor
       };
