@@ -409,7 +409,7 @@ small.helper-text { display: block; margin-top: 3px; }
 }
 .summary-card h3 { font-size: 14px; }
 .summary-moment {
-  display: grid; gap: 5px; padding: 16px 0; border-top: 1px solid var(--border);
+  display: grid; gap: 6px; padding: 20px 0; border-top: 1px solid var(--border);
 }
 .summary-list, .pill-list { display: flex; gap: 5px; flex-wrap: wrap; }
 
