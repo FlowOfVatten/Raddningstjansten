@@ -334,6 +334,19 @@ function bindEvents() {
   });
   els.agendaList?.addEventListener("change", (event) => {
     const select = event.target;
+    if (select instanceof HTMLSelectElement && select.getAttribute("data-field") === "instructor") {
+      const agendaItem = select.closest(".agenda-item");
+      const customInput = agendaItem?.querySelector('[data-field="instructorCustom"]');
+      if (customInput) {
+        const isCustom = select.value === "__custom__";
+        customInput.style.display = isCustom ? "" : "none";
+        if (isCustom) customInput.focus();
+      }
+      state.isDirty = true;
+      updateExperienceDashboard();
+      return;
+    }
+
     if (!(select instanceof HTMLSelectElement) || select.getAttribute("data-field") !== "resources") {
       return;
     }
@@ -861,7 +874,13 @@ function collectAgendaItems() {
       notes: String(item.querySelector('[data-field="notes"]')?.value || "").trim(),
       resources: readSelectedValues(item.querySelector('[data-field="resources"]')),
       locationDetails: readLocationDetailValues(item),
-      instructor: String(item.querySelector('[data-field="instructor"]')?.value || "").trim()
+      instructor: (() => {
+        const sel = item.querySelector('[data-field="instructor"]');
+        if (sel?.value === "__custom__") {
+          return String(item.querySelector('[data-field="instructorCustom"]')?.value || "").trim();
+        }
+        return String(sel?.value || "").trim();
+      })()
     }))
     .filter((entry) => entry.date || entry.time || entry.title || entry.notes || entry.resources.length || entry.locationDetails.length || entry.instructor);
 }
@@ -1209,6 +1228,8 @@ function populateInstructorSelect(select, selectedValue) {
   }
 
   const normalizedValue = String(selectedValue || "");
+  const isCustom = normalizedValue && !INSTRUCTOR_OPTIONS.includes(normalizedValue);
+
   select.innerHTML = '<option value="">Välj instruktör</option>';
 
   INSTRUCTOR_OPTIONS.forEach((name) => {
@@ -1218,6 +1239,18 @@ function populateInstructorSelect(select, selectedValue) {
     option.selected = normalizedValue === name;
     select.appendChild(option);
   });
+
+  const customOpt = document.createElement("option");
+  customOpt.value = "__custom__";
+  customOpt.textContent = "Eget namn...";
+  customOpt.selected = isCustom;
+  select.appendChild(customOpt);
+
+  const customInput = select.parentElement?.querySelector('[data-field="instructorCustom"]');
+  if (customInput) {
+    customInput.style.display = isCustom ? "" : "none";
+    if (isCustom) customInput.value = normalizedValue;
+  }
 }
 
 function populateAgendaSelect(select, options, selectedValues) {
