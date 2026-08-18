@@ -825,6 +825,7 @@ async function persistDraft(source = "manual") {
 
   const draft = buildBookingDraft();
   draft.updatedAt = new Date().toISOString();
+  draft.status = "confirmed";
   try {
     await putStoreItem(BOOKING_STORE, draft);
   } catch (error) {
@@ -849,7 +850,7 @@ async function persistDraft(source = "manual") {
     return;
   }
 
-  setStatus(`Utkast sparat ${formatTimestamp(draft.updatedAt)}.`);
+  setStatus(`✅ Bokning skickad ${formatTimestamp(draft.updatedAt)}.`);
 }
 
 function formatInventoryConflictMessage(conflicts) {
