@@ -1764,8 +1764,8 @@ function renderSmartTips(draft) {
   const participantCount = Number.parseInt(String(draft.participantCount || "0"), 10) || 0;
   const agenda = draft.agenda || [];
 
-  if (!draft.title || !draft.purpose) {
-    tips.push("Sätt både rubrik och tydligt syfte för snabbare intern handläggning.");
+  if (!draft.title) {
+    tips.push("Sätt en rubrik för bokningen för snabbare intern handläggning.");
   }
 
   if (participantCount >= 20) {
