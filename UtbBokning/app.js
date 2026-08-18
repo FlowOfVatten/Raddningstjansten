@@ -1710,8 +1710,8 @@ function renderDraftSummary() {
   const agenda = (draft.agenda || [])
     .map((item) => {
       const locationDetails = normalizeLocationDetails(item.locationDetails, item.locationDetail);
-      const locationDetailPills = locationDetails
-        .map((entry) => `<span class="pill">${escapeHtml(entry.name)} (${entry.quantity})</span>`)
+      const locationDetailRows = locationDetails
+        .map((entry) => `<div class="summary-detail-row"><span>${escapeHtml(entry.name)}</span><span>${entry.quantity}</span></div>`)
         .join("");
       const dateLabel = item.date ? formatAgendaDate(item.date) : "Dag saknas";
       const lokal = (item.resources || []).join(", ");
@@ -1720,7 +1720,7 @@ function renderDraftSummary() {
           <div class="summary-row"><strong>Dag</strong><span>${escapeHtml(dateLabel)}</span></div>
           <div class="summary-row"><strong>${escapeHtml(item.title || "Moment utan rubrik")}</strong><span>${escapeHtml(item.instructor || "Instruktör saknas")}</span></div>
           ${lokal ? `<div class="summary-row"><strong>Lokal</strong><span>${escapeHtml(lokal)}</span></div>` : ""}
-          ${locationDetailPills ? `<div class="pill-list">${locationDetailPills}</div>` : ""}
+          ${locationDetailRows ? `<div class="summary-row"><strong>Tillval</strong></div><div class="summary-detail-list">${locationDetailRows}</div>` : ""}
         </div>
       `;
     })

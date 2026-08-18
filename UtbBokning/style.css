@@ -412,6 +412,18 @@ small.helper-text { display: block; margin-top: 3px; }
   display: grid; gap: 5px; padding: 8px 0; border-top: 1px solid var(--border);
 }
 .summary-list, .pill-list { display: flex; gap: 5px; flex-wrap: wrap; }
+
+.summary-detail-list { display: grid; gap: 2px; margin: 2px 0 4px 0; }
+
+.summary-detail-row {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.summary-detail-row span:first-child { flex: 1; }
+.summary-detail-row span:last-child { font-weight: 600; color: var(--text); }
 .pill {
   display: inline-flex; align-items: center;
   border-radius: var(--radius-sm); padding: 2px 8px;
