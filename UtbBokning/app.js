@@ -818,6 +818,27 @@ async function saveResourceQty(resourceId, qty) {
 
 async function handleBookingSubmit(event) {
   event.preventDefault();
+
+  // Check for visible stock warnings
+  const warnings = els.bookingForm?.querySelectorAll(".qty-warning") || [];
+  const activeWarnings = Array.from(warnings).filter(w => w.style.display !== "none");
+  if (activeWarnings.length > 0) {
+    const names = activeWarnings.map(w => {
+      const input = w.closest(".location-detail-option")?.querySelector("[data-location-detail-qty]");
+      return input?.getAttribute("data-location-detail-qty") || "okkänd resurs";
+    });
+    setStatus(`⚠️ Åtgärda lagerkonflikter först: ${names.join(", ")}`);
+    // Flash the warnings
+    activeWarnings.forEach(w => {
+      w.style.transition = "opacity 0.1s";
+      w.style.opacity = "0.3";
+      setTimeout(() => { w.style.opacity = "1"; }, 150);
+      setTimeout(() => { w.style.opacity = "0.3"; }, 300);
+      setTimeout(() => { w.style.opacity = "1"; }, 450);
+    });
+    return;
+  }
+
   await persistDraft("manual");
 }
 
