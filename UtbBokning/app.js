@@ -280,6 +280,22 @@ async function init() {
     renderResourceLibrary();
   }
 
+  // Populate defaultFor select and wire type toggle in add-resource form
+  const resourceTypeSelect = document.querySelector('[name="resourceType"]');
+  const defaultForGroup = document.getElementById("defaultForGroup");
+  const defaultForSelect = document.querySelector('[name="defaultFor"]');
+  if (resourceTypeSelect && defaultForGroup && defaultForSelect) {
+    STATIC_LOCATIONS.forEach(loc => {
+      const opt = document.createElement("option");
+      opt.value = loc;
+      opt.textContent = loc;
+      defaultForSelect.appendChild(opt);
+    });
+    resourceTypeSelect.addEventListener("change", () => {
+      defaultForGroup.style.display = resourceTypeSelect.value === "default" ? "" : "none";
+    });
+  }
+
   const bookings = await listStoreItems(BOOKING_STORE);
   state.latestBooking = bookings.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0] || null;
 
@@ -684,12 +700,18 @@ async function handleResourceSubmit(event) {
     return;
   }
 
+  const resourceType = formData.get("resourceType") || "searchable";
+  const defaultFor = resourceType === "default"
+    ? formData.getAll("defaultFor").filter(v => v)
+    : [];
+
   const resource = {
     id: `res-${Date.now()}`,
     name,
     category: String(formData.get("category") || "").trim() || "Övrigt",
     notes: String(formData.get("notes") || "").trim(),
-    totalQuantity: Math.max(0, Number.parseInt(String(formData.get("totalQuantity") || "0"), 10) || 0)
+    totalQuantity: Math.max(0, Number.parseInt(String(formData.get("totalQuantity") || "0"), 10) || 0),
+    defaultFor
   };
 
   try {
@@ -1420,7 +1442,17 @@ function populateMomentLocationSelect(select, selectedValues) {
 
 function getLocationDetailOptions(locationName) {
   const normalized = String(locationName || "").trim().toLowerCase();
-  return MOMENT_LOCATION_DETAIL_OPTIONS[normalized] || [];
+  // Check hardcoded map first
+  if (MOMENT_LOCATION_DETAIL_OPTIONS[normalized]) {
+    return MOMENT_LOCATION_DETAIL_OPTIONS[normalized];
+  }
+  // Check DB resources with defaultFor matching this location
+  return state.resources
+    .filter(r => {
+      const arr = Array.isArray(r.defaultFor) ? r.defaultFor : (r.defaultFor ? [r.defaultFor] : []);
+      return arr.some(l => l.toLowerCase() === normalized);
+    })
+    .map(r => r.name);
 }
 
 function renderResourcePicker() {
@@ -1493,10 +1525,14 @@ function renderResourceLibrary() {
   resources.forEach((resource) => {
     const card = document.createElement("article");
     card.className = "resource-card";
+    const defaultForArr = Array.isArray(resource.defaultFor) ? resource.defaultFor : (resource.defaultFor ? [resource.defaultFor] : []);
+    const defaultForLabel = defaultForArr.length
+      ? `<span class="resource-tag" style="background:rgba(40,130,92,0.12);color:#2a6e4a">Standard: ${escapeHtml(defaultForArr.join(', '))}</span>`
+      : `<span class="resource-tag">Sökbar</span>`;
     card.innerHTML = `
       <div class="resource-card-header">
-        <h3 class="resource-card-name" data-resource-name="${resource.id}">${escapeHtml(resource.name)}</h3>
-        <span class="resource-tag">${escapeHtml(resource.category || "Övrigt")}</span>
+        <h3>${escapeHtml(resource.name)}</h3>
+        ${defaultForLabel}
       </div>
       <div class="resource-qty-row">
         <label class="resource-qty-label">Antal i lager</label>
@@ -1508,9 +1544,75 @@ function renderResourceLibrary() {
           <button type="button" class="qty-btn" data-resource-qty-inc="${resource.id}">+</button>
         </div>
       </div>
-      <p class="helper-text">${escapeHtml(resource.notes || "Ingen beskrivning.")}</p>
-      <button type="button" class="link-button" data-resource-delete="${resource.id}">Ta bort</button>
+      <div class="resource-edit-form" style="display:none">
+        <div class="form-grid" style="gap:8px;margin-top:8px">
+          <label><span>Namn</span><input type="text" class="edit-name" value="${escapeHtml(resource.name)}" /></label>
+          <label><span>Kategori</span><input type="text" class="edit-category" value="${escapeHtml(resource.category || '')}" /></label>
+          <label><span>Beskrivning</span><textarea class="edit-notes" rows="2">${escapeHtml(resource.notes || '')}</textarea></label>
+          <label><span>Typ</span>
+            <select class="edit-type">
+              <option value="searchable" ${!defaultForArr.length ? 'selected' : ''}>Sökbar resurs</option>
+              <option value="default" ${defaultForArr.length ? 'selected' : ''}>Standardtillval för lokal</option>
+            </select>
+          </label>
+          <div class="edit-defaultfor-group" style="display:${defaultForArr.length ? '' : 'none'}">
+            <label><span>Standardtillval för lokaler (håll Ctrl för flera)</span>
+              <select class="edit-defaultfor" multiple style="min-height:120px">
+                ${STATIC_LOCATIONS.map(l => `<option value="${escapeHtml(l)}" ${defaultForArr.includes(l) ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top:8px">
+          <button type="button" class="secondary-button" data-resource-edit-save="${resource.id}">Spara ändringar</button>
+          <button type="button" class="link-button" data-resource-edit-cancel="${resource.id}">Avbryt</button>
+        </div>
+      </div>
+      <div class="resource-card-actions">
+        <button type="button" class="link-button" style="color:var(--text-3)" data-resource-edit-toggle="${resource.id}">Redigera</button>
+        <button type="button" class="link-button" data-resource-delete="${resource.id}">Ta bort</button>
+      </div>
     `;
+
+    // Type toggle inside edit form
+    const typeSelect = card.querySelector(".edit-type");
+    const defaultForGroup = card.querySelector(".edit-defaultfor-group");
+    typeSelect?.addEventListener("change", () => {
+      defaultForGroup.style.display = typeSelect.value === "default" ? "" : "none";
+    });
+
+    // Edit toggle
+    card.querySelector(`[data-resource-edit-toggle="${resource.id}"]`)?.addEventListener("click", () => {
+      const form = card.querySelector(".resource-edit-form");
+      form.style.display = form.style.display === "none" ? "" : "none";
+    });
+
+    // Cancel
+    card.querySelector(`[data-resource-edit-cancel="${resource.id}"]`)?.addEventListener("click", () => {
+      card.querySelector(".resource-edit-form").style.display = "none";
+    });
+
+    // Save
+    card.querySelector(`[data-resource-edit-save="${resource.id}"]`)?.addEventListener("click", async () => {
+      const name = card.querySelector(".edit-name").value.trim();
+      if (!name) return;
+      const type = card.querySelector(".edit-type").value;
+      const defaultFor = type === "default"
+        ? Array.from(card.querySelector(".edit-defaultfor").selectedOptions).map(o => o.value).filter(Boolean)
+        : [];
+      const updated = {
+        ...resource,
+        name,
+        category: card.querySelector(".edit-category").value.trim() || "Övrigt",
+        notes: card.querySelector(".edit-notes").value.trim(),
+        defaultFor
+      };
+      await putStoreItem(RESOURCE_STORE, updated);
+      state.resources = await listStoreItems(RESOURCE_STORE);
+      renderResourceLibrary();
+      setStatus(`"${name}" uppdaterad.`);
+    });
+
     els.resourceLibrary.appendChild(card);
   });
 }

@@ -32,11 +32,26 @@
           <form id="resourceForm" class="resource-form">
             <label>
               <span>Namn</span>
-              <input name="name" type="text" placeholder="Exempel: Rökcontainer" required />
+              <input name="name" type="text" placeholder="Exempel: Rökskydd" required />
             </label>
             <label>
+              <span>Typ</span>
+              <select name="resourceType">
+                <option value="searchable">Sökbar resurs (visas i sökfältet)</option>
+                <option value="default">Standardtillval för lokal</option>
+              </select>
+            </label>
+            <div id="defaultForGroup" style="display:none">
+              <label>
+                <span>Standardtillval för lokaler (håll Ctrl för flera)</span>
+                <select name="defaultFor" multiple style="min-height:120px">
+                  <option value="">Ingen</option>
+                </select>
+              </label>
+            </div>
+            <label>
               <span>Kategori</span>
-              <input name="category" type="text" placeholder="Exempel: Yta, personal eller utrustning" />
+              <input name="category" type="text" placeholder="Exempel: Utrustning, material" />
             </label>
             <label>
               <span>Totalt antal</span>
