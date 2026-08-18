@@ -15,16 +15,48 @@ const INSTRUCTOR_OPTIONS = [
   "Elin Sjöberg"
 ];
 const MOMENT_LOCATION_DETAIL_OPTIONS = {
-  teorisal: ["Papper och penna", "Projektor", "Ljud"],
-  "fika och pausyta": ["Kaffe / Te", "Smörgåsar"],
-  "rökcontainer": ["Rökskydd", "Värmekamera", "Larmställ"],
-  fordonsyta: ["Bilar", "Klippverktyg"]
+  "4b - flamman": ["Papper och penna", "Projektor", "Ljud"],
+  "4c - gnistan (grovlektionssal)": ["Papper och penna", "Projektor", "Ljud"],
+  "16 - sparlågan (grovlektionssal)": ["Papper och penna", "Projektor", "Ljud"],
+  "22 - branden": ["Papper och penna", "Projektor", "Ljud"],
+  "23 - glöden": ["Papper och penna", "Projektor", "Ljud"],
+  "19 rökövningshus": ["Rökskydd", "Värmekamera", "Larmställ"],
+  "31 kallrökövningshus": ["Rökskydd", "Värmekamera", "Larmställ"],
+  "18 containersystem": ["Rökskydd", "Värmekamera", "Larmställ"],
+  "9 körplan": ["Bilar", "Klippverktyg"],
+  "fika och pausyta": ["Kaffe / Te", "Smörgåsar"]
 };
+
 const STATIC_LOCATIONS = [
-  "Viktoria övningsfält",
-  "Teorisal",
-  "Rökcontainer",
-  "Fordonsyta",
+  // Lektionssalar
+  "4B - Flamman",
+  "4C - Gnistan (Grovlektionssal)",
+  "16 - Sparlågan (Grovlektionssal)",
+  "22 - Branden",
+  "23 - Glöden",
+  // Övningsytor
+  "4D Bursystem",
+  "9 Körplan",
+  "11 Gasolcontainer",
+  "12 Övningstorn",
+  "13 Kaj",
+  "14a Lergrop",
+  "14b Cistern",
+  "17 Brandförloppscontainer",
+  "18 Containersystem",
+  "19 Rökövningshus",
+  "25 Övningsyta",
+  "26 Liggande buss",
+  "26a Liggande buss - lyft",
+  "27a Tankvagn",
+  "27b Övningsyta",
+  "27c Perrong",
+  "27d Liggande tågvagn",
+  "28 Snedtak",
+  "29 Inträngningsbyggnad",
+  "30 Handbrandsläckarplatta",
+  "31 Kallrökövningshus",
+  // Övrigt
   "Fika och pausyta"
 ];
 const STATIC_LOCATION_KEYS = new Set(STATIC_LOCATIONS.map((name) => normalizeResourceName(name)));
@@ -881,9 +913,8 @@ function addAgendaItem(initialValue = {}) {
   template.querySelector('[data-field="title"]').value = initialValue.title || "";
   template.querySelector('[data-field="notes"]').value = initialValue.notes || "";
   const initialLocationDetails = normalizeLocationDetails(initialValue.locationDetails, initialValue.locationDetail);
-  populateAgendaSelect(
+  populateMomentLocationSelect(
     template.querySelector('[data-field="resources"]'),
-    getMomentLocationOptions(),
     initialValue.resources || []
   );
   populateInstructorSelect(
@@ -1227,6 +1258,44 @@ function getMomentLocationOptions() {
   return STATIC_LOCATIONS.map((name) => ({ value: name, label: name }));
 }
 
+function populateMomentLocationSelect(select, selectedValues) {
+  if (!(select instanceof HTMLSelectElement)) return;
+  const selected = Array.isArray(selectedValues) ? selectedValues : selectedValues ? [selectedValues] : [];
+
+  const lektionssalar = [
+    "4B - Flamman",
+    "4C - Gnistan (Grovlektionssal)",
+    "16 - Sparlågan (Grovlektionssal)",
+    "22 - Branden",
+    "23 - Glöden"
+  ];
+  const ovningsytor = STATIC_LOCATIONS.filter(n => !lektionssalar.includes(n) && n !== "Fika och pausyta");
+
+  select.innerHTML = '<option value="">Välj lokal</option>';
+
+  const makeGroup = (label, names) => {
+    const group = document.createElement("optgroup");
+    group.label = label;
+    names.forEach(name => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      opt.selected = selected.includes(name);
+      group.appendChild(opt);
+    });
+    return group;
+  };
+
+  select.appendChild(makeGroup("Lektionssalar", lektionssalar));
+  select.appendChild(makeGroup("Övningsytor", ovningsytor));
+
+  const fikaOpt = document.createElement("option");
+  fikaOpt.value = "Fika och pausyta";
+  fikaOpt.textContent = "Fika och pausyta";
+  fikaOpt.selected = selected.includes("Fika och pausyta");
+  select.appendChild(fikaOpt);
+}
+
 function getLocationDetailOptions(locationName) {
   const normalized = String(locationName || "").trim().toLowerCase();
   return MOMENT_LOCATION_DETAIL_OPTIONS[normalized] || [];
@@ -1273,8 +1342,6 @@ function refreshAgendaResourceOptions() {
     return;
   }
 
-  const resourceOptions = getMomentLocationOptions();
-
   Array.from(els.agendaList.querySelectorAll('.agenda-item')).forEach((item) => {
     const resourceSelect = item.querySelector('[data-field="resources"]');
     const instructorSelect = item.querySelector('[data-field="instructor"]');
@@ -1282,7 +1349,7 @@ function refreshAgendaResourceOptions() {
     const selectedInstructor = String(instructorSelect?.value || "");
     const selectedDetails = readLocationDetailValues(item);
 
-    populateAgendaSelect(resourceSelect, resourceOptions, selectedResources);
+    populateMomentLocationSelect(resourceSelect, selectedResources);
     populateInstructorSelect(instructorSelect, selectedInstructor);
     syncAgendaLocationDetailSelect(item, selectedDetails);
   });
