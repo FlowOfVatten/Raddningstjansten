@@ -379,6 +379,27 @@ function bindEvents() {
   els.resourcePicker?.addEventListener("change", handleResourceSelection);
   els.resourceLibrary?.addEventListener("click", handleResourceLibraryClick);
   els.resourceLibrary?.addEventListener("change", handleResourceLibraryChange);
+
+  const onBehalfCheckbox = document.getElementById("bookingOnBehalf");
+  if (onBehalfCheckbox) {
+    onBehalfCheckbox.addEventListener("change", () => {
+      const isOnBehalf = onBehalfCheckbox.checked;
+      const entraFields = ["requesterName", "email", "phone", "contactRole", "department"];
+      entraFields.forEach((name) => {
+        const field = els.bookingForm?.elements.namedItem(name);
+        if (field instanceof HTMLInputElement) {
+          field.readOnly = !isOnBehalf;
+          if (isOnBehalf) {
+            field.value = "";
+            field.placeholder = "Ange " + field.name;
+            if (name === "requesterName") field.focus();
+          } else {
+            applySignedInProfile(state.userProfile);
+          }
+        }
+      });
+    });
+  }
 }
 
 function resolveSignedInProfile() {
@@ -842,8 +863,13 @@ function buildBookingDraft() {
   const selectedResources = state.resources.filter((item) => resourceIds.includes(item.id));
   const requesterName = String(formData.get("requesterName") || "").trim();
 
+  const onBehalfCheckbox = document.getElementById("bookingOnBehalf");
+  const isOnBehalf = onBehalfCheckbox?.checked || false;
+
   return {
     id: state.latestBooking?.id || `booking-${Date.now()}`,
+    submittedBy: isOnBehalf ? (state.userProfile?.requesterName || "") : "",
+    isOnBehalf,
     requesterName,
     department: String(formData.get("department") || "").trim(),
     contactRole: String(formData.get("contactRole") || "").trim(),
@@ -1460,6 +1486,7 @@ function renderDraftSummary() {
     <article class="summary-card">
       <h3>${escapeHtml(draft.title || "Utan rubrik")}</h3>
       <p>${escapeHtml(draft.requesterName || "Beställare saknas")}</p>
+      ${draft.isOnBehalf && draft.submittedBy ? `<p class="helper-text">Skickat av: ${escapeHtml(draft.submittedBy)}</p>` : ""}
       <p>${escapeHtml(composeDateRange(draft))}</p>
       <p>${escapeHtml(draft.department || "Enhet saknas")}</p>
       <p>${escapeHtml(draft.contactRole || "Roll saknas")}</p>
