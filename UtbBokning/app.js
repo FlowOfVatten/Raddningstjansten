@@ -347,6 +347,32 @@ function bindEvents() {
       updateExperienceDashboard();
       return;
     }
+
+    const copyAction = event.target.closest("[data-action='copy-agenda']");
+    if (copyAction) {
+      const sourceItem = copyAction.closest(".agenda-item");
+      if (sourceItem) {
+        const snapshot = {
+          date: sourceItem.querySelector('[data-field="date"]')?.value || "",
+          time: composeMomentTimeValue(sourceItem),
+          title: sourceItem.querySelector('[data-field="title"]')?.value || "",
+          notes: sourceItem.querySelector('[data-field="notes"]')?.value || "",
+          resources: readSelectedValues(sourceItem.querySelector('[data-field="resources"]')),
+          locationDetails: readLocationDetailValues(sourceItem),
+          instructor: (() => {
+            const sel = sourceItem.querySelector('[data-field="instructor"]');
+            if (sel?.value === "__custom__") return sourceItem.querySelector('[data-field="instructorCustom"]')?.value || "";
+            return sel?.value || "";
+          })()
+        };
+        addAgendaItem(snapshot);
+        // Scroll new item into view
+        els.agendaList.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        state.isDirty = true;
+        updateExperienceDashboard();
+      }
+      return;
+    }
   });
   els.agendaList?.addEventListener("change", (event) => {
     const select = event.target;

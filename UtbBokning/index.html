@@ -282,7 +282,10 @@
           <span>Notering</span>
           <textarea data-field="notes" rows="2" placeholder="Beskriv exakt vad som ska göras eller behövs under det här momentet."></textarea>
         </label>
-        <button type="button" class="link-button" data-action="remove-agenda">Ta bort</button>
+        <div style="display:flex;gap:12px;align-items:center">
+          <button type="button" class="link-button" style="color:var(--text-3)" data-action="copy-agenda">Kopiera moment</button>
+          <button type="button" class="link-button" data-action="remove-agenda">Ta bort</button>
+        </div>
       </article>
     </template>
 
