@@ -1060,8 +1060,8 @@ function getAgendaDateOptions() {
     return [];
   }
 
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = endDate ? new Date(`${endDate}T00:00:00`) : new Date(`${startDate}T00:00:00`);
+  const start = new Date(`${startDate}T12:00:00`);
+  const end = endDate ? new Date(`${endDate}T12:00:00`) : new Date(`${startDate}T12:00:00`);
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
     return [];
@@ -1678,7 +1678,7 @@ function formatAgendaDate(isoDate) {
     return "";
   }
 
-  const parsed = new Date(`${isoDate}T00:00:00`);
+  const parsed = new Date(`${isoDate}T12:00:00`);
   if (Number.isNaN(parsed.getTime())) {
     return isoDate;
   }
