@@ -1568,8 +1568,10 @@ function renderResourceLibrary() {
       </div>
       <div class="resource-card-actions">
         <button type="button" class="link-button" style="color:var(--text-3)" data-resource-edit-toggle="${resource.id}">Redigera</button>
+        <button type="button" class="link-button" style="color:var(--text-3)" data-resource-history="${resource.id}">Historik</button>
         <button type="button" class="link-button" data-resource-delete="${resource.id}">Ta bort</button>
       </div>
+      <div class="resource-history" style="display:none"></div>
     `;
 
     // Type toggle inside edit form
@@ -1577,6 +1579,31 @@ function renderResourceLibrary() {
     const defaultForGroup = card.querySelector(".edit-defaultfor-group");
     typeSelect?.addEventListener("change", () => {
       defaultForGroup.style.display = typeSelect.value === "default" ? "" : "none";
+    });
+
+    // Historik
+    card.querySelector(`[data-resource-history="${resource.id}"]`)?.addEventListener("click", async () => {
+      const historyDiv = card.querySelector(".resource-history");
+      if (historyDiv.style.display !== "none") {
+        historyDiv.style.display = "none";
+        return;
+      }
+      historyDiv.innerHTML = '<p class="helper-text">Laddar...</p>';
+      historyDiv.style.display = "";
+      const entries = await getResourceHistory(resource.name);
+      if (entries.length === 0) {
+        historyDiv.innerHTML = '<p class="helper-text">Ingen bokningshistorik hittades.</p>';
+        return;
+      }
+      historyDiv.innerHTML = `
+        <div class="history-list">
+          ${entries.map(e => `
+            <div class="history-entry">
+              <span class="history-date">${escapeHtml(e.date)}</span>
+              <span>${escapeHtml(e.requester)}</span>
+              ${e.title ? `<span class="helper-text">${escapeHtml(e.title)}</span>` : ''}
+            </div>`).join('')}
+        </div>`;
     });
 
     // Edit toggle
@@ -1612,6 +1639,32 @@ function renderResourceLibrary() {
 
     els.resourceLibrary.appendChild(card);
   });
+}
+
+async function getResourceHistory(resourceName) {
+  const bookings = await listStoreItems(BOOKING_STORE);
+  const normalizedTarget = resourceName.toLowerCase();
+  const hits = [];
+
+  bookings.forEach(booking => {
+    const agenda = Array.isArray(booking.agenda) ? booking.agenda : [];
+    agenda.forEach(moment => {
+      const details = normalizeLocationDetails(moment.locationDetails, moment.locationDetail);
+      const used = details.find(d => d.name.toLowerCase() === normalizedTarget && d.quantity > 0);
+      if (used) {
+        hits.push({
+          date: moment.date || booking.startDate || booking.updatedAt?.slice(0, 10) || "Datum okänt",
+          requester: booking.requesterName || "Okänd beställare",
+          title: booking.title || "",
+          sortKey: moment.date || booking.startDate || booking.updatedAt || ""
+        });
+      }
+    });
+  });
+
+  return hits
+    .sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+    .slice(0, 3);
 }
 
 function renderDraftSummary() {

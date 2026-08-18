@@ -374,6 +374,31 @@ small.helper-text { display: block; margin-top: 3px; }
 .resource-qty-label { font-size: 12px; color: var(--text-3); flex-shrink: 0; }
 .resource-qty-controls { display: flex; align-items: center; gap: 4px; }
 
+.resource-card-actions { display: flex; gap: 12px; margin-top: 4px; }
+
+.resource-history {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.history-list { display: grid; gap: 6px; }
+
+.history-entry {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 4px 10px;
+  align-items: baseline;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.history-date { font-weight: 700; color: var(--accent); }
+.history-entry .helper-text { grid-column: 2; font-size: 11px; }
+
 /* ---------------------------------------------
    DRAFT SUMMARY
 --------------------------------------------- */
