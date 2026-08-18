@@ -59,7 +59,15 @@ const STATIC_LOCATIONS = [
   // Övrigt
   "Fika och pausyta"
 ];
-const STATIC_LOCATION_KEYS = new Set(STATIC_LOCATIONS.map((name) => normalizeResourceName(name)));
+const STATIC_LOCATION_KEYS = new Set([
+  ...STATIC_LOCATIONS.map((name) => normalizeResourceName(name)),
+  // Gamla lokalnamn som kan finnas kvar i DB
+  "rökcontainer",
+  "fordonsyta",
+  "teorisal",
+  "viktoria övningsfält",
+  "fika och pausyta"
+]);
 const DEFAULT_DETAIL_RESOURCES = [
   {
     id: "res-detail-paper-pen",
