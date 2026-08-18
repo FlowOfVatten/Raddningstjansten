@@ -828,7 +828,9 @@ async function handleBookingSubmit(event) {
       return input?.getAttribute("data-location-detail-qty") || "okkänd resurs";
     });
     setStatus(`⚠️ Åtgärda lagerkonflikter först: ${names.join(", ")}`);
-    // Flash the warnings
+    // Flash the warnings and scroll to first one
+    const firstWarning = activeWarnings[0];
+    firstWarning.closest(".agenda-item")?.scrollIntoView({ behavior: "smooth", block: "center" });
     activeWarnings.forEach(w => {
       w.style.transition = "opacity 0.1s";
       w.style.opacity = "0.3";
