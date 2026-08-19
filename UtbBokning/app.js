@@ -23,9 +23,10 @@ const MOMENT_LOCATION_DETAIL_OPTIONS = {
   "16 - sparlågan (grovlektionssal)": ["Papper och penna", "Projektor", "Ljud"],
   "22 - branden": ["Papper och penna", "Projektor", "Ljud"],
   "23 - glöden": ["Papper och penna", "Projektor", "Ljud"],
-  "19 rökövningshus": ["Rökskydd", "Värmekamera", "Larmställ"],
-  "31 kallrökövningshus": ["Rökskydd", "Värmekamera", "Larmställ"],
-  "18 containersystem": ["Rökskydd", "Värmekamera", "Larmställ"],
+  "11 gasolcontainer": ["Remställ - beställ luftflaskor separat", "Luftflaska - beställ remställ separat", "Värmekamera", "Rökdykarlampa", "Rakelradio - DMO", "Rakelradio - TMO", "Passivitetslarm"],
+  "18 containersystem": ["Remställ - beställ luftflaskor separat", "Luftflaska - beställ remställ separat", "Värmekamera", "Rökdykarlampa", "Rakelradio - DMO", "Rakelradio - TMO", "Passivitetslarm"],
+  "19 rökövningshus": ["Remställ - beställ luftflaskor separat", "Luftflaska - beställ remställ separat", "Värmekamera", "Rökdykarlampa", "Rakelradio - DMO", "Rakelradio - TMO", "Passivitetslarm"],
+  "31 kallrökövningshus": ["Remställ - beställ luftflaskor separat", "Luftflaska - beställ remställ separat", "Värmekamera", "Rökdykarlampa", "Rakelradio - DMO", "Rakelradio - TMO", "Passivitetslarm"],
   "9 körplan": ["Bilar", "Klippverktyg"],
   "fika och pausyta": ["Kaffe / Te", "Smörgåsar"]
 };
@@ -140,6 +141,48 @@ const DEFAULT_DETAIL_RESOURCES = [
     name: "Klippverktyg",
     category: "Tillval",
     notes: "Tillval för Fordonsyta.",
+    totalQuantity: 0
+  },
+  {
+    id: "res-detail-remstall",
+    name: "Remställ - beställ luftflaskor separat",
+    category: "Tillval",
+    notes: "Tillval för rökövningslokaler.",
+    totalQuantity: 0
+  },
+  {
+    id: "res-detail-luftflaska",
+    name: "Luftflaska - beställ remställ separat",
+    category: "Tillval",
+    notes: "Tillval för rökövningslokaler.",
+    totalQuantity: 0
+  },
+  {
+    id: "res-detail-rokdykarlampa",
+    name: "Rökdykarlampa",
+    category: "Tillval",
+    notes: "Tillval för rökövningslokaler.",
+    totalQuantity: 0
+  },
+  {
+    id: "res-detail-rakel-dmo",
+    name: "Rakelradio - DMO",
+    category: "Tillval",
+    notes: "Tillval för rökövningslokaler.",
+    totalQuantity: 0
+  },
+  {
+    id: "res-detail-rakel-tmo",
+    name: "Rakelradio - TMO",
+    category: "Tillval",
+    notes: "Tillval för rökövningslokaler.",
+    totalQuantity: 0
+  },
+  {
+    id: "res-detail-passivitetslarm",
+    name: "Passivitetslarm",
+    category: "Tillval",
+    notes: "Tillval för rökövningslokaler.",
     totalQuantity: 0
   }
 ];
