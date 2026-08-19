@@ -400,7 +400,7 @@ async function init() {
 
   const bookings = await listStoreItems(BOOKING_STORE);
   state.latestBooking = bookings.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0] || null;
-  state.activeBookings = bookings.filter(b => b.status !== "archived");
+  state.activeBookings = bookings.filter((booking) => !isBookingArchived(booking));
 
   if (els.draftSummary) {
     renderDraftSummary();
@@ -734,11 +734,73 @@ function getManagedResources() {
   return state.resources.filter((resource) => !isStaticLocationName(resource.name));
 }
 
+function parseLocalDateTime(dateValue, timeValue) {
+  const date = String(dateValue || "").trim();
+  const time = String(timeValue || "").trim();
+  if (!date || !time) {
+    return null;
+  }
+
+  const parsed = new Date(`${date}T${time}:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getBookingEndDateTime(booking) {
+  const dateValue = String(booking?.endDate || booking?.startDate || "").trim();
+  const timeValue = String(booking?.endTime || "23:59").trim();
+  return parseLocalDateTime(dateValue, timeValue);
+}
+
+function getMomentWindow(booking, moment) {
+  const dateValue = String(moment?.date || booking?.startDate || booking?.endDate || "").trim();
+  const [momentStart, momentEnd] = splitMomentTimeValue(moment?.time || "");
+  const startTime = String(momentStart || booking?.startTime || "00:00").trim();
+  const endTime = String(momentEnd || booking?.endTime || "23:59").trim();
+  const startAt = parseLocalDateTime(dateValue, startTime);
+  const endAt = parseLocalDateTime(dateValue, endTime);
+
+  if (!startAt || !endAt) {
+    return null;
+  }
+
+  return { startAt, endAt };
+}
+
+function isBookingArchived(booking, now = new Date()) {
+  if (booking?.status === "archived") {
+    return true;
+  }
+
+  const endAt = getBookingEndDateTime(booking);
+  if (!endAt) {
+    return false;
+  }
+
+  return endAt <= now;
+}
+
+function isMomentActiveNow(booking, moment, now = new Date()) {
+  const window = getMomentWindow(booking, moment);
+  if (!window) {
+    return false;
+  }
+
+  return window.startAt <= now && now < window.endAt;
+}
+
 function getBookedQuantityForResource(resourceName) {
   const normalizedTarget = resourceName.toLowerCase();
   let booked = 0;
   for (const booking of state.activeBookings) {
     for (const moment of booking.agenda || []) {
+      if (!isMomentActiveNow(booking, moment)) {
+        continue;
+      }
+
       const details = normalizeLocationDetails(moment.locationDetails, moment.locationDetail);
       for (const detail of details) {
         if (String(detail.name || "").toLowerCase() === normalizedTarget) {
@@ -2777,12 +2839,23 @@ async function initBookingsPage() {
 }
 
 function renderBookingsPage(all) {
+  const now = new Date();
   const active = all
-    .filter(b => b.status !== "archived")
-    .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+    .filter((booking) => !isBookingArchived(booking, now))
+    .sort((a, b) => {
+      const aStart = parseLocalDateTime(a.startDate, a.startTime || "00:00")?.getTime() || 0;
+      const bStart = parseLocalDateTime(b.startDate, b.startTime || "00:00")?.getTime() || 0;
+      return aStart - bStart;
+    });
   const archived = all
-    .filter(b => b.status === "archived")
-    .sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
+    .filter((booking) => isBookingArchived(booking, now))
+    .sort((a, b) => {
+      const aEnd = getBookingEndDateTime(a)?.getTime() || 0;
+      const bEnd = getBookingEndDateTime(b)?.getTime() || 0;
+      return bEnd - aEnd;
+    });
+
+  state.activeBookings = active;
 
   renderBookingsList(document.getElementById("activeBookingsList"), active, false);
   renderBookingsList(document.getElementById("archivedBookingsList"), archived, true);
@@ -2941,6 +3014,7 @@ async function updateBookingStatus(id, status) {
     console.error("updateBookingStatus failed:", err);
   }
   const all = await listStoreItems(BOOKING_STORE);
+  state.activeBookings = all.filter((booking) => !isBookingArchived(booking));
   renderBookingsPage(all);
 }
 
@@ -2955,6 +3029,7 @@ async function deleteBooking(id) {
     console.error("deleteBooking failed:", err);
   }
   const all = await listStoreItems(BOOKING_STORE);
+  state.activeBookings = all.filter((booking) => !isBookingArchived(booking));
   renderBookingsPage(all);
 }
 

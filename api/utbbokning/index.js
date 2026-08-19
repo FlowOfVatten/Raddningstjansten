@@ -70,14 +70,70 @@ function getAgendaDate(item, fallbackDate) {
   return String(fallbackDate || "").trim();
 }
 
-function collectDemandByDate(payload) {
-  const usageMap = new Map();
+function splitMomentTimeValue(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return ["", ""];
+  }
+
+  const parts = raw.split("-");
+  if (parts.length < 2) {
+    return ["", ""];
+  }
+
+  return [String(parts[0] || "").trim(), String(parts[1] || "").trim()];
+}
+
+function parseLocalDateTime(dateValue, timeValue) {
+  const date = String(dateValue || "").trim();
+  const time = String(timeValue || "").trim();
+  if (!date || !time) {
+    return null;
+  }
+
+  const parsed = new Date(`${date}T${time}:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getMomentWindow(payload, item) {
+  const dateValue = getAgendaDate(item, payload?.startDate || payload?.endDate || "");
+  const [itemStart, itemEnd] = splitMomentTimeValue(item?.time || "");
+  const startTime = String(itemStart || payload?.startTime || "00:00").trim();
+  const endTime = String(itemEnd || payload?.endTime || "23:59").trim();
+  const startAt = parseLocalDateTime(dateValue, startTime);
+  const endAt = parseLocalDateTime(dateValue, endTime);
+
+  if (!startAt || !endAt) {
+    return null;
+  }
+
+  return {
+    date: dateValue,
+    startAt,
+    endAt
+  };
+}
+
+function rangesOverlap(left, right) {
+  return left.startAt < right.endAt && right.startAt < left.endAt;
+}
+
+function collectDemandEntries(payload, options = {}) {
+  const now = options.now instanceof Date ? options.now : null;
+  const entries = [];
   const agenda = Array.isArray(payload?.agenda) ? payload.agenda : [];
-  const fallbackDate = payload?.startDate || "";
 
   agenda.forEach((item) => {
-    const dateKey = getAgendaDate(item, fallbackDate);
-    if (!dateKey) {
+    const window = getMomentWindow(payload, item);
+    if (!window) {
+      return;
+    }
+
+    if (now && window.endAt <= now) {
       return;
     }
 
@@ -94,13 +150,18 @@ function collectDemandByDate(payload) {
         return;
       }
 
-      const stockKey = normalizeName(name);
-      const combined = `${dateKey}::${stockKey}`;
-      usageMap.set(combined, (usageMap.get(combined) || 0) + quantity);
+      entries.push({
+        date: window.date,
+        name,
+        normalizedName: normalizeName(name),
+        quantity,
+        startAt: window.startAt,
+        endAt: window.endAt
+      });
     });
   });
 
-  return usageMap;
+  return entries;
 }
 
 async function listResources(client) {
@@ -135,8 +196,8 @@ async function listBookings(client) {
 }
 
 async function validateAvailability(client, booking) {
-  const requestedMap = collectDemandByDate(booking);
-  if (requestedMap.size === 0) {
+  const requestedEntries = collectDemandEntries(booking);
+  if (requestedEntries.length === 0) {
     return { ok: true, conflicts: [] };
   }
 
@@ -160,30 +221,40 @@ async function validateAvailability(client, booking) {
     [String(booking.id || "")]
   );
 
-  const bookedMap = new Map();
+  const now = new Date();
+  const existingEntries = [];
   existingResult.rows.forEach((row) => {
     const payload = row.payload || {};
-    const usage = collectDemandByDate(payload);
-    usage.forEach((qty, key) => {
-      bookedMap.set(key, (bookedMap.get(key) || 0) + qty);
-    });
+    existingEntries.push(...collectDemandEntries(payload, { now }));
   });
 
   const conflicts = [];
-  requestedMap.forEach((requestedQty, key) => {
-    const [date, normalizedName] = key.split("::");
-    const inventoryItem = inventory.get(normalizedName);
+  const processed = new Set();
 
-    // Resource unknown in DB → treat as no stock
+  requestedEntries.forEach((requestedEntry) => {
+    const slotKey = `${requestedEntry.normalizedName}::${requestedEntry.startAt.toISOString()}::${requestedEntry.endAt.toISOString()}`;
+    if (processed.has(slotKey)) {
+      return;
+    }
+    processed.add(slotKey);
+
+    const inventoryItem = inventory.get(requestedEntry.normalizedName);
     const total = inventoryItem ? Number(inventoryItem.total) : 0;
-    const resourceName = inventoryItem ? inventoryItem.name : normalizedName;
+    const resourceName = inventoryItem ? inventoryItem.name : requestedEntry.name;
 
-    const alreadyBooked = bookedMap.get(key) || 0;
+    const alreadyBooked = existingEntries
+      .filter((entry) => entry.normalizedName === requestedEntry.normalizedName && rangesOverlap(entry, requestedEntry))
+      .reduce((sum, entry) => sum + entry.quantity, 0);
+
+    const requestedQty = requestedEntries
+      .filter((entry) => entry.normalizedName === requestedEntry.normalizedName && rangesOverlap(entry, requestedEntry))
+      .reduce((sum, entry) => sum + entry.quantity, 0);
+
     const available = Math.max(0, total - alreadyBooked);
 
     if (requestedQty > available) {
       conflicts.push({
-        date,
+        date: requestedEntry.date,
         resource: resourceName,
         requested: requestedQty,
         alreadyBooked,
