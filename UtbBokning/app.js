@@ -2814,6 +2814,36 @@ function escapeHtml(value) {
 //  BOOKINGS PAGE (bookings.html)
 // ─────────────────────────────────────────────────────────────
 
+async function persistExpiredBookings(allBookings) {
+  const expired = allBookings.filter((booking) => booking?.status !== "archived" && isBookingArchived(booking));
+  if (expired.length === 0) {
+    return allBookings;
+  }
+
+  if (state.useRemote) {
+    for (const booking of expired) {
+      await apiRequest({
+        entity: "booking",
+        method: "PATCH",
+        body: {
+          id: booking.id,
+          status: "archived"
+        }
+      });
+    }
+  } else {
+    for (const booking of expired) {
+      await putStoreItem(BOOKING_STORE, {
+        ...booking,
+        status: "archived",
+        updatedAt: new Date().toISOString()
+      });
+    }
+  }
+
+  return listStoreItems(BOOKING_STORE);
+}
+
 async function initBookingsPage() {
   const setBookingsStatus = (msg) => {
     const el = document.getElementById("bookingsStatus");
@@ -2824,6 +2854,7 @@ async function initBookingsPage() {
   let all = [];
   try {
     all = await listStoreItems(BOOKING_STORE);
+    all = await persistExpiredBookings(all);
   } catch (err) {
     setBookingsStatus("Kunde inte hämta bokningar.");
     return;
