@@ -228,6 +228,7 @@ const state = {
   selectedResourceIds: new Set(),
   latestBooking: null,
   loadedTemplateId: null,
+  activeBookings: [],
   userProfile: null,
   isDirty: false,
   autoSaveHandle: null
@@ -399,6 +400,7 @@ async function init() {
 
   const bookings = await listStoreItems(BOOKING_STORE);
   state.latestBooking = bookings.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))[0] || null;
+  state.activeBookings = bookings.filter(b => b.status !== "archived");
 
   if (els.draftSummary) {
     renderDraftSummary();
@@ -732,6 +734,22 @@ function getManagedResources() {
   return state.resources.filter((resource) => !isStaticLocationName(resource.name));
 }
 
+function getBookedQuantityForResource(resourceName) {
+  const normalizedTarget = resourceName.toLowerCase();
+  let booked = 0;
+  for (const booking of state.activeBookings) {
+    for (const moment of booking.agenda || []) {
+      const details = normalizeLocationDetails(moment.locationDetails, moment.locationDetail);
+      for (const detail of details) {
+        if (String(detail.name || "").toLowerCase() === normalizedTarget) {
+          booked += Number(detail.quantity) || 0;
+        }
+      }
+    }
+  }
+  return booked;
+}
+
 async function normalizeLegacyResourceEntries() {
   const existing = await listStoreItems(RESOURCE_STORE);
   const updates = existing
@@ -992,7 +1010,8 @@ async function saveResourceQty(resourceId, qty) {
   const updated = { ...resource, totalQuantity: qty };
   await putStoreItem(RESOURCE_STORE, updated);
   state.resources = await listStoreItems(RESOURCE_STORE);
-  setStatus(`"${resource.name}" uppdaterad: ${qty} st i lager.`);
+  if (els.resourceLibrary) renderResourceLibrary();
+  setStatus(`"${resource.name}" uppdaterad: totalt ${qty} st.`);
 }
 
 async function handleBookingSubmit(event) {
@@ -2279,21 +2298,29 @@ function renderResourceLibrary() {
       ? `<span class="resource-tag" style="background:rgba(40,130,92,0.12);color:#2a6e4a">Standard: ${escapeHtml(defaultForArr.join(', '))}</span>`
       : "";
     const total = Number(resource.totalQuantity ?? 0);
+    const booked = getBookedQuantityForResource(resource.name);
+    const available = Math.max(0, total - booked);
     card.innerHTML = `
       <div class="resource-card-header">
         <h3>${escapeHtml(resource.name)}</h3>
         ${defaultForLabel}
       </div>
       <div class="resource-qty-row">
-        <label class="resource-qty-label">I lager</label>
-        <div class="resource-qty-controls">
-          <button type="button" class="qty-btn" data-resource-qty-dec="${resource.id}">−</button>
-          <input type="number" class="qty-input" min="0" step="1"
-            value="${total}"
-            data-resource-qty="${resource.id}" />
-          <button type="button" class="qty-btn" data-resource-qty-inc="${resource.id}">+</button>
-        </div>
-        <span class="resource-qty-total">av ${total} totalt</span>
+        <span class="resource-qty-badge resource-qty-badge--available" title="Tillgängliga just nu">
+          <span class="resource-qty-badge-label">I lager</span>
+          <strong>${available}</strong>
+        </span>
+        <span class="resource-qty-badge" title="Totalt antal du äger – ändra om du köper in mer">
+          <span class="resource-qty-badge-label">Totalt</span>
+          <div class="resource-qty-controls">
+            <button type="button" class="qty-btn" data-resource-qty-dec="${resource.id}">−</button>
+            <input type="number" class="qty-input" min="0" step="1"
+              value="${total}"
+              data-resource-qty="${resource.id}" />
+            <button type="button" class="qty-btn" data-resource-qty-inc="${resource.id}">+</button>
+          </div>
+        </span>
+        ${booked > 0 ? `<span class="resource-qty-booked">${booked} ute på aktiva bokningar</span>` : ""}
       </div>
       <div class="resource-edit-form" style="display:none">
         <div class="form-grid" style="gap:8px;margin-top:8px">

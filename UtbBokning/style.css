@@ -462,10 +462,45 @@ small.helper-text { display: block; margin-top: 3px; }
   font-size: 11px; font-weight: 600; padding: 2px 8px;
   border-radius: 999px; background: var(--accent-light); color: var(--accent); white-space: nowrap;
 }
-.resource-qty-row { display: flex; align-items: center; gap: 8px; }
+.resource-qty-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .resource-qty-label { font-size: 12px; color: var(--text-3); flex-shrink: 0; }
 .resource-qty-controls { display: flex; align-items: center; gap: 4px; }
 .resource-qty-total { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+
+.resource-qty-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  min-width: 68px;
+}
+.resource-qty-badge--available {
+  border-color: var(--success, #2f9e44);
+  background: rgba(47, 158, 68, 0.07);
+}
+.resource-qty-badge--available strong {
+  font-size: 1.4rem;
+  color: var(--success, #2f9e44);
+  line-height: 1;
+}
+.resource-qty-badge-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+.resource-qty-booked {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  align-self: center;
+  font-style: italic;
+}
 
 .resource-card-actions { display: flex; gap: 12px; margin-top: 4px; }
 
