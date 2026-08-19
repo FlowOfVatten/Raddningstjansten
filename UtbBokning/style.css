@@ -613,6 +613,63 @@ small.helper-text { display: block; margin-top: 3px; }
 .info-block { display: grid; gap: 6px; }
 
 /* ---------------------------------------------
+   BOOKINGS PAGE
+--------------------------------------------- */
+.bookings-list { display: grid; gap: 8px; }
+
+.booking-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: box-shadow 120ms, border-color 120ms;
+}
+.booking-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.booking-card--archived { opacity: 0.6; cursor: default; }
+.booking-card--archived:hover { border-color: var(--border); box-shadow: none; }
+
+.booking-card-main { flex: 1; min-width: 0; }
+.booking-card-title { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.booking-card-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 12px; color: var(--text-3); }
+
+.booking-card-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.modal-box--wide {
+  max-width: 680px;
+  width: calc(100% - 48px);
+  text-align: left;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.modal-close-btn { font-size: 13px; color: var(--text-3); }
+.modal-detail-body { overflow-y: auto; flex: 1; }
+.modal-detail-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------
    RESPONSIVE
 --------------------------------------------- */
 @media (max-width: 1060px) {

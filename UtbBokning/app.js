@@ -311,8 +311,22 @@ init().catch((error) => {
 async function init() {
   const hasBookingPage = Boolean(els.bookingForm);
   const hasResourcePage = Boolean(els.resourceForm || els.resourceLibrary);
+  const hasBookingsPage = Boolean(document.getElementById("activeBookingsList"));
 
-  if (!hasBookingPage && !hasResourcePage) {
+  if (!hasBookingPage && !hasResourcePage && !hasBookingsPage) {
+    return;
+  }
+
+  if (hasBookingsPage) {
+    applyTestProfileFromQuery();
+    state.userProfile = resolveSignedInProfile();
+    applySignedInProfile(state.userProfile);
+    state.useRemote = await isRemoteApiAvailable();
+    if (!state.useRemote) {
+      await enableLocalFallback("Backend ej tillganglig. Kor i lokalt lage.");
+    }
+    state.resources = await listStoreItems(RESOURCE_STORE);
+    await initBookingsPage();
     return;
   }
 
@@ -647,6 +661,10 @@ function applySignedInProfile(profile) {
   const resurserLink = document.getElementById("resurserLink");
   if (resurserLink) {
     resurserLink.hidden = !RESOURCE_ADMIN_EMAILS.has((profile.email || "").toLowerCase());
+  }
+  const bookingsLink = document.getElementById("bookingsLink");
+  if (bookingsLink) {
+    bookingsLink.hidden = !RESOURCE_ADMIN_EMAILS.has((profile.email || "").toLowerCase());
   }
 }
 
@@ -2682,3 +2700,206 @@ function escapeHtml(value) {
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+// ─────────────────────────────────────────────────────────────
+//  BOOKINGS PAGE (bookings.html)
+// ─────────────────────────────────────────────────────────────
+
+async function initBookingsPage() {
+  const setBookingsStatus = (msg) => {
+    const el = document.getElementById("bookingsStatus");
+    if (el) el.textContent = msg;
+  };
+
+  setBookingsStatus("Laddar bokningar…");
+  let all = [];
+  try {
+    all = await listStoreItems(BOOKING_STORE);
+  } catch (err) {
+    setBookingsStatus("Kunde inte hämta bokningar.");
+    return;
+  }
+
+  setBookingsStatus(`${all.length} bokning${all.length !== 1 ? "ar" : ""} hämtade.`);
+  renderBookingsPage(all);
+
+  document.getElementById("detailModalClose")?.addEventListener("click", closeBookingDetailModal);
+  document.getElementById("bookingDetailModal")?.addEventListener("click", (e) => {
+    if (e.target === document.getElementById("bookingDetailModal")) closeBookingDetailModal();
+  });
+}
+
+function renderBookingsPage(all) {
+  const active = all
+    .filter(b => b.status !== "archived")
+    .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+  const archived = all
+    .filter(b => b.status === "archived")
+    .sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
+
+  renderBookingsList(document.getElementById("activeBookingsList"), active, false);
+  renderBookingsList(document.getElementById("archivedBookingsList"), archived, true);
+}
+
+function renderBookingsList(container, bookings, isArchived) {
+  if (!container) return;
+  if (bookings.length === 0) {
+    container.innerHTML = `<p class="helper-text">${isArchived ? "Inga arkiverade övningar." : "Inga aktiva bokningar."}</p>`;
+    return;
+  }
+  container.innerHTML = "";
+  bookings.forEach(b => {
+    const card = document.createElement("article");
+    card.className = "booking-card" + (isArchived ? " booking-card--archived" : "");
+
+    const dateRange = composeDateRange(b);
+    const participantCount = b.participantCount ? `${b.participantCount} deltagare` : "";
+    const momentCount = Array.isArray(b.agenda) ? `${b.agenda.length} moment` : "";
+
+    card.innerHTML = `
+      <div class="booking-card-main">
+        <div class="booking-card-title">${escapeHtml(b.title || "Utan rubrik")}</div>
+        <div class="booking-card-meta">
+          ${dateRange ? `<span>${escapeHtml(dateRange)}</span>` : ""}
+          ${participantCount ? `<span>${escapeHtml(participantCount)}</span>` : ""}
+          ${momentCount ? `<span>${escapeHtml(momentCount)}</span>` : ""}
+          <span>${escapeHtml(b.requesterName || "Okänd beställare")}</span>
+        </div>
+      </div>
+      <div class="booking-card-actions">
+        ${!isArchived ? `
+          <button type="button" class="secondary-button btn-archive" data-id="${escapeHtml(b.id)}">Avsluta</button>
+          <button type="button" class="link-button btn-cancel" data-id="${escapeHtml(b.id)}">Cancelera</button>
+        ` : ""}
+      </div>
+    `;
+
+    card.querySelector(".booking-card-main").addEventListener("click", () => openBookingDetailModal(b, isArchived));
+
+    card.querySelector(".btn-archive")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Avsluta bokningen "${b.title || "Utan rubrik"}"?\nÖvningen avslutas och resurserna frigörs. Bokningen flyttas till arkivet.`)) return;
+      await updateBookingStatus(b.id, "archived");
+    });
+
+    card.querySelector(".btn-cancel")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Cancelera bokningen "${b.title || "Utan rubrik"}"?\nÖvningen blev aldrig av. Bokningen tas bort helt från systemet.`)) return;
+      await deleteBooking(b.id);
+    });
+
+    container.appendChild(card);
+  });
+}
+
+function openBookingDetailModal(b, isArchived) {
+  const modal = document.getElementById("bookingDetailModal");
+  const title = document.getElementById("detailModalTitle");
+  const body = document.getElementById("detailModalBody");
+  const actions = document.getElementById("detailModalActions");
+  if (!modal || !body) return;
+
+  title.textContent = b.title || "Utan rubrik";
+
+  const agenda = (b.agenda || []).map(item => {
+    const locationDetails = normalizeLocationDetails(item.locationDetails, item.locationDetail);
+    const tillvalRows = locationDetails
+      .map(e => `<div class="summary-detail-row"><span>${escapeHtml(e.name)}</span><span>${e.quantity}</span></div>`)
+      .join("");
+    return `
+      <div class="summary-moment">
+        <div class="summary-row"><strong>Dag</strong><span>${escapeHtml(item.date ? formatAgendaDate(item.date) : "Dag saknas")}</span></div>
+        ${item.time ? `<div class="summary-row"><strong>Tid</strong><span>${escapeHtml(item.time)}</span></div>` : ""}
+        <div class="summary-row"><strong>${escapeHtml(item.title || "Moment utan rubrik")}</strong><span>${escapeHtml(item.instructor || "")}</span></div>
+        ${(item.resources || []).length ? `<div class="summary-row"><strong>Lokal</strong><span>${escapeHtml(item.resources.join(", "))}</span></div>` : ""}
+        ${tillvalRows ? `<div class="summary-row"><strong>Tillval</strong></div><div class="summary-detail-list">${tillvalRows}</div>` : ""}
+        ${item.notes ? `<div class="summary-row summary-row-notes"><strong>Notering</strong><span>${escapeHtml(item.notes)}</span></div>` : ""}
+      </div>`;
+  }).join("");
+
+  body.innerHTML = `
+    <article class="summary-card">
+      <h3>${escapeHtml(b.title || "Utan rubrik")}</h3>
+      <p>${escapeHtml(b.requesterName || "Beställare saknas")}</p>
+      ${b.isOnBehalf && b.submittedBy ? `<p class="helper-text">Skickat av: ${escapeHtml(b.submittedBy)}</p>` : ""}
+      <p>${escapeHtml(composeDateRange(b))}</p>
+      ${b.department ? `<p>${escapeHtml(b.department)}</p>` : ""}
+      ${b.contactRole ? `<p>${escapeHtml(b.contactRole)}</p>` : ""}
+      ${b.email ? `<p>${escapeHtml(b.email)}</p>` : ""}
+      ${b.phone ? `<p>${escapeHtml(b.phone)}</p>` : ""}
+      ${b.participantCount ? `<p>${escapeHtml(b.participantCount)} deltagare</p>` : ""}
+      ${b.description ? `<p class="summary-description">${escapeHtml(b.description)}</p>` : ""}
+      <div>
+        <strong>Planerade moment</strong>
+        <div class="summary-list">${agenda || '<p class="helper-text">Inga moment.</p>'}</div>
+      </div>
+    </article>
+  `;
+
+  actions.innerHTML = "";
+  if (!isArchived) {
+    const archiveBtn = document.createElement("button");
+    archiveBtn.type = "button";
+    archiveBtn.className = "secondary-button";
+    archiveBtn.textContent = "Avsluta övning";
+    archiveBtn.addEventListener("click", async () => {
+      if (!confirm(`Avsluta "${b.title || "Utan rubrik"}"? Bokningen arkiveras och resurserna frigörs.`)) return;
+      closeBookingDetailModal();
+      await updateBookingStatus(b.id, "archived");
+    });
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "link-button";
+    cancelBtn.textContent = "Cancelera övning";
+    cancelBtn.addEventListener("click", async () => {
+      if (!confirm(`Cancelera "${b.title || "Utan rubrik"}"? Bokningen tas bort helt.`)) return;
+      closeBookingDetailModal();
+      await deleteBooking(b.id);
+    });
+
+    actions.appendChild(archiveBtn);
+    actions.appendChild(cancelBtn);
+  }
+
+  modal.hidden = false;
+  document.getElementById("detailModalClose")?.focus();
+}
+
+function closeBookingDetailModal() {
+  const modal = document.getElementById("bookingDetailModal");
+  if (modal) modal.hidden = true;
+}
+
+async function updateBookingStatus(id, status) {
+  try {
+    if (state.useRemote) {
+      await apiRequest({ entity: "booking", method: "PATCH", body: { id, status } });
+    } else {
+      const all = await listStoreItems(BOOKING_STORE);
+      const booking = all.find(b => b.id === id);
+      if (booking) {
+        await putStoreItem(BOOKING_STORE, { ...booking, status, updatedAt: new Date().toISOString() });
+      }
+    }
+  } catch (err) {
+    console.error("updateBookingStatus failed:", err);
+  }
+  const all = await listStoreItems(BOOKING_STORE);
+  renderBookingsPage(all);
+}
+
+async function deleteBooking(id) {
+  try {
+    if (state.useRemote) {
+      await apiRequest({ entity: "booking", method: "DELETE", query: { id } });
+    } else {
+      await deleteStoreItem(BOOKING_STORE, id);
+    }
+  } catch (err) {
+    console.error("deleteBooking failed:", err);
+  }
+  const all = await listStoreItems(BOOKING_STORE);
+  renderBookingsPage(all);
+}
+

@@ -337,6 +337,30 @@ module.exports = async function (context, req) {
       return json(200, { ok: true, id: booking.id });
     }
 
+    if (method === "DELETE" && entity === "booking") {
+      const id = String(req.query.id || req.body?.id || "").trim();
+      if (!id) {
+        return json(400, { error: "id required" });
+      }
+      await client.query(`DELETE FROM public.utbbokning_bookings WHERE id = $1;`, [id]);
+      return json(200, { ok: true });
+    }
+
+    if (method === "PATCH" && entity === "booking") {
+      const id = String(req.body?.id || "").trim();
+      const status = String(req.body?.status || "").trim();
+      if (!id || !status) {
+        return json(400, { error: "id and status required" });
+      }
+      await client.query(
+        `UPDATE public.utbbokning_bookings
+         SET payload = jsonb_set(payload, '{status}', $2::jsonb, true), updated_at = NOW()
+         WHERE id = $1;`,
+        [id, JSON.stringify(status)]
+      );
+      return json(200, { ok: true });
+    }
+
     return json(400, { error: "Unknown route or entity" });
   } catch (error) {
     context.log.error("utbbokning api error", error);
