@@ -39,6 +39,7 @@ body {
 button, input, textarea, select, a { font: inherit; }
 h1, h2, h3, legend { margin: 0; font-weight: 700; }
 p { margin: 0; }
+[hidden] { display: none !important; }
 
 /* ---------------------------------------------
    LAYOUT
