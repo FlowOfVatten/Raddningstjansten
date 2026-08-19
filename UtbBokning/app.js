@@ -8,11 +8,14 @@ const LEGACY_RESOURCE_RENAMES = {
   "Viktoria ovningsfalt": "Viktoria övningsfält"
 };
 const INSTRUCTOR_OPTIONS = [
-  "Anna Berg",
-  "Johan Lind",
-  "Sara Nord",
-  "Mikael Holm",
-  "Elin Sjöberg"
+  "Erik Elvermark",
+  "Daniel Holmgren",
+  "Jonas Glaser",
+  "Erik Botås",
+  "Stefan Ulander",
+  "Stefan Mattsson",
+  "Jörgen Lundberg",
+  "Alf Karlsson"
 ];
 const MOMENT_LOCATION_DETAIL_OPTIONS = {
   "4b - flamman": ["Papper och penna", "Projektor", "Ljud"],
