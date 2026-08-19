@@ -157,7 +157,8 @@ const els = {
   liveTimeline: document.getElementById("liveTimeline"),
   agendaList: document.getElementById("agendaList"),
   agendaItemTemplate: document.getElementById("agendaItemTemplate"),
-  loadLatestBooking: document.getElementById("loadLatestBooking"),
+  myBookingsBtn: document.getElementById("myBookingsBtn"),
+  myBookingsDropdown: document.getElementById("myBookingsDropdown"),
   exportBooking: document.getElementById("exportBooking"),
   resetBooking: document.getElementById("resetBooking"),
   addAgendaItem: document.getElementById("addAgendaItem")
@@ -175,6 +176,7 @@ const state = {
   resources: [],
   selectedResourceIds: new Set(),
   latestBooking: null,
+  loadedTemplateId: null,
   userProfile: null,
   isDirty: false,
   autoSaveHandle: null
@@ -347,7 +349,8 @@ function bindEvents() {
     updateExperienceDashboard();
   });
   els.resourceForm?.addEventListener("submit", handleResourceSubmit);
-  els.loadLatestBooking?.addEventListener("click", handleLoadLatestBooking);
+  els.myBookingsBtn?.addEventListener("click", handleMyBookingsToggle);
+  document.addEventListener("click", handleMyBookingsOutsideClick);
   els.exportBooking?.addEventListener("click", handleExportBooking);
   els.resetBooking?.addEventListener("click", handleResetBooking);
   els.addAgendaItem?.addEventListener("click", () => addAgendaItem());
@@ -533,6 +536,10 @@ function applySignedInProfile(profile) {
     if (els.profileStatePill) {
       els.profileStatePill.textContent = "Entra saknas";
     }
+    if (els.myBookingsBtn) {
+      els.myBookingsBtn.disabled = true;
+      els.myBookingsBtn.title = "Ingen Entra-identitet hittad ännu.";
+    }
     return;
   }
 
@@ -550,6 +557,10 @@ function applySignedInProfile(profile) {
 
   if (els.profileStatePill) {
     els.profileStatePill.textContent = "Entra synkad";
+  }
+  if (els.myBookingsBtn) {
+    els.myBookingsBtn.disabled = !Boolean(profile.email);
+    els.myBookingsBtn.title = profile.email ? "" : "Ingen Entra-identitet hittad ännu.";
   }
 }
 
@@ -926,15 +937,77 @@ async function handleBookingSubmit(event) {
   await persistDraft("manual");
 }
 
-async function handleLoadLatestBooking() {
-  if (!state.latestBooking) {
-    setStatus("Det finns inget sparat utkast än.");
+function handleMyBookingsToggle() {
+  const dropdown = els.myBookingsDropdown;
+  if (!dropdown) {
     return;
   }
 
-  hydrateForm(state.latestBooking);
+  if (!dropdown.hidden) {
+    dropdown.hidden = true;
+    return;
+  }
+
+  renderMyBookingsDropdown();
+  dropdown.hidden = false;
+}
+
+function handleMyBookingsOutsideClick(event) {
+  if (!els.myBookingsDropdown || els.myBookingsDropdown.hidden) {
+    return;
+  }
+
+  if (!els.myBookingsBtn?.contains(event.target) && !els.myBookingsDropdown.contains(event.target)) {
+    els.myBookingsDropdown.hidden = true;
+  }
+}
+
+async function renderMyBookingsDropdown() {
+  const dropdown = els.myBookingsDropdown;
+  if (!dropdown) {
+    return;
+  }
+
+  dropdown.innerHTML = '<li class="my-bookings-item my-bookings-loading">Laddar...</li>';
+
+  const myEmail = state.userProfile?.email || "";
+  let bookings = [];
+  try {
+    bookings = await listStoreItems(BOOKING_STORE);
+  } catch (_) {
+    dropdown.innerHTML = '<li class="my-bookings-item my-bookings-empty">Kunde inte hämta bokningar.</li>';
+    return;
+  }
+
+  const mine = bookings
+    .filter((b) => b.submittedByEmail && b.submittedByEmail === myEmail)
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+
+  if (mine.length === 0) {
+    dropdown.innerHTML = '<li class="my-bookings-item my-bookings-empty">Du har inga tidigare beställningar än.</li>';
+    return;
+  }
+
+  dropdown.innerHTML = "";
+  mine.forEach((booking) => {
+    const li = document.createElement("li");
+    li.className = "my-bookings-item";
+    const title = escapeHtml(booking.title || "Utan rubrik");
+    const date = escapeHtml(booking.startDate || "");
+    li.innerHTML = `<span class="my-bookings-title">${title}</span>${date ? `<span class="my-bookings-date">${date}</span>` : ""}`;
+    li.addEventListener("click", () => {
+      dropdown.hidden = true;
+      hydrateFormAsTemplate(booking);
+    });
+    dropdown.appendChild(li);
+  });
+}
+
+function hydrateFormAsTemplate(booking) {
+  state.loadedTemplateId = booking.id;
+  hydrateForm(booking);
   applySignedInProfile(state.userProfile);
-  setStatus("Senaste utkast laddades in i formuläret.");
+  setStatus(`Mall laddad: "${booking.title || "Utan rubrik"}". Ändra och skicka för att skapa en ny beställning.`);
 }
 
 function handleExportBooking() {
@@ -971,6 +1044,7 @@ async function persistDraft(source = "manual") {
   }
 
   state.latestBooking = draft;
+  state.loadedTemplateId = null;
   state.isDirty = false;
   renderDraftSummary();
   updateExperienceDashboard();
@@ -1026,8 +1100,9 @@ function buildBookingDraft() {
   const isOnBehalf = onBehalfCheckbox?.checked || false;
 
   return {
-    id: state.latestBooking?.id || `booking-${Date.now()}`,
+    id: state.loadedTemplateId ? `booking-${Date.now()}` : (state.latestBooking?.id || `booking-${Date.now()}`),
     submittedBy: isOnBehalf ? (state.userProfile?.requesterName || "") : "",
+    submittedByEmail: state.userProfile?.email || "",
     isOnBehalf,
     requesterName,
     department: String(formData.get("department") || "").trim(),

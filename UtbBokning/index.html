@@ -17,7 +17,10 @@
         <div class="topbar-actions">
           <span id="profileStatePill" class="status-text"></span>
           <a class="ghost-button" href="resources.html">Resurser</a>
-          <button id="loadLatestBooking" type="button" class="secondary-button">Fyll i föregående</button>
+          <div class="my-bookings-wrap">
+            <button id="myBookingsBtn" type="button" class="secondary-button" disabled title="Ingen Entra-identitet hittad ännu.">Mina beställningar</button>
+            <ul id="myBookingsDropdown" class="my-bookings-dropdown" hidden></ul>
+          </div>
         </div>
       </section>
 

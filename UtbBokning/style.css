@@ -372,6 +372,65 @@ small.helper-text { display: block; margin-top: 3px; }
 .kbd-tips strong { display: block; margin-bottom: 3px; font-size: 12px; }
 
 /* ---------------------------------------------
+   MY BOOKINGS DROPDOWN
+--------------------------------------------- */
+.my-bookings-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.my-bookings-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 100;
+  min-width: 260px;
+  max-width: 360px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.my-bookings-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms;
+}
+.my-bookings-item:last-child { border-bottom: none; }
+.my-bookings-item:hover { background: var(--accent-light); }
+.my-bookings-item.my-bookings-empty,
+.my-bookings-item.my-bookings-loading {
+  cursor: default;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.my-bookings-item.my-bookings-empty:hover,
+.my-bookings-item.my-bookings-loading:hover { background: none; }
+
+.my-bookings-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.my-bookings-date {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ---------------------------------------------
    RESOURCE PICKER
 --------------------------------------------- */
 .resource-picker { display: grid; gap: 6px; }
