@@ -441,6 +441,22 @@ function bindEvents() {
     updateExperienceDashboard();
   });
   els.resourceForm?.addEventListener("submit", handleResourceSubmit);
+
+  // Add resource modal
+  document.getElementById("openAddResourceModal")?.addEventListener("click", () => {
+    const modal = document.getElementById("addResourceModal");
+    if (modal) modal.hidden = false;
+  });
+  const closeResourceModal = () => {
+    const modal = document.getElementById("addResourceModal");
+    if (modal) modal.hidden = true;
+  };
+  document.getElementById("closeAddResourceModal")?.addEventListener("click", closeResourceModal);
+  document.getElementById("cancelAddResourceModal")?.addEventListener("click", closeResourceModal);
+  document.getElementById("addResourceModal")?.addEventListener("click", (e) => {
+    if (e.target === document.getElementById("addResourceModal")) closeResourceModal();
+  });
+
   els.myBookingsBtn?.addEventListener("click", handleMyBookingsToggle);
   document.addEventListener("click", handleMyBookingsOutsideClick);
   els.exportBooking?.addEventListener("click", handleExportBooking);
@@ -915,6 +931,8 @@ async function handleResourceSubmit(event) {
     renderResourceLibrary();
   }
   els.resourceForm.reset();
+  const addModal = document.getElementById("addResourceModal");
+  if (addModal) addModal.hidden = true;
   setStatus(`Resursen "${resource.name}" sparades i ${state.useRemote ? "backend-databasen" : "lokal databas"}.`);
 }
 
@@ -2259,21 +2277,23 @@ function renderResourceLibrary() {
     const defaultForArr = Array.isArray(resource.defaultFor) ? resource.defaultFor : (resource.defaultFor ? [resource.defaultFor] : []);
     const defaultForLabel = defaultForArr.length
       ? `<span class="resource-tag" style="background:rgba(40,130,92,0.12);color:#2a6e4a">Standard: ${escapeHtml(defaultForArr.join(', '))}</span>`
-      : `<span class="resource-tag">Sökbar</span>`;
+      : "";
+    const total = Number(resource.totalQuantity ?? 0);
     card.innerHTML = `
       <div class="resource-card-header">
         <h3>${escapeHtml(resource.name)}</h3>
         ${defaultForLabel}
       </div>
       <div class="resource-qty-row">
-        <label class="resource-qty-label">Antal i lager</label>
+        <label class="resource-qty-label">I lager</label>
         <div class="resource-qty-controls">
           <button type="button" class="qty-btn" data-resource-qty-dec="${resource.id}">−</button>
           <input type="number" class="qty-input" min="0" step="1"
-            value="${Number(resource.totalQuantity ?? 0)}"
+            value="${total}"
             data-resource-qty="${resource.id}" />
           <button type="button" class="qty-btn" data-resource-qty-inc="${resource.id}">+</button>
         </div>
+        <span class="resource-qty-total">av ${total} totalt</span>
       </div>
       <div class="resource-edit-form" style="display:none">
         <div class="form-grid" style="gap:8px;margin-top:8px">
@@ -2770,7 +2790,9 @@ function renderBookingsList(container, bookings, isArchived) {
         ${!isArchived ? `
           <button type="button" class="secondary-button btn-archive" data-id="${escapeHtml(b.id)}">Avsluta</button>
           <button type="button" class="link-button btn-cancel" data-id="${escapeHtml(b.id)}">Cancelera</button>
-        ` : ""}
+        ` : `
+          <button type="button" class="link-button btn-delete-archived" data-id="${escapeHtml(b.id)}">Ta bort</button>
+        `}
       </div>
     `;
 
@@ -2785,6 +2807,12 @@ function renderBookingsList(container, bookings, isArchived) {
     card.querySelector(".btn-cancel")?.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!confirm(`Cancelera bokningen "${b.title || "Utan rubrik"}"?\nÖvningen blev aldrig av. Bokningen tas bort helt från systemet.`)) return;
+      await deleteBooking(b.id);
+    });
+
+    card.querySelector(".btn-delete-archived")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Ta bort arkiverad bokning "${b.title || "Utan rubrik"}"?`)) return;
       await deleteBooking(b.id);
     });
 

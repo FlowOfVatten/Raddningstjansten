@@ -12,71 +12,68 @@
       <section class="topbar panel">
         <div class="topbar-left">
           <img src="brf_logo (2).svg" alt="Logotyp" class="topbar-logo" />
-          <h1 class="topbar-title">Bokning Utbildning</h1>
+          <h1 class="topbar-title">Bokning Utbildning – Resurser</h1>
         </div>
         <div class="topbar-actions">
+          <span id="saveStatus" class="status-text"></span>
           <a class="ghost-button secondary-button" href="index.html">← Bokningssidan</a>
         </div>
       </section>
 
-      <section class="content-grid">
-        <section class="panel form-panel">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Databas</p>
-              <h2>Lägg till resurs</h2>
-            </div>
-            <p id="saveStatus" class="status-text">Resurser sparas i backend-databasen.</p>
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Bibliotek</p>
+            <h2>Resurser</h2>
           </div>
-
-          <form id="resourceForm" class="resource-form">
-            <label>
-              <span>Namn</span>
-              <input name="name" type="text" placeholder="Exempel: Rökskydd" required />
-            </label>
-            <label>
-              <span>Typ</span>
-              <select name="resourceType">
-                <option value="searchable">Sökbar resurs (visas i sökfältet)</option>
-                <option value="default">Standardtillval för lokal</option>
-              </select>
-            </label>
-            <div id="defaultForGroup" style="display:none">
-              <label>
-                <span>Standardtillval för lokaler (håll Ctrl för flera)</span>
-                <select name="defaultFor" multiple style="min-height:120px">
-                  <option value="">Ingen</option>
-                </select>
-              </label>
-            </div>
-            <label>
-
-              <span>Totalt antal</span>
-              <input name="totalQuantity" type="number" min="0" step="1" value="0" placeholder="Exempel: 8" />
-            </label>
-            <label>
-              <span>Beskrivning</span>
-              <textarea name="notes" rows="3" placeholder="Kapacitet, begränsningar eller intern kommentar."></textarea>
-            </label>
-            <div class="form-actions">
-              <button type="submit">Lägg till resurs</button>
-            </div>
-          </form>
-        </section>
-
-        <aside class="sidebar sidebar-compact">
-          <section class="panel sidebar-panel">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Bibliotek</p>
-                <h2>Befintliga resurser</h2>
-              </div>
-            </div>
-            <div id="resourceLibrary" class="resource-library"></div>
-          </section>
-        </aside>
+          <button id="openAddResourceModal" type="button" class="secondary-button">+ Lägg till resurs</button>
+        </div>
+        <div id="resourceLibrary" class="resource-library"></div>
       </section>
     </main>
+
+    <!-- Add resource modal -->
+    <div id="addResourceModal" class="modal-overlay" hidden>
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="addResourceModalTitle">
+        <div class="modal-detail-header">
+          <h2 id="addResourceModalTitle" class="modal-title">Lägg till resurs</h2>
+          <button type="button" class="link-button modal-close-btn" id="closeAddResourceModal">Stäng ✕</button>
+        </div>
+        <form id="resourceForm" class="resource-form">
+          <label>
+            <span>Namn</span>
+            <input name="name" type="text" placeholder="Exempel: Rökskydd" required />
+          </label>
+          <label>
+            <span>Typ</span>
+            <select name="resourceType">
+              <option value="searchable">Sökbar resurs (visas i sökfältet)</option>
+              <option value="default">Standardtillval för lokal</option>
+            </select>
+          </label>
+          <div id="defaultForGroup" style="display:none">
+            <label>
+              <span>Standardtillval för lokaler (håll Ctrl för flera)</span>
+              <select name="defaultFor" multiple style="min-height:120px">
+                <option value="">Ingen</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            <span>Totalt antal i lager</span>
+            <input name="totalQuantity" type="number" min="0" step="1" value="0" placeholder="Exempel: 8" />
+          </label>
+          <label>
+            <span>Beskrivning</span>
+            <textarea name="notes" rows="3" placeholder="Kapacitet, begränsningar eller intern kommentar."></textarea>
+          </label>
+          <div class="form-actions">
+            <button type="submit">Spara resurs</button>
+            <button type="button" class="secondary-button" id="cancelAddResourceModal">Avbryt</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>
