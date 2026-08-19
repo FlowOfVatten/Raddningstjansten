@@ -572,10 +572,14 @@ function applySignedInProfile(profile) {
       els.myBookingsBtn.disabled = true;
       els.myBookingsBtn.title = "Ingen Entra-identitet hittad ännu.";
     }
-  const resurserLink = document.getElementById("resurserLink");
-  if (resurserLink) {
-    resurserLink.hidden = true;
+    const resurserLink = document.getElementById("resurserLink");
+    if (resurserLink) {
+      resurserLink.hidden = true;
+    }
+    return;
   }
+
+  fields.forEach((name) => {
     const field = els.bookingForm?.elements.namedItem(name);
     if (field instanceof HTMLInputElement) {
       field.value = profile[name] || "";
