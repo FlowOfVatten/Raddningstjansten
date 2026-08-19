@@ -164,6 +164,11 @@ const els = {
   addAgendaItem: document.getElementById("addAgendaItem")
 };
 
+const RESOURCE_ADMIN_EMAILS = new Set([
+  "daniel.holmgren@uppsala.se",
+  "marcus.thilander@uppsala.se"
+]);
+
 const REQUESTER_REQUIRED_FIELDS = [
   { name: "requesterName", label: "namn" },
   { name: "email", label: "mejladress" },
@@ -567,10 +572,10 @@ function applySignedInProfile(profile) {
       els.myBookingsBtn.disabled = true;
       els.myBookingsBtn.title = "Ingen Entra-identitet hittad ännu.";
     }
-    return;
+  const resurserLink = document.getElementById("resurserLink");
+  if (resurserLink) {
+    resurserLink.hidden = true;
   }
-
-  fields.forEach((name) => {
     const field = els.bookingForm?.elements.namedItem(name);
     if (field instanceof HTMLInputElement) {
       field.value = profile[name] || "";
@@ -588,6 +593,10 @@ function applySignedInProfile(profile) {
   if (els.myBookingsBtn) {
     els.myBookingsBtn.disabled = !Boolean(profile.email);
     els.myBookingsBtn.title = profile.email ? "" : "Ingen Entra-identitet hittad ännu.";
+  }
+  const resurserLink = document.getElementById("resurserLink");
+  if (resurserLink) {
+    resurserLink.hidden = !RESOURCE_ADMIN_EMAILS.has((profile.email || "").toLowerCase());
   }
 }
 
