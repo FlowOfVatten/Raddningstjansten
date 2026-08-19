@@ -227,17 +227,14 @@ function canCallRemoteApi() {
 }
 
 /**
- * DEV ONLY – populerar window.__UTBBOKNING_ENTRA_PROFILE__ fran URL-parametrar.
- * Aktiv endast pa localhost, 127.0.0.1 och file://-protokoll.
- * Anvands INTE i produktion – skyddar mot att vem som helst kan forfalska en identitet.
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║  DEV-VERKTYG – TA BORT INNAN SKARP DRIFTSATTNING            ║
+ * ║  Simulerar Entra-inloggning via URL-parametrar.              ║
+ * ║  Anvandning: ?testEmail=x@y.se&testName=Namn                 ║
+ * ║  Ytterligare parametrar: testPhone, testRole, testDept        ║
+ * ╚══════════════════════════════════════════════════════════════╝
  */
 function applyTestProfileFromQuery() {
-  const hostname = window.location.hostname;
-  const isLocalEnv = window.location.protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1";
-  if (!isLocalEnv) {
-    return;
-  }
-
   const params = new URLSearchParams(window.location.search);
   const testEmail = params.get("testEmail");
   if (!testEmail) {
@@ -251,8 +248,9 @@ function applyTestProfileFromQuery() {
     jobTitle: params.get("testRole") || "",
     department: params.get("testDept") || ""
   };
-  console.info("[UtbBokning] Testprofil aktiv via URL-parameter:", testEmail);
+  console.warn("[UtbBokning] ⚠️ DEV-LAGE: Testprofil aktiv via URL (?testEmail). Ta bort innan driftsattning.", testEmail);
 }
+// ═══ SLUT PA DEV-VERKTYG ═══
 
 init().catch((error) => {
   console.error(error);
