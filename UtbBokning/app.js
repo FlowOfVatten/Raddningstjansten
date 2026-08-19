@@ -226,6 +226,34 @@ function canCallRemoteApi() {
   return true;
 }
 
+/**
+ * DEV ONLY – populerar window.__UTBBOKNING_ENTRA_PROFILE__ fran URL-parametrar.
+ * Aktiv endast pa localhost, 127.0.0.1 och file://-protokoll.
+ * Anvands INTE i produktion – skyddar mot att vem som helst kan forfalska en identitet.
+ */
+function applyTestProfileFromQuery() {
+  const hostname = window.location.hostname;
+  const isLocalEnv = window.location.protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1";
+  if (!isLocalEnv) {
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const testEmail = params.get("testEmail");
+  if (!testEmail) {
+    return;
+  }
+
+  window.__UTBBOKNING_ENTRA_PROFILE__ = {
+    displayName: params.get("testName") || testEmail,
+    mail: testEmail,
+    telephoneNumber: params.get("testPhone") || "",
+    jobTitle: params.get("testRole") || "",
+    department: params.get("testDept") || ""
+  };
+  console.info("[UtbBokning] Testprofil aktiv via URL-parameter:", testEmail);
+}
+
 init().catch((error) => {
   console.error(error);
   setStatus("Initiering misslyckades. Öppna sidan igen eller kontrollera webbläsarstöd.");
@@ -242,6 +270,7 @@ async function init() {
   bindEvents();
 
   if (hasBookingPage) {
+    applyTestProfileFromQuery();
     state.userProfile = resolveSignedInProfile();
     applySignedInProfile(state.userProfile);
     applyRequesterFieldRequirements();
