@@ -499,6 +499,19 @@ small.helper-text { display: block; margin-top: 3px; }
   padding: 14px; background: var(--surface-2); display: grid; gap: 8px;
 }
 .summary-card h3 { font-size: 14px; }
+.summary-description {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.6;
+  border-left: 3px solid var(--border);
+  padding-left: 10px;
+  margin: 0;
+}
+.summary-row-notes span:last-child {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
 .summary-moment {
   display: grid; gap: 6px; padding: 20px 0; border-top: 1px solid var(--border);
 }
@@ -531,6 +544,59 @@ small.helper-text { display: block; margin-top: 3px; }
   background: var(--accent-light); color: var(--accent);
   font-size: 12px; font-weight: 600;
 }
+
+/* ---------------------------------------------
+   BOOKING SUCCESS MODAL
+--------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 140ms ease both;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 36px 40px 28px;
+  text-align: center;
+  min-width: 260px;
+  max-width: 380px;
+  width: calc(100% - 48px);
+  animation: modalSlideUp 160ms ease both;
+}
+@keyframes modalSlideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+.modal-icon { font-size: 2.2rem; margin-bottom: 10px; }
+.modal-title { font-size: 1.1rem; margin: 0 0 6px; }
+.modal-subtitle { font-size: 13px; color: var(--text-2); margin: 0 0 20px; }
+.modal-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  margin-top: 8px;
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.modal-ok:hover { background: var(--accent-hover); }
 
 /* ---------------------------------------------
    MISC

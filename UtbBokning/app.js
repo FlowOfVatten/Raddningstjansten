@@ -1082,6 +1082,39 @@ async function persistDraft(source = "manual") {
   }
 
   setStatus(`✅ Bokning skickad ${formatTimestamp(draft.updatedAt)}.`);
+  showBookingSuccessModal(draft.title);
+}
+
+function showBookingSuccessModal(title) {
+  const existing = document.getElementById("bookingSuccessModal");
+  if (existing) {
+    existing.remove();
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "bookingSuccessModal";
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-icon">✅</div>
+      <h2 id="modalTitle" class="modal-title">Bokning skickad</h2>
+      ${title ? `<p class="modal-subtitle">${escapeHtml(title)}</p>` : ""}
+      <button type="button" class="modal-ok" id="modalOkBtn">OK</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  document.getElementById("modalOkBtn").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  document.addEventListener("keydown", function onKey(e) {
+    if (e.key === "Escape" || e.key === "Enter") {
+      close();
+      document.removeEventListener("keydown", onKey);
+    }
+  });
+  document.getElementById("modalOkBtn").focus();
 }
 
 function formatInventoryConflictMessage(conflicts) {
@@ -2317,6 +2350,7 @@ function renderDraftSummary() {
           <div class="summary-row"><strong>${escapeHtml(item.title || "Moment utan rubrik")}</strong><span>${escapeHtml(item.instructor || "Instruktör saknas")}</span></div>
           ${lokal ? `<div class="summary-row"><strong>Lokal</strong><span>${escapeHtml(lokal)}</span></div>` : ""}
           ${locationDetailRows ? `<div class="summary-row"><strong>Tillval</strong></div><div class="summary-detail-list">${locationDetailRows}</div>` : ""}
+          ${item.notes ? `<div class="summary-row summary-row-notes"><strong>Notering</strong><span>${escapeHtml(item.notes)}</span></div>` : ""}
         </div>
       `;
     })
@@ -2332,6 +2366,7 @@ function renderDraftSummary() {
       <p>${escapeHtml(draft.contactRole || "Roll saknas")}</p>
       <p>${escapeHtml(draft.email || "Ingen e-post")}</p>
       <p>${escapeHtml(draft.phone || "Ingen telefon")}</p>
+      ${draft.description ? `<p class="summary-description">${escapeHtml(draft.description)}</p>` : ""}
       <div>
         <strong>Planerade moment</strong>
         <div class="summary-list">${agenda || '<p class="helper-text">Inga moment tillagda.</p>'}</div>
