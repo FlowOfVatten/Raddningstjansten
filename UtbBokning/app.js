@@ -163,6 +163,12 @@ const els = {
   addAgendaItem: document.getElementById("addAgendaItem")
 };
 
+const REQUESTER_REQUIRED_FIELDS = [
+  { name: "requesterName", label: "namn" },
+  { name: "email", label: "mejladress" },
+  { name: "phone", label: "telefonnummer" }
+];
+
 const state = {
   db: null,
   useRemote: false,
@@ -236,6 +242,7 @@ async function init() {
   if (hasBookingPage) {
     state.userProfile = resolveSignedInProfile();
     applySignedInProfile(state.userProfile);
+    applyRequesterFieldRequirements();
     bindShortcuts();
     startAutoSaveLoop();
   }
@@ -304,6 +311,9 @@ async function init() {
   }
 
   updateExperienceDashboard();
+  validateBookingTimeRange();
+  validateAgendaTimeRanges();
+  validateAgendaRequiredFields();
 }
 
 async function enableLocalFallback(message) {
@@ -327,11 +337,13 @@ function bindEvents() {
   els.bookingForm?.addEventListener("submit", handleBookingSubmit);
   els.bookingForm?.addEventListener("input", () => {
     state.isDirty = true;
+    validateBookingTimeRange();
     updateExperienceDashboard();
   });
   els.bookingForm?.addEventListener("change", () => {
     state.isDirty = true;
     refreshAgendaDateOptions();
+    validateBookingTimeRange();
     updateExperienceDashboard();
   });
   els.resourceForm?.addEventListener("submit", handleResourceSubmit);
@@ -344,6 +356,7 @@ function bindEvents() {
     if (action) {
       action.closest(".agenda-item")?.remove();
       state.isDirty = true;
+      validateAgendaRequiredFields();
       updateExperienceDashboard();
       return;
     }
@@ -369,6 +382,7 @@ function bindEvents() {
         // Scroll new item into view
         els.agendaList.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         state.isDirty = true;
+        validateAgendaRequiredFields();
         updateExperienceDashboard();
       }
       return;
@@ -376,6 +390,18 @@ function bindEvents() {
   });
   els.agendaList?.addEventListener("change", (event) => {
     const select = event.target;
+
+    if (select instanceof HTMLSelectElement && (select.getAttribute("data-field") === "timeStart" || select.getAttribute("data-field") === "timeEnd")) {
+      const agendaItem = select.closest(".agenda-item");
+      if (agendaItem) {
+        validateAgendaItemTimeRange(agendaItem);
+        validateAgendaRequiredFields();
+      }
+      state.isDirty = true;
+      updateExperienceDashboard();
+      return;
+    }
+
     if (select instanceof HTMLSelectElement && select.getAttribute("data-field") === "instructor") {
       const agendaItem = select.closest(".agenda-item");
       const customInput = agendaItem?.querySelector('[data-field="instructorCustom"]');
@@ -396,12 +422,15 @@ function bindEvents() {
     const agendaItem = select.closest(".agenda-item");
     if (agendaItem) {
       syncAgendaLocationDetailSelect(agendaItem);
+      validateAgendaRequiredFields();
       state.isDirty = true;
       updateExperienceDashboard();
     }
   });
   els.agendaList?.addEventListener("input", () => {
     state.isDirty = true;
+    validateAgendaTimeRanges();
+    validateAgendaRequiredFields();
     updateExperienceDashboard();
   });
   els.agendaList?.addEventListener("keydown", (event) => {
@@ -440,8 +469,25 @@ function bindEvents() {
           }
         }
       });
+      applyRequesterFieldRequirements();
     });
   }
+}
+
+function applyRequesterFieldRequirements() {
+  if (!els.bookingForm) {
+    return;
+  }
+
+  const isOnBehalf = Boolean(document.getElementById("bookingOnBehalf")?.checked);
+  REQUESTER_REQUIRED_FIELDS.forEach(({ name }) => {
+    const field = els.bookingForm.elements.namedItem(name);
+    if (field instanceof HTMLInputElement) {
+      field.required = isOnBehalf;
+      field.setCustomValidity("");
+      field.classList.remove("validation-invalid");
+    }
+  });
 }
 
 function resolveSignedInProfile() {
@@ -819,6 +865,41 @@ async function saveResourceQty(resourceId, qty) {
 async function handleBookingSubmit(event) {
   event.preventDefault();
 
+  applyRequesterFieldRequirements();
+  if (!els.bookingForm?.reportValidity()) {
+    setStatus("⚠️ Fyll i alla obligatoriska bokningsfält.");
+    return;
+  }
+
+  const requesterValidation = validateRequesterFields();
+  if (!requesterValidation.valid) {
+    requesterValidation.firstField?.scrollIntoView({ behavior: "smooth", block: "center" });
+    requesterValidation.firstField?.focus();
+    setStatus(requesterValidation.message);
+    return;
+  }
+
+  const agendaValidation = validateAgendaRequiredFields();
+  if (!agendaValidation.valid) {
+    agendaValidation.firstInvalidElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setStatus(agendaValidation.message);
+    return;
+  }
+
+  const bookingTimeInvalid = validateBookingTimeRange();
+  const invalidAgendaItems = validateAgendaTimeRanges();
+  if (bookingTimeInvalid || invalidAgendaItems.length > 0) {
+    if (bookingTimeInvalid) {
+      els.bookingForm?.elements.namedItem("endTime")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setStatus("⚠️ Starttid maste vara fore sluttid for bokningen.");
+      return;
+    }
+
+    invalidAgendaItems[0]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setStatus(`⚠️ Starttid maste vara fore sluttid i ${invalidAgendaItems.length} moment.`);
+    return;
+  }
+
   // Check for visible stock warnings
   const warnings = els.bookingForm?.querySelectorAll(".qty-warning") || [];
   const activeWarnings = Array.from(warnings).filter(w => w.style.display !== "none");
@@ -841,6 +922,7 @@ async function handleBookingSubmit(event) {
     return;
   }
 
+  validateAgendaRequiredFields();
   await persistDraft("manual");
 }
 
@@ -922,6 +1004,10 @@ function handleResetBooking() {
     if (els.draftSummary) {
       renderDraftSummary();
     }
+    applyRequesterFieldRequirements();
+    validateBookingTimeRange();
+    validateAgendaTimeRanges();
+    validateAgendaRequiredFields();
     updateExperienceDashboard();
     setStatus(`Formularet ar tomt. Resurser finns kvar i ${state.useRemote ? "backend" : "lokal databas"}.`);
   }, 0);
@@ -932,6 +1018,9 @@ function buildBookingDraft() {
   const resourceIds = Array.from(state.selectedResourceIds);
   const selectedResources = state.resources.filter((item) => resourceIds.includes(item.id));
   const requesterName = String(formData.get("requesterName") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const startDate = String(formData.get("startDate") || "").trim();
+  const endDate = String(formData.get("endDate") || "").trim() || startDate;
 
   const onBehalfCheckbox = document.getElementById("bookingOnBehalf");
   const isOnBehalf = onBehalfCheckbox?.checked || false;
@@ -946,13 +1035,14 @@ function buildBookingDraft() {
     email: String(formData.get("email") || "").trim(),
     phone: String(formData.get("phone") || "").trim(),
     title: String(formData.get("title") || "").trim(),
-    purpose: String(formData.get("purpose") || "").trim(),
-    startDate: String(formData.get("startDate") || "").trim(),
-    endDate: String(formData.get("endDate") || "").trim(),
+    // Keep legacy purpose populated for old payload consumers, using description as source of truth.
+    purpose: String(formData.get("purpose") || description).trim(),
+    startDate,
+    endDate,
     startTime: String(formData.get("startTime") || "").trim(),
     endTime: String(formData.get("endTime") || "").trim(),
     participantCount: String(formData.get("participantCount") || "").trim(),
-    description: String(formData.get("description") || "").trim(),
+    description,
     specialRequirements: String(formData.get("specialRequirements") || "").trim(),
     resourceIds,
     selectedResources,
@@ -1016,6 +1106,10 @@ function hydrateForm(draft) {
     addAgendaItem();
   }
 
+  applyRequesterFieldRequirements();
+  validateBookingTimeRange();
+  validateAgendaTimeRanges();
+  validateAgendaRequiredFields();
   renderDraftSummary();
 }
 
@@ -1038,9 +1132,210 @@ function addAgendaItem(initialValue = {}) {
   );
   syncAgendaLocationDetailSelect(template, initialLocationDetails);
   els.agendaList.appendChild(template);
+  validateAgendaItemTimeRange(template);
+  validateAgendaRequiredFields();
   template.classList.add("new-item");
   window.setTimeout(() => template.classList.remove("new-item"), 350);
   updateExperienceDashboard();
+}
+
+function setFieldInvalidState(field, invalid) {
+  if (!(field instanceof HTMLInputElement) && !(field instanceof HTMLSelectElement) && !(field instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  field.classList.toggle("validation-invalid", Boolean(invalid));
+}
+
+function ensureAgendaGeneralWarningElement() {
+  if (!els.agendaList) {
+    return null;
+  }
+
+  let warning = els.agendaList.parentElement?.querySelector('[data-field="agendaGeneralWarning"]');
+  if (warning) {
+    return warning;
+  }
+
+  warning = document.createElement("small");
+  warning.className = "time-warning";
+  warning.setAttribute("data-field", "agendaGeneralWarning");
+  warning.style.display = "none";
+  els.agendaList.parentElement?.appendChild(warning);
+  return warning;
+}
+
+function ensureAgendaLocationWarningElement(agendaItem) {
+  const resourceSelect = agendaItem?.querySelector('[data-field="resources"]');
+  const label = resourceSelect?.closest("label");
+  if (!label) {
+    return null;
+  }
+
+  let warning = label.querySelector('[data-field="momentLocationWarning"]');
+  if (warning) {
+    return warning;
+  }
+
+  warning = document.createElement("small");
+  warning.className = "time-warning";
+  warning.setAttribute("data-field", "momentLocationWarning");
+  warning.style.display = "none";
+  label.appendChild(warning);
+  return warning;
+}
+
+function isAgendaItemActive(agendaItem) {
+  const date = String(agendaItem?.querySelector('[data-field="date"]')?.value || "").trim();
+  const timeStart = String(agendaItem?.querySelector('[data-field="timeStart"]')?.value || "").trim();
+  const timeEnd = String(agendaItem?.querySelector('[data-field="timeEnd"]')?.value || "").trim();
+  const title = String(agendaItem?.querySelector('[data-field="title"]')?.value || "").trim();
+  const notes = String(agendaItem?.querySelector('[data-field="notes"]')?.value || "").trim();
+  const instructorSelect = agendaItem?.querySelector('[data-field="instructor"]');
+  const instructorCustom = String(agendaItem?.querySelector('[data-field="instructorCustom"]')?.value || "").trim();
+  const instructor = instructorSelect?.value === "__custom__" ? instructorCustom : String(instructorSelect?.value || "").trim();
+  const location = readSelectedValues(agendaItem?.querySelector('[data-field="resources"]'));
+  const details = readLocationDetailValues(agendaItem);
+
+  return Boolean(date || timeStart || timeEnd || title || notes || instructor || location.length > 0 || details.length > 0);
+}
+
+function validateRequesterFields() {
+  if (!els.bookingForm) {
+    return { valid: true, message: "", firstField: null };
+  }
+
+  const isOnBehalf = Boolean(document.getElementById("bookingOnBehalf")?.checked);
+  if (isOnBehalf) {
+    const missing = [];
+    REQUESTER_REQUIRED_FIELDS.forEach(({ name, label }) => {
+      const field = els.bookingForm.elements.namedItem(name);
+      if (!(field instanceof HTMLInputElement)) {
+        return;
+      }
+
+      const value = String(field.value || "").trim();
+      const isMissing = !value;
+      setFieldInvalidState(field, isMissing);
+      if (isMissing) {
+        missing.push({ field, label });
+      }
+    });
+
+    if (missing.length === 0) {
+      return { valid: true, message: "", firstField: null };
+    }
+
+    return {
+      valid: false,
+      message: `⚠️ Fyll i beställaruppgifter: ${missing.map((entry) => entry.label).join(", ")}.`,
+      firstField: missing[0].field
+    };
+  }
+
+  const nameField = els.bookingForm.elements.namedItem("requesterName");
+  const emailField = els.bookingForm.elements.namedItem("email");
+  const nameMissing = !(nameField instanceof HTMLInputElement) || !String(nameField.value || "").trim();
+  const emailMissing = !(emailField instanceof HTMLInputElement) || !String(emailField.value || "").trim();
+
+  REQUESTER_REQUIRED_FIELDS.forEach(({ name }) => {
+    const field = els.bookingForm.elements.namedItem(name);
+    if (field instanceof HTMLInputElement) {
+      setFieldInvalidState(field, false);
+    }
+  });
+
+  if (!nameMissing && !emailMissing) {
+    return { valid: true, message: "", firstField: null };
+  }
+
+  if (nameField instanceof HTMLInputElement) {
+    setFieldInvalidState(nameField, nameMissing);
+  }
+  if (emailField instanceof HTMLInputElement) {
+    setFieldInvalidState(emailField, emailMissing);
+  }
+
+  return {
+    valid: false,
+    message: "⚠️ Entra-uppgifter saknas (namn eller mejladress). Kryssa i \"Jag bokar åt någon annan\" och fyll i manuellt.",
+    firstField: nameMissing && nameField instanceof HTMLInputElement
+      ? nameField
+      : (emailField instanceof HTMLInputElement ? emailField : null)
+  };
+}
+
+function validateAgendaRequiredFields() {
+  if (!els.agendaList) {
+    return { valid: true, message: "", firstInvalidElement: null };
+  }
+
+  const allItems = Array.from(els.agendaList.querySelectorAll(".agenda-item"));
+  const activeItems = allItems.filter((item) => isAgendaItemActive(item));
+  const generalWarning = ensureAgendaGeneralWarningElement();
+
+  if (activeItems.length === 0) {
+    if (generalWarning) {
+      generalWarning.textContent = "Lägg till minst ett moment i schemat.";
+      generalWarning.style.display = "";
+    }
+    return {
+      valid: false,
+      message: "⚠️ Lägg till minst ett moment i schemat innan du skickar.",
+      firstInvalidElement: els.agendaList
+    };
+  }
+
+  if (generalWarning) {
+    generalWarning.style.display = "none";
+    generalWarning.textContent = "";
+  }
+
+  const missingLocationItems = [];
+  allItems.forEach((item) => {
+    const resourceSelect = item.querySelector('[data-field="resources"]');
+    if (!(resourceSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    if (!isAgendaItemActive(item)) {
+      setFieldInvalidState(resourceSelect, false);
+      const warning = ensureAgendaLocationWarningElement(item);
+      if (warning) {
+        warning.style.display = "none";
+        warning.textContent = "";
+      }
+      return;
+    }
+
+    const hasLocation = readSelectedValues(resourceSelect).length > 0;
+    setFieldInvalidState(resourceSelect, !hasLocation);
+
+    const warning = ensureAgendaLocationWarningElement(item);
+    if (warning) {
+      if (!hasLocation) {
+        warning.textContent = "Välj lokal för momentet.";
+        warning.style.display = "";
+      } else {
+        warning.style.display = "none";
+        warning.textContent = "";
+      }
+    }
+
+    if (!hasLocation) {
+      missingLocationItems.push(item);
+    }
+  });
+
+  if (missingLocationItems.length > 0) {
+    return {
+      valid: false,
+      message: `⚠️ Välj lokal i ${missingLocationItems.length} moment innan du skickar.`,
+      firstInvalidElement: missingLocationItems[0]
+    };
+  }
+
+  return { valid: true, message: "", firstInvalidElement: null };
 }
 
 function composeMomentTimeValue(agendaItem) {
@@ -1072,6 +1367,157 @@ function splitMomentTimeValue(value) {
   const start = String(parts[0] || "").trim();
   const end = String(parts[1] || "").trim();
   return [start, end];
+}
+
+function parseClockMinutes(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const parts = raw.split(":");
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const hours = Number.parseInt(parts[0], 10);
+  const minutes = Number.parseInt(parts[1], 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function isInvalidTimeRange(startValue, endValue) {
+  if (!startValue || !endValue) {
+    return false;
+  }
+
+  const startMinutes = parseClockMinutes(startValue);
+  const endMinutes = parseClockMinutes(endValue);
+  if (startMinutes === null || endMinutes === null) {
+    return false;
+  }
+
+  return startMinutes >= endMinutes;
+}
+
+function setTimeFieldInvalidState(field, invalid) {
+  if (!(field instanceof HTMLSelectElement) && !(field instanceof HTMLInputElement)) {
+    return;
+  }
+
+  setFieldInvalidState(field, invalid);
+  field.classList.toggle("time-range-invalid", Boolean(invalid));
+}
+
+function ensureBookingTimeWarningElement() {
+  if (!els.bookingForm) {
+    return null;
+  }
+
+  const endField = els.bookingForm.elements.namedItem("endTime");
+  const endLabel = endField?.closest("label");
+  if (!endLabel) {
+    return null;
+  }
+
+  let warning = endLabel.querySelector('[data-field="bookingTimeWarning"]');
+  if (warning) {
+    return warning;
+  }
+
+  warning = document.createElement("small");
+  warning.className = "time-warning";
+  warning.setAttribute("data-field", "bookingTimeWarning");
+  warning.style.display = "none";
+  endLabel.appendChild(warning);
+  return warning;
+}
+
+function ensureAgendaTimeWarningElement(agendaItem) {
+  const timeWrap = agendaItem?.querySelector(".moment-time-range");
+  if (!timeWrap) {
+    return null;
+  }
+
+  const label = timeWrap.closest("label");
+  if (!label) {
+    return null;
+  }
+
+  let warning = label.querySelector('[data-field="momentTimeWarning"]');
+  if (warning) {
+    return warning;
+  }
+
+  warning = document.createElement("small");
+  warning.className = "time-warning";
+  warning.setAttribute("data-field", "momentTimeWarning");
+  warning.style.display = "none";
+  label.appendChild(warning);
+  return warning;
+}
+
+function validateBookingTimeRange() {
+  if (!els.bookingForm) {
+    return false;
+  }
+
+  const startField = els.bookingForm.elements.namedItem("startTime");
+  const endField = els.bookingForm.elements.namedItem("endTime");
+  const start = String(startField?.value || "").trim();
+  const end = String(endField?.value || "").trim();
+  const invalid = isInvalidTimeRange(start, end);
+
+  setTimeFieldInvalidState(startField, invalid);
+  setTimeFieldInvalidState(endField, invalid);
+
+  const warning = ensureBookingTimeWarningElement();
+  if (warning) {
+    if (invalid) {
+      warning.textContent = "Starttid maste vara tidigare an sluttid.";
+      warning.style.display = "";
+    } else {
+      warning.style.display = "none";
+      warning.textContent = "";
+    }
+  }
+
+  return invalid;
+}
+
+function validateAgendaItemTimeRange(agendaItem) {
+  const startField = agendaItem?.querySelector('[data-field="timeStart"]');
+  const endField = agendaItem?.querySelector('[data-field="timeEnd"]');
+  const start = String(startField?.value || "").trim();
+  const end = String(endField?.value || "").trim();
+  const invalid = isInvalidTimeRange(start, end);
+
+  setTimeFieldInvalidState(startField, invalid);
+  setTimeFieldInvalidState(endField, invalid);
+
+  const warning = ensureAgendaTimeWarningElement(agendaItem);
+  if (warning) {
+    if (invalid) {
+      warning.textContent = "Starttid maste vara tidigare an sluttid for momentet.";
+      warning.style.display = "";
+    } else {
+      warning.style.display = "none";
+      warning.textContent = "";
+    }
+  }
+
+  return invalid;
+}
+
+function validateAgendaTimeRanges() {
+  if (!els.agendaList) {
+    return [];
+  }
+
+  return Array.from(els.agendaList.querySelectorAll(".agenda-item")).filter((item) => validateAgendaItemTimeRange(item));
 }
 
 function refreshAgendaDateOptions() {
@@ -1837,7 +2283,7 @@ function updateExperienceDashboard() {
   const agenda = draft.agenda || [];
   const checks = [
     Boolean(draft.title),
-    Boolean(draft.purpose),
+    Boolean(draft.description),
     Boolean(draft.startDate),
     Boolean(draft.endDate),
     Boolean(draft.startTime),

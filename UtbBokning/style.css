@@ -259,6 +259,26 @@ small.helper-text { display: block; margin-top: 3px; }
   letter-spacing: normal !important;
   white-space: nowrap;
 }
+
+.time-warning {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.time-range-invalid {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(224, 49, 49, 0.12);
+}
+
+.validation-invalid {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(224, 49, 49, 0.12);
+}
 .location-detail-custom { display: flex; gap: 8px; margin-top: 4px; }
 .location-detail-custom input[type="text"] { flex: 1; min-width: 0; }
 .location-detail-add { padding: 5px 12px; border-radius: var(--radius-sm); font-size: 12px; }
