@@ -80,7 +80,7 @@ function getPool(connectionString) {
 
 async function ensureAppStateTable(pool) {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS public.app_state (
+    CREATE TABLE IF NOT EXISTS app_state (
       id text PRIMARY KEY,
       payload jsonb NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT NOW()
@@ -89,7 +89,7 @@ async function ensureAppStateTable(pool) {
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS app_state_updated_at_idx
-    ON public.app_state (updated_at DESC)
+    ON app_state (updated_at DESC)
   `);
 }
 
