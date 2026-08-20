@@ -2110,13 +2110,13 @@ function initPublicPage() {
           ${organizerLine}
           <p class="event-card-copy">Min ${event.minParticipants} deltagare • Max ${event.maxParticipants} deltagare</p>
         </div>
-          ${extraBlock}
         <div class="event-badge-row">
           <div class="event-badge">${event.sessions.length} datum</div>
           ${sessionStatusHtml}
           <button id="btn-print-event" class="btn btn-secondary" type="button">Skriv ut</button>
         </div>
       </div>
+      ${extraBlock}
     `;
 
     const sessionList = document.createElement('div');

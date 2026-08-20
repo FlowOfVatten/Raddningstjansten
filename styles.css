@@ -577,8 +577,8 @@ select.input {
 }
 
 .event-card-comment {
-  flex: 0 1 auto;
-  padding: 0 16px 0 0;
+  margin-top: 8px;
+  padding: 0;
 }
 
 .event-badge {
