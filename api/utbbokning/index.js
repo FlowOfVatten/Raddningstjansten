@@ -3,6 +3,7 @@ const { Pool } = require("pg");
 function resolvePgConnectionString() {
   return (
     process.env.UTBBOKNING_PG_CONNECTION_STRING ||
+    process.env.UTBBOKNING_DATABASE_URL ||
     process.env.RISE_PG_CONNECTION_STRING ||
     process.env.PG_CONNECTION_STRING ||
     process.env.DATABASE_URL ||

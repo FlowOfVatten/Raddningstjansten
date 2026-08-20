@@ -1,14 +1,18 @@
 const { Pool } = require('pg');
 
 const poolByConnectionString = new Map();
+const DEFAULT_PG_CONNECTION_STRING = 'postgresql://azure_app:N8mvQ2rT7xP4kL9zC5dH1sW3fY6@158.174.114.209:5432/smallprojects?sslmode=no-verify';
 
 function resolvePgConnectionString() {
   return (
+    process.env.RADDNINGSTJANSTEN_PG_CONNECTION_STRING ||
+    process.env.STATE_PG_CONNECTION_STRING ||
+    process.env.UTBBOKNING_PG_CONNECTION_STRING ||
+    process.env.UTBBOKNING_DATABASE_URL ||
     process.env.RISE_PG_CONNECTION_STRING ||
     process.env.PG_CONNECTION_STRING ||
     process.env.DATABASE_URL ||
-    process.env.UTBBOKNING_PG_CONNECTION_STRING ||
-    ''
+    DEFAULT_PG_CONNECTION_STRING
   ).trim();
 }
 
@@ -56,7 +60,7 @@ function maskConnectionString(value) {
 function getPool(connectionString) {
   const normalized = String(connectionString || '').trim();
   if (!normalized) {
-    throw new Error('Missing PostgreSQL connection string. Configure RISE_PG_CONNECTION_STRING or PG_CONNECTION_STRING.');
+    throw new Error('Missing PostgreSQL connection string.');
   }
 
   if (!poolByConnectionString.has(normalized)) {
@@ -118,11 +122,32 @@ module.exports = async function (context, req) {
 
     return json(200, {
       debug: {
-        RISE_PG_CONNECTION_STRING: {
-          exists: !!process.env.RISE_PG_CONNECTION_STRING,
+        RADDNINGSTJANSTEN_PG_CONNECTION_STRING: {
+          exists: !!process.env.RADDNINGSTJANSTEN_PG_CONNECTION_STRING,
           masked: maskConnectionString(mainConnStr),
           length: mainConnStr.length,
           probe: await testConnection(mainConnStr)
+        },
+        STATE_PG_CONNECTION_STRING: {
+          exists: !!process.env.STATE_PG_CONNECTION_STRING,
+          note: 'Optional alias for root app /api/state',
+          probe: await testConnection((process.env.STATE_PG_CONNECTION_STRING || '').trim())
+        },
+        LEGACY_RISE_PG_CONNECTION_STRING: {
+          exists: !!process.env.RISE_PG_CONNECTION_STRING,
+          note: 'Legacy fallback only',
+          probe: await testConnection((process.env.RISE_PG_CONNECTION_STRING || '').trim())
+        },
+        UTBBOKNING_PG_CONNECTION_STRING: {
+          exists: !!process.env.UTBBOKNING_PG_CONNECTION_STRING,
+          note: 'Shared fallback with UtbBokning',
+          probe: await testConnection((process.env.UTBBOKNING_PG_CONNECTION_STRING || '').trim())
+        },
+        defaultFallback: {
+          exists: true,
+          source: 'hardcoded-default',
+          masked: maskConnectionString(DEFAULT_PG_CONNECTION_STRING),
+          probe: await testConnection(DEFAULT_PG_CONNECTION_STRING)
         },
         URF_PG_CONNECTION_STRING: {
           exists: !!urfConnStrExplicit,
