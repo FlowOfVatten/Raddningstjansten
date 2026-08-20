@@ -309,6 +309,7 @@ let remoteSyncPending = false;
 let lastRemoteUpdatedAt = null;
 let remotePollTimer = null;
 let remoteSyncPromise = Promise.resolve(true);
+let lastRemoteReadError = null;
 
 const MOTTOS = [
   'Öva tills det känns självklart',
@@ -607,9 +608,12 @@ async function initializeSharedPersistence() {
 async function pullStateFromRemote() {
   const result = await apiRequest(`state?id=${encodeURIComponent(REMOTE_STATE_ID)}`);
   if (!result.ok) {
+    lastRemoteReadError = result.error || `HTTP ${result.status || 'error'}`;
     console.error('Could not read shared state from remote.', result.error);
     return null;
   }
+
+  lastRemoteReadError = null;
 
   const rows = Array.isArray(result.data) ? result.data : [];
   const data = rows.length ? rows[0] : null;
@@ -679,7 +683,7 @@ function startRemotePolling() {
     } catch {
       // Ignore polling errors and keep local app usable.
     }
-  }, 60000);
+  }, 15000);
 }
 
 function isRemoteTimestampNewer(left, right) {
@@ -711,7 +715,11 @@ function bindRefreshButton() {
 
       const data = await pullStateFromRemote();
       if (!data || !data.payload) {
-        window.alert('Ingen delad data hittades i databasen ännu.');
+        if (lastRemoteReadError) {
+          window.alert(`Kunde inte nå delad databas just nu. Fel: ${lastRemoteReadError}`);
+        } else {
+          window.alert('Ingen delad data hittades i databasen ännu.');
+        }
         return;
       }
 
