@@ -1,35 +1,33 @@
-const sql = require('mssql');
+const { Pool } = require('pg');
 
-const poolPromises = new Map();
+const poolByConnectionString = new Map();
 
-function resolveConnectionString(secretName = 'SQL_CONNECTION_STRING') {
+function resolvePgConnectionString() {
   return (
-    process.env[secretName] ||
-    process.env[`SQLAZURECONNSTR_${secretName}`] ||
-    process.env[`SQLCONNSTR_${secretName}`] ||
+    process.env.RISE_PG_CONNECTION_STRING ||
+    process.env.PG_CONNECTION_STRING ||
+    process.env.DATABASE_URL ||
+    process.env.UTBBOKNING_PG_CONNECTION_STRING ||
     ''
   ).trim();
 }
 
-function forceDatabaseInConnectionString(connectionString, databaseName) {
+function forceDatabaseInPgConnectionString(connectionString, databaseName) {
   if (!connectionString) return '';
 
-  if (/Initial Catalog\s*=\s*[^;]+/i.test(connectionString)) {
-    return connectionString.replace(/Initial Catalog\s*=\s*[^;]+/i, `Initial Catalog=${databaseName}`);
+  try {
+    const parsed = new URL(connectionString);
+    parsed.pathname = `/${databaseName}`;
+    return parsed.toString();
+  } catch {
+    return connectionString;
   }
-
-  if (/Database\s*=\s*[^;]+/i.test(connectionString)) {
-    return connectionString.replace(/Database\s*=\s*[^;]+/i, `Database=${databaseName}`);
-  }
-
-  const suffix = connectionString.endsWith(';') ? '' : ';';
-  return `${connectionString}${suffix}Initial Catalog=${databaseName};`;
 }
 
-function resolveUrfConnectionString() {
-  const urfConnStrFromSecret = resolveConnectionString('SQL_CONNECTION_STRING_URF');
-  if (urfConnStrFromSecret) return urfConnStrFromSecret;
-  return forceDatabaseInConnectionString(resolveConnectionString('SQL_CONNECTION_STRING'), 'urf');
+function resolveUrfPgConnectionString() {
+  const explicit = (process.env.URF_PG_CONNECTION_STRING || '').trim();
+  if (explicit) return explicit;
+  return forceDatabaseInPgConnectionString(resolvePgConnectionString(), 'urf');
 }
 
 function isUrfStateId(id) {
@@ -39,140 +37,133 @@ function isUrfStateId(id) {
 function countTotalCollected(foodCoupons) {
   if (!foodCoupons || typeof foodCoupons !== 'object') return 0;
   let total = 0;
-  ['friday', 'saturday'].forEach(day => {
-    if (Array.isArray(foodCoupons[day])) {
-      foodCoupons[day].forEach(row => {
-        total += (row.lunchCollected || 0) + (row.dinnerCollected || 0);
-      });
-    }
+  ['friday', 'saturday'].forEach((day) => {
+    if (!Array.isArray(foodCoupons[day])) return;
+    foodCoupons[day].forEach((row) => {
+      total += (row.lunchCollected || 0) + (row.dinnerCollected || 0);
+    });
   });
   return total;
 }
 
-function getPool(connectionString = resolveConnectionString()) {
-  console.log('[URF-API] Attempting SQL connection. String length:', connectionString.length);
-  console.log('[URF-API] SQL_CONNECTION_STRING exists:', !!process.env.SQL_CONNECTION_STRING);
+function maskConnectionString(value) {
+  return String(value || '')
+    .replace(/(password\s*=\s*)[^;]+/gi, '$1***')
+    .replace(/(pwd\s*=\s*)[^;]+/gi, '$1***')
+    .replace(/(:\/\/[^:]+:)[^@]+(@)/, '$1***$2');
+}
 
-  if (!connectionString) {
-    throw new Error('Missing SQL connection string. Set SQL_CONNECTION_STRING in Static Web App application settings.');
+function getPool(connectionString) {
+  const normalized = String(connectionString || '').trim();
+  if (!normalized) {
+    throw new Error('Missing PostgreSQL connection string. Configure RISE_PG_CONNECTION_STRING or PG_CONNECTION_STRING.');
   }
 
-  if (!poolPromises.has(connectionString)) {
-    const promise = new sql.ConnectionPool(connectionString)
-      .connect()
-      .catch(err => {
-        console.error('[URF-API] SQL Connection Error:', err.message);
-        poolPromises.delete(connectionString);
-        throw err;
-      });
-    poolPromises.set(connectionString, promise);
+  if (!poolByConnectionString.has(normalized)) {
+    poolByConnectionString.set(
+      normalized,
+      new Pool({
+        connectionString: normalized,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 10000,
+        idleTimeoutMillis: 30000
+      })
+    );
   }
 
-  return poolPromises.get(connectionString);
+  return poolByConnectionString.get(normalized);
 }
 
 async function testConnection(connectionString) {
+  if (!connectionString) {
+    return { ok: false, message: 'Connection string is empty.' };
+  }
+
+  const client = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 5000,
+    max: 1
+  });
+
   try {
-    const pool = new sql.ConnectionPool(connectionString);
-    await pool.connect();
-    await pool.request().query('SELECT 1 AS ok');
-    await pool.close();
-    return { ok: true, message: 'connected' };
+    const result = await client.query('SELECT NOW() AS now_utc');
+    return { ok: true, message: 'connected', nowUtc: result.rows?.[0]?.now_utc || null };
   } catch (err) {
-    return {
-      ok: false,
-      message: err.message,
-      code: err.code || null
-    };
+    return { ok: false, message: err.message, code: err.code || null };
+  } finally {
+    await client.end().catch(() => {});
   }
 }
 
+function json(status, body) {
+  return {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+    body
+  };
+}
+
 module.exports = async function (context, req) {
-  const method = (req.method || '').toUpperCase();
+  const method = String(req.method || '').toUpperCase();
 
-  // Debug endpoint
   if (req.query.debug === 'true') {
-    const mainConnStr = resolveConnectionString('SQL_CONNECTION_STRING');
-    const urfConnStrFromSecret = resolveConnectionString('SQL_CONNECTION_STRING_URF');
-    const urfConnStr = resolveUrfConnectionString();
+    const mainConnStr = resolvePgConnectionString();
+    const urfConnStrExplicit = (process.env.URF_PG_CONNECTION_STRING || '').trim();
+    const urfConnStr = resolveUrfPgConnectionString();
     const debugId = req.query.id || '';
-
-    const maskConnectionString = (connStr) => 
-      connStr ? connStr.replace(/Password=[^;]+/, 'Password=***') : 'NOT SET';
-
-    const mainProbe = await testConnection(mainConnStr);
-    const urfProbe = await testConnection(urfConnStr);
     const routeIsUrf = isUrfStateId(debugId);
     const selectedConnStr = routeIsUrf ? urfConnStr : mainConnStr;
-    const selectedProbe = await testConnection(selectedConnStr);
 
-    return {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: {
-        debug: {
-          SQL_CONNECTION_STRING: {
-            exists: !!process.env.SQL_CONNECTION_STRING,
-            masked: maskConnectionString(mainConnStr),
-            length: mainConnStr.length,
-            probe: mainProbe
-          },
-          SQL_CONNECTION_STRING_URF: {
-            exists: !!urfConnStrFromSecret,
-            source: urfConnStrFromSecret ? 'SQL_CONNECTION_STRING_URF' : 'derived-from-SQL_CONNECTION_STRING',
-            masked: maskConnectionString(urfConnStr),
-            length: urfConnStr.length,
-            probe: urfProbe
-          },
-          selectedRoute: {
-            id: debugId || null,
-            route: debugId ? (routeIsUrf ? 'URF_DATABASE' : 'DEFAULT_DATABASE') : null,
-            maskedConnectionString: maskConnectionString(selectedConnStr),
-            probe: selectedProbe
-          }
+    return json(200, {
+      debug: {
+        RISE_PG_CONNECTION_STRING: {
+          exists: !!process.env.RISE_PG_CONNECTION_STRING,
+          masked: maskConnectionString(mainConnStr),
+          length: mainConnStr.length,
+          probe: await testConnection(mainConnStr)
+        },
+        URF_PG_CONNECTION_STRING: {
+          exists: !!urfConnStrExplicit,
+          source: urfConnStrExplicit ? 'URF_PG_CONNECTION_STRING' : 'derived-from-main-connection',
+          masked: maskConnectionString(urfConnStr),
+          length: urfConnStr.length,
+          probe: await testConnection(urfConnStr)
+        },
+        selectedRoute: {
+          id: debugId || null,
+          route: debugId ? (routeIsUrf ? 'URF_DATABASE' : 'DEFAULT_DATABASE') : null,
+          maskedConnectionString: maskConnectionString(selectedConnStr),
+          probe: await testConnection(selectedConnStr)
         }
       }
-    };
+    });
   }
 
   if (method === 'GET') {
     const id = req.query.id;
     if (!id) {
-      return {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: { error: 'id parameter required' }
-      };
+      return json(400, { error: 'id parameter required' });
     }
 
     try {
-      const connectionString = isUrfStateId(id) ? resolveUrfConnectionString() : resolveConnectionString();
-      const pool = await getPool(connectionString);
-      const result = await pool.request()
-        .input('id', sql.NVarChar(200), id)
-        .query('SELECT payload, updated_at FROM app_state WHERE id = @id');
+      const connectionString = isUrfStateId(id) ? resolveUrfPgConnectionString() : resolvePgConnectionString();
+      const pool = getPool(connectionString);
+      const result = await pool.query(
+        'SELECT payload, updated_at FROM app_state WHERE id = $1',
+        [id]
+      );
 
-      if (!result.recordset.length) {
-        return {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: []
-        };
+      if (!result.rows.length) {
+        return json(200, []);
       }
 
-      const row = result.recordset[0];
-      return {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: [{ payload: JSON.parse(row.payload), updated_at: row.updated_at }]
-      };
+      const row = result.rows[0];
+      return json(200, [{ payload: row.payload, updated_at: row.updated_at }]);
     } catch (err) {
       context.log.error('state GET error', err);
-      return {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-        body: { error: err.message }
-      };
+      return json(500, { error: err.message });
     }
   }
 
@@ -180,78 +171,54 @@ module.exports = async function (context, req) {
     const row = Array.isArray(req.body) ? req.body[0] : req.body;
     const { id, payload, updated_at } = row || {};
 
-    if (!id || !payload) {
-      return {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: { error: 'id and payload required' }
-      };
+    if (!id || payload == null) {
+      return json(400, { error: 'id and payload required' });
     }
 
     const timestamp = updated_at || new Date().toISOString();
-    const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
     const payloadObj = typeof payload === 'string' ? JSON.parse(payload) : payload;
 
     try {
-      const connectionString = isUrfStateId(id) ? resolveUrfConnectionString() : resolveConnectionString();
-      const pool = await getPool(connectionString);
+      const connectionString = isUrfStateId(id) ? resolveUrfPgConnectionString() : resolvePgConnectionString();
+      const pool = getPool(connectionString);
 
-      // URF-specific validation: prevent wipeout of foodCoupons
-      if (isUrfStateId(id) && payloadObj.foodCoupons) {
-        const existingResult = await pool.request()
-          .input('id', sql.NVarChar(200), id)
-          .query('SELECT payload FROM app_state WHERE id = @id');
+      if (isUrfStateId(id) && payloadObj && payloadObj.foodCoupons) {
+        const existingResult = await pool.query(
+          'SELECT payload FROM app_state WHERE id = $1',
+          [id]
+        );
 
-        if (existingResult.recordset.length > 0) {
-          const existingPayload = JSON.parse(existingResult.recordset[0].payload);
+        if (existingResult.rows.length > 0) {
+          const existingPayload = existingResult.rows[0].payload || {};
           const existingTotal = countTotalCollected(existingPayload.foodCoupons);
           const newTotal = countTotalCollected(payloadObj.foodCoupons);
 
-          // Reject if new total is 0 but existing had data
           if (newTotal === 0 && existingTotal > 0) {
             context.log.warn(`[URF-API] Blocking wipeout: existing total=${existingTotal}, new total=${newTotal}`);
-            return {
-              status: 409,
-              headers: { 'Content-Type': 'application/json' },
-              body: { 
-                error: 'Cannot wipe out foodCoupons data',
-                details: `Existing total=${existingTotal}, new total=${newTotal}`
-              }
-            };
+            return json(409, {
+              error: 'Cannot wipe out foodCoupons data',
+              details: `Existing total=${existingTotal}, new total=${newTotal}`
+            });
           }
         }
       }
 
-      await pool.request()
-        .input('id', sql.NVarChar(200), id)
-        .input('payload', sql.NVarChar(sql.MAX), payloadStr)
-        .input('updated_at', sql.DateTime2, new Date(timestamp))
-        .query(`
-          MERGE app_state AS target
-          USING (VALUES (@id, @payload, @updated_at)) AS source (id, payload, updated_at)
-          ON target.id = source.id
-          WHEN MATCHED THEN UPDATE SET payload = source.payload, updated_at = source.updated_at
-          WHEN NOT MATCHED THEN INSERT (id, payload, updated_at) VALUES (source.id, source.payload, source.updated_at);
-        `);
+      await pool.query(
+        `
+        INSERT INTO app_state (id, payload, updated_at)
+        VALUES ($1, $2::jsonb, $3::timestamptz)
+        ON CONFLICT (id)
+        DO UPDATE SET payload = EXCLUDED.payload, updated_at = EXCLUDED.updated_at
+        `,
+        [id, JSON.stringify(payloadObj), timestamp]
+      );
 
-      return {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: { ok: true }
-      };
+      return json(200, { ok: true });
     } catch (err) {
       context.log.error('state PUT/POST error', err);
-      return {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-        body: { error: err.message }
-      };
+      return json(500, { error: err.message });
     }
   }
 
-  return {
-    status: 405,
-    headers: { 'Content-Type': 'application/json' },
-    body: { error: 'Method not allowed' }
-  };
+  return json(405, { error: 'Method not allowed' });
 };

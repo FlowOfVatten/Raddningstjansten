@@ -18,15 +18,15 @@
 
 [hidden] {
   display: none !important;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-  color: var(--ink);
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --ink: #1a1d23;
+  --muted: #4a4f5e;
+  --line: #e2e4e9;
+  --accent-strong: #3b5bdb;
+  --accent-deep: #2f4ac4;
+  --danger: #e03131;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   font-family: "Source Sans 3", "Segoe UI", Roboto, Arial, sans-serif;
   background:
     linear-gradient(180deg, rgba(19, 72, 112, 0.2), rgba(240, 107, 34, 0.09) 200px, transparent 420px),
@@ -34,9 +34,8 @@ body {
     repeating-linear-gradient(90deg, transparent 0, transparent 87px, rgba(13, 34, 52, 0.04) 87px, rgba(13, 34, 52, 0.04) 88px),
     var(--bg);
 }
-
-a {
-  color: inherit;
+    linear-gradient(180deg, rgba(59, 91, 219, 0.08), rgba(59, 91, 219, 0.02) 220px, transparent 520px),
+    radial-gradient(circle at top right, rgba(224, 49, 49, 0.07), transparent 40%),
 }
 
 button,
@@ -46,25 +45,26 @@ textarea {
   font: inherit;
 }
 
-select {
+  border: 1px solid var(--line);
   appearance: auto;
   -webkit-appearance: menulist;
 }
 
-.page-shell {
-  max-width: 1480px;
+  background:
+    linear-gradient(120deg, rgba(59, 91, 219, 0.14), rgba(59, 91, 219, 0.03)),
+    var(--panel);
+  border-color: var(--line);
   margin: 0 auto;
   padding: 24px;
 }
-
-.hero,
+  background: var(--panel);
+  border-color: var(--line);
 .panel,
 .card,
 .event-card,
-.signup-sheet {
   background: var(--panel);
-  border: 1px solid rgba(13, 44, 68, 0.2);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .hero {
@@ -73,11 +73,11 @@ select {
   margin-bottom: 24px;
   display: flex;
   justify-content: space-between;
-  gap: 24px;
+  color: var(--ink);
   align-items: flex-start;
   position: relative;
 }
-
+  background: rgba(59, 91, 219, 0.1);
 .public-hero {
   background: #e73137;
   border-color: #e73137;
@@ -85,19 +85,19 @@ select {
 
 .overview-panel {
   background: #e73137;
-  border-color: #e73137;
+  color: var(--ink);
 }
 
 .public-events .event-card {
   background: #e73137;
-  border-color: #e73137;
+  color: var(--muted);
   border: 0;
   box-shadow: none;
 }
 
 .public-events .event-card h2,
 .public-events .event-card .event-badge,
-.public-events .event-card .event-card-copy,
+  color: var(--muted);
 .public-events .event-card .event-organizer,
 .public-events .event-card .event-extra-info,
 .public-events .event-card .event-tag-chip {
@@ -105,53 +105,69 @@ select {
 }
 
 .public-events .event-card .event-badge {
-  background: rgba(255, 255, 255, 0.2);
-}
-
+  min-height: 42px;
+  padding: 8px 10px;
+  border-radius: 8px;
 .public-hero,
-.public-hero h1,
+  background: #fff;
 .public-hero .hero-copy,
 .public-hero .eyebrow,
+.input:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.12);
+}
 .public-hero a {
   color: #fff;
 }
 
 .public-hero .hero-copy,
 .public-hero .eyebrow {
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.public-hero .hero-actions {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: 40px;
+  padding: 7px 14px;
   flex-direction: column;
-  align-items: flex-end;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 @media (min-width: 761px) {
-  .public-hero {
-    position: relative;
+  transform: none;
+  filter: none;
     padding-bottom: 98px;
   }
 
   .public-hero .hero-actions {
+  border-color: var(--accent-strong);
     position: absolute;
     right: 28px;
     bottom: 28px;
     flex-direction: row;
+.btn-primary:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
     align-items: center;
     justify-content: flex-end;
-  }
+  background: #fff;
+  color: var(--ink);
+  border-color: var(--line);
+}
 
+.btn-secondary:hover {
+  background: #f8f9fa;
   .public-hero #btn-open-smoke-view {
     order: 1;
   }
-
+  background: #fff5f5;
+  border-color: #ffd8d8;
   .public-hero #btn-open-admin {
     order: 2;
   }
 
   .public-hero #btn-admin-login {
-    order: 3;
-  }
+  background: rgba(59, 91, 219, 0.1);
+  border: 1px solid rgba(59, 91, 219, 0.28);
 }
 
 .hero-title-with-logo {
@@ -161,13 +177,13 @@ select {
 }
 
 .hero-logo {
-  width: 92px;
+  border-top: 1px solid var(--line);
   height: 92px;
   flex-shrink: 0;
   object-fit: contain;
 }
 
-.hero-title-text {
+  color: var(--muted);
   min-width: 0;
 }
 
@@ -175,7 +191,7 @@ select {
   margin-bottom: 0;
 }
 
-.hero-title-text .hero-copy {
+  color: var(--accent-strong);
   margin-top: 10px;
 }
 
@@ -185,14 +201,14 @@ select {
   letter-spacing: 0.14em;
   font-size: 12px;
   color: var(--muted);
-}
+  color: var(--muted);
 
 .eyebrow-sub {
   font-size: 10px;
   letter-spacing: 0.12em;
 }
 
-h1,
+  background: rgba(18, 23, 32, 0.44);
 h2,
 h3,
 p {
@@ -201,8 +217,9 @@ p {
 
 h1 {
   font-size: clamp(32px, 4vw, 52px);
-  margin-bottom: 10px;
-  font-weight: 900;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
   line-height: 1.02;
 }
 
@@ -719,8 +736,9 @@ select.input {
   border-radius: 999px;
   font-size: 15px;
   font-weight: 800;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: rgba(59, 91, 219, 0.12);
+  border: 1px solid rgba(59, 91, 219, 0.25);
+  color: var(--ink);
 }
 
 .smoke-week-list {

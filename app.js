@@ -303,7 +303,6 @@ const LEGACY_STATIONS_ASCII = [
 
 const page = document.body.dataset.page;
 const state = loadState();
-const appConfig = window.APP_CONFIG || {};
 
 let remoteSyncInFlight = false;
 let remoteSyncPending = false;
