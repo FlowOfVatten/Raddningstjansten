@@ -1265,6 +1265,10 @@ function initAdminPage() {
           <div class="selected-date-meta">Ange ort och tid för detta datum.</div>
         </div>
         <div class="stack gap-xs">
+          <label class="field-label">Slutdatum (om flerdagsövning)</label>
+          <input class="input js-end-date" type="date" value="${entry.endDate || ''}" min="${entry.date}" placeholder="Valfritt">
+        </div>
+        <div class="stack gap-xs">
           <label class="field-label">Start</label>
           <input class="input js-start-time" type="time" value="${entry.startTime}">
         </div>
@@ -1279,6 +1283,10 @@ function initAdminPage() {
         <button class="btn btn-danger js-remove-date" type="button">Ta bort</button>
       `;
 
+      row.querySelector('.js-end-date').addEventListener('input', (event) => {
+        const val = event.target.value;
+        entry.endDate = val && val > entry.date ? val : '';
+      });
       row.querySelector('.js-start-time').addEventListener('input', (event) => {
         entry.startTime = event.target.value;
       });
@@ -1325,6 +1333,7 @@ function initAdminPage() {
       .map((entry) => ({
         id: entry.sessionId || createId(),
         date: entry.date,
+        endDate: entry.endDate || null,
         location: entry.location.trim(),
         startTime: entry.startTime,
         endTime: entry.endTime,
@@ -1465,6 +1474,7 @@ function initAdminPage() {
         signups: session.signups,
         startTime: session.startTime,
         endTime: session.endTime,
+        endDate: session.endDate || '',
         location: session.location
       });
     });
@@ -1526,6 +1536,7 @@ function initAdminPage() {
           <p class="event-card-copy">${event.sessions.length} datum • Min ${event.minParticipants} • Max ${event.maxParticipants}</p>
         </div>
         <div class="event-card-actions">
+          <button class="btn btn-secondary js-share-event" type="button">Dela övning</button>
           <button class="btn btn-secondary js-edit-event" type="button">Redigera</button>
           <button class="btn btn-danger js-delete-event" type="button">Ta bort</button>
         </div>
@@ -1537,10 +1548,13 @@ function initAdminPage() {
     event.sessions.forEach((session) => {
       const meta = document.createElement('div');
       meta.className = 'signup-sheet';
+      const adminDateLabel = session.endDate && session.endDate > session.date
+        ? `${formatLongDate(session.date)} – ${formatLongDate(session.endDate)}`
+        : formatLongDate(session.date);
       meta.innerHTML = `
         <div class="signup-sheet-head">
           <div>
-            <div class="signup-sheet-title">${formatLongDate(session.date)}</div>
+            <div class="signup-sheet-title">${adminDateLabel}</div>
             <div class="signup-sheet-location">Plats: ${escapeHtml(session.location)}</div>
             <div class="signup-sheet-subtitle">${session.startTime}-${session.endTime}</div>
           </div>
@@ -1551,6 +1565,19 @@ function initAdminPage() {
     });
 
     card.appendChild(list);
+    card.querySelector('.js-share-event').addEventListener('click', () => {
+      const base = window.location.origin + window.location.pathname.replace(/admin\.html$/, 'index.html');
+      const url = `${base}?event=${encodeURIComponent(String(event.id))}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+          window.alert('Direktlänk kopierad till urklipp:\n' + url);
+        }).catch(() => {
+          window.prompt('Kopiera länken manuellt:', url);
+        });
+      } else {
+        window.prompt('Kopiera länken manuellt:', url);
+      }
+    });
     card.querySelector('.js-edit-event').addEventListener('click', () => {
       startEditEvent(event.id);
     });
@@ -1979,7 +2006,13 @@ function initPublicPage() {
     });
 
     const hasPrevious = eventCandidates.some(({ event }) => String(event.id) === String(previousId));
-    eventSelect.value = hasPrevious ? String(previousId) : String(eventCandidates[0].event.id);
+    const deepLinkId = !previousId ? (new URLSearchParams(window.location.search)).get('event') : null;
+    const deepLinkExists = deepLinkId && eventCandidates.some(({ event }) => String(event.id) === String(deepLinkId));
+    if (deepLinkExists) {
+      eventSelect.value = String(deepLinkId);
+    } else {
+      eventSelect.value = hasPrevious ? String(previousId) : String(eventCandidates[0].event.id);
+    }
     renderPublicEventDetail(eventSelect.value);
 
     eventSelect.onchange = () => renderPublicEventDetail(eventSelect.value);
@@ -2082,12 +2115,15 @@ function initPublicPage() {
         const signups = Array.isArray(session.signups) ? session.signups : [];
         const sessionDateKey = normalizeDateKey(session.date);
         const isPastSession = !sessionDateKey || sessionDateKey < formatDateKey(new Date());
+        const publicDateLabel = session.endDate && session.endDate > session.date
+          ? `${formatLongDate(session.date)} \u2013 ${formatLongDate(session.endDate)}`
+          : formatLongDate(session.date);
         const sheet = document.createElement('section');
         sheet.className = 'signup-sheet';
         sheet.innerHTML = `
           <div class="signup-sheet-head">
             <div>
-              <div class="signup-sheet-title">${formatLongDate(session.date)}</div>
+              <div class="signup-sheet-title">${publicDateLabel}</div>
               <div class="signup-sheet-location">Plats: ${escapeHtml(session.location)}</div>
               <div class="signup-sheet-subtitle">${session.startTime}-${session.endTime}</div>
             </div>
