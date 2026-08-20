@@ -78,6 +78,21 @@ function getPool(connectionString) {
   return poolByConnectionString.get(normalized);
 }
 
+async function ensureAppStateTable(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.app_state (
+      id text PRIMARY KEY,
+      payload jsonb NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS app_state_updated_at_idx
+    ON public.app_state (updated_at DESC)
+  `);
+}
+
 async function testConnection(connectionString) {
   if (!connectionString) {
     return { ok: false, message: 'Connection string is empty.' };
@@ -175,6 +190,7 @@ module.exports = async function (context, req) {
     try {
       const connectionString = isUrfStateId(id) ? resolveUrfPgConnectionString() : resolvePgConnectionString();
       const pool = getPool(connectionString);
+      await ensureAppStateTable(pool);
       const result = await pool.query(
         'SELECT payload, updated_at FROM app_state WHERE id = $1',
         [id]
@@ -206,6 +222,7 @@ module.exports = async function (context, req) {
     try {
       const connectionString = isUrfStateId(id) ? resolveUrfPgConnectionString() : resolvePgConnectionString();
       const pool = getPool(connectionString);
+      await ensureAppStateTable(pool);
 
       if (isUrfStateId(id) && payloadObj && payloadObj.foodCoupons) {
         const existingResult = await pool.query(
