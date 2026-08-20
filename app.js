@@ -1279,6 +1279,7 @@ function initAdminPage() {
         <div class="stack gap-xs">
           <label class="field-label">Ort</label>
           <select class="input js-location-select">${buildStationOptions(entry.location, true)}</select>
+          <input class="input js-custom-location" type="text" placeholder="Annan plats – skriv och tryck Enter för att lägga till" style="margin-top:4px" value="">
         </div>
         <button class="btn btn-danger js-remove-date" type="button">Ta bort</button>
       `;
@@ -1296,6 +1297,23 @@ function initAdminPage() {
       row.querySelector('.js-location-select').addEventListener('change', (event) => {
         entry.location = event.target.value;
       });
+      const customLocationInput = row.querySelector('.js-custom-location');
+      const addCustomLocation = () => {
+        const val = customLocationInput.value.trim();
+        if (!val) return;
+        if (!state.stations.includes(val)) {
+          state.stations = [...state.stations, val];
+          saveState();
+        }
+        const select = row.querySelector('.js-location-select');
+        select.innerHTML = buildStationOptions(val, true);
+        entry.location = val;
+        customLocationInput.value = '';
+      };
+      customLocationInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); addCustomLocation(); }
+      });
+      customLocationInput.addEventListener('blur', addCustomLocation);
       row.querySelector('.js-remove-date').addEventListener('click', () => {
         runtime.selectedDates.delete(entry.date);
         renderCalendar();
