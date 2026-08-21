@@ -2,6 +2,7 @@ const DB_NAME = "utbbokning-local-db";
 const DB_VERSION = 1;
 const RESOURCE_STORE = "resources";
 const BOOKING_STORE = "bookings";
+const MIN_BOOKING_LEAD_WORKDAYS = 10;
 const API_ENDPOINT = resolveApiEndpoint();
 const LEGACY_RESOURCE_RENAMES = {
   Rokcontainer: "Rökcontainer",
@@ -372,6 +373,7 @@ async function init() {
 
   if (hasBookingPage) {
     refreshAgendaResourceOptions();
+    applyBookingLeadTimeConstraints();
   }
 
   if (els.resourcePicker) {
@@ -407,6 +409,7 @@ async function init() {
   }
 
   updateExperienceDashboard();
+  validateBookingLeadTime();
   validateBookingTimeRange();
   validateAgendaTimeRanges();
   validateAgendaRequiredFields();
@@ -433,12 +436,16 @@ function bindEvents() {
   els.bookingForm?.addEventListener("submit", handleBookingSubmit);
   els.bookingForm?.addEventListener("input", () => {
     state.isDirty = true;
+    applyBookingLeadTimeConstraints();
+    validateBookingLeadTime();
     validateBookingTimeRange();
     updateExperienceDashboard();
   });
   els.bookingForm?.addEventListener("change", () => {
     state.isDirty = true;
+    applyBookingLeadTimeConstraints();
     refreshAgendaDateOptions();
+    validateBookingLeadTime();
     validateBookingTimeRange();
     updateExperienceDashboard();
   });
@@ -1080,8 +1087,12 @@ async function handleBookingSubmit(event) {
   event.preventDefault();
 
   applyRequesterFieldRequirements();
+  applyBookingLeadTimeConstraints();
+  const bookingDateInvalid = validateBookingLeadTime();
   if (!els.bookingForm?.reportValidity()) {
-    setStatus("⚠️ Fyll i alla obligatoriska bokningsfält.");
+    setStatus(bookingDateInvalid
+      ? `⚠️ Bokning måste göras minst ${MIN_BOOKING_LEAD_WORKDAYS} arbetsdagar i förväg.`
+      : "⚠️ Fyll i alla obligatoriska bokningsfält.");
     return;
   }
 
@@ -1418,6 +1429,8 @@ function hydrateForm(draft) {
   }
 
   applyRequesterFieldRequirements();
+  applyBookingLeadTimeConstraints();
+  validateBookingLeadTime();
   validateBookingTimeRange();
   validateAgendaTimeRanges();
   validateAgendaRequiredFields();
@@ -1797,6 +1810,87 @@ function validateBookingTimeRange() {
   }
 
   return invalid;
+}
+
+function validateBookingLeadTime() {
+  if (!els.bookingForm) {
+    return false;
+  }
+
+  const startField = els.bookingForm.elements.namedItem("startDate");
+  const endField = els.bookingForm.elements.namedItem("endDate");
+  const startDate = String(startField?.value || "").trim();
+  const endDate = String(endField?.value || "").trim();
+  const minStartDate = getMinBookableDateKey();
+
+  if (startField instanceof HTMLInputElement) {
+    startField.setCustomValidity("");
+    if (startDate && startDate < minStartDate) {
+      startField.setCustomValidity(`Startdatum måste vara minst ${MIN_BOOKING_LEAD_WORKDAYS} arbetsdagar fram i tiden.`);
+    }
+  }
+
+  if (endField instanceof HTMLInputElement) {
+    endField.setCustomValidity("");
+    const minEndDate = startDate && startDate > minStartDate ? startDate : minStartDate;
+    if (endDate && endDate < minEndDate) {
+      endField.setCustomValidity("Slutdatum kan inte vara tidigare än startdatum.");
+    }
+  }
+
+  return (startField instanceof HTMLInputElement && !startField.checkValidity())
+    || (endField instanceof HTMLInputElement && !endField.checkValidity());
+}
+
+function applyBookingLeadTimeConstraints() {
+  if (!els.bookingForm) {
+    return;
+  }
+
+  const startField = els.bookingForm.elements.namedItem("startDate");
+  const endField = els.bookingForm.elements.namedItem("endDate");
+  const minStartDate = getMinBookableDateKey();
+  const startDate = String(startField?.value || "").trim();
+  const minEndDate = startDate && startDate > minStartDate ? startDate : minStartDate;
+
+  if (startField instanceof HTMLInputElement) {
+    startField.setAttribute("min", minStartDate);
+  }
+
+  if (endField instanceof HTMLInputElement) {
+    endField.setAttribute("min", minEndDate);
+  }
+}
+
+function getMinBookableDateKey() {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const minDate = addBusinessDays(today, MIN_BOOKING_LEAD_WORKDAYS);
+  return toDateInputKey(minDate);
+}
+
+function addBusinessDays(date, workdays) {
+  const cursor = new Date(date);
+  let added = 0;
+  while (added < workdays) {
+    cursor.setDate(cursor.getDate() + 1);
+    if (isBusinessDay(cursor)) {
+      added += 1;
+    }
+  }
+  return cursor;
+}
+
+function isBusinessDay(date) {
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+}
+
+function toDateInputKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function validateAgendaItemTimeRange(agendaItem) {
