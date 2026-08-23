@@ -8,7 +8,7 @@ export default function LoginScreen() {
   const setAuth = useAppStore((s) => s.setAuth)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(false)
+  const [remember, setRemember] = useState(true)
   const [mode, setMode] = useState<'login' | 'register'>('login')
 
   // Capture invite token from URL so it survives login/register
@@ -67,7 +67,7 @@ export default function LoginScreen() {
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
             />
-            Kom ihåg mig på den här enheten
+            Kom ihåg mig (avkryssa för att logga ut vid stängd webbläsare)
           </label>
           <button type="submit" className={styles.primary} disabled={loading}>
             {loading ? '…' : mode === 'login' ? 'Logga in' : 'Skapa konto'}
