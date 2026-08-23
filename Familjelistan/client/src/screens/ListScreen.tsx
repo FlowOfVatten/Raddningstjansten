@@ -17,6 +17,7 @@ export default function ListScreen() {
   const [newName, setNewName] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const suppressNextPollRef = useRef(false)
 
   useListWebSocket(activeListId)
 
@@ -25,6 +26,29 @@ export default function ListScreen() {
     api.get<typeof list>(`/lists/${activeListId}`, token).then((l) => {
       if (l) upsertList(l)
     })
+  }, [activeListId, token, upsertList])
+
+  useEffect(() => {
+    if (!activeListId || !token) return
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+
+      // Skip one polling cycle right after a local optimistic mutation so
+      // the server does not briefly overwrite the just-updated UI.
+      if (suppressNextPollRef.current) {
+        suppressNextPollRef.current = false
+        return
+      }
+
+      api.get<typeof list>(`/lists/${activeListId}`, token)
+        .then((l) => {
+          if (l) upsertList(l)
+        })
+        .catch(() => {})
+    }, 4000)
+
+    return () => window.clearInterval(interval)
   }, [activeListId, token, upsertList])
 
   useEffect(() => {
@@ -48,6 +72,7 @@ export default function ListScreen() {
     setNewName('')
     setSuggestions([])
     inputRef.current?.focus()
+    suppressNextPollRef.current = true
     const newItem: ListItem = {
       id: `temp-${Date.now()}`,
       listId: list.id,
@@ -72,6 +97,7 @@ export default function ListScreen() {
   async function toggleItem(item: ListItem) {
     if (!list) return
     const newStatus = item.status === 'remaining' ? 'checked' : 'remaining'
+    suppressNextPollRef.current = true
     // Optimistic
     optimisticUpdate(list.items.map((i) => i.id === item.id ? { ...i, status: newStatus } : i))
     try {
@@ -85,6 +111,7 @@ export default function ListScreen() {
   async function clearChecked() {
     if (!list) return
     const kept = list.items.filter((i) => i.status !== 'checked')
+    suppressNextPollRef.current = true
     // Optimistic
     optimisticUpdate(kept)
     try {
