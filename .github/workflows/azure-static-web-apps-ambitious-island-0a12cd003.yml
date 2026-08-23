@@ -51,6 +51,11 @@ jobs:
           rm -rf Familjelistan/assets
           cp -R Familjelistan/client/dist/. Familjelistan/
 
+      - name: Remove large build-only folders before deploy
+        run: |
+          rm -rf Familjelistan/client/node_modules
+          rm -rf api/node_modules
+
       - name: Build And Deploy
         id: builddeploy_primary
         continue-on-error: true
