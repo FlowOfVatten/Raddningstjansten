@@ -61,6 +61,21 @@
   font-size: 0.875rem;
 }
 
+.rememberLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.rememberLabel input[type='checkbox'] {
+  accent-color: var(--ica-red);
+  width: 1rem;
+  height: 1rem;
+}
+
 .toggle {
   display: block;
   width: 100%;

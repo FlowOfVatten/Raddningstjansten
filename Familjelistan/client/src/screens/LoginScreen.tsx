@@ -8,6 +8,7 @@ export default function LoginScreen() {
   const setAuth = useAppStore((s) => s.setAuth)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(false)
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,7 +23,7 @@ export default function LoginScreen() {
         null,
         { email, password }
       )
-      setAuth(res.user, res.token)
+      setAuth(res.user, res.token, remember)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Något gick fel')
     } finally {
@@ -53,6 +54,14 @@ export default function LoginScreen() {
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
           {error && <p className={styles.error}>{error}</p>}
+          <label className={styles.rememberLabel}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            Kom ihåg mig på den här enheten
+          </label>
           <button type="submit" className={styles.primary} disabled={loading}>
             {loading ? '…' : mode === 'login' ? 'Logga in' : 'Skapa konto'}
           </button>

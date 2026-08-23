@@ -4,8 +4,10 @@
 
 const BASE = '/api'
 
+// Azure Static Web Apps strips the Authorization header before it reaches Functions.
+// Use a custom header that passes through unmodified.
 function authHeaders(token: string | null): HeadersInit {
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  return token ? { 'X-FL-Token': token } : {}
 }
 
 async function request<T>(

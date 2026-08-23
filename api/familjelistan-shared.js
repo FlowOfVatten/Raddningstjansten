@@ -164,12 +164,14 @@ function defaultStore() {
 }
 
 async function requireAuthUser(req, pool) {
-  const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
-  if (!auth || !String(auth).startsWith('Bearer ')) {
-    throw new Error('Unauthorized');
-  }
+  // Azure SWA strips Authorization headers; use custom X-FL-Token instead.
+  const h = req.headers || {};
+  const token = String(
+    h['x-fl-token'] || h['X-FL-Token'] || h['X-Fl-Token'] || ''
+  ).trim();
 
-  const token = String(auth).slice(7);
+  if (!token) throw new Error('Unauthorized');
+
   const userId = token.split('.')[0];
   if (!userId) throw new Error('Unauthorized');
 

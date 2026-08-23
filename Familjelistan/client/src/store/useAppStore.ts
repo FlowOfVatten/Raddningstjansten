@@ -5,7 +5,7 @@ interface AppState {
   // Auth
   user: User | null
   token: string | null
-  setAuth: (user: User, token: string) => void
+  setAuth: (user: User, token: string, remember?: boolean) => void
   clearAuth: () => void
 
   // Household
@@ -40,13 +40,20 @@ export type Screen =
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
-  token: localStorage.getItem('fl_token'),
-  setAuth: (user, token) => {
-    localStorage.setItem('fl_token', token)
+  token: localStorage.getItem('fl_token') ?? sessionStorage.getItem('fl_token'),
+  setAuth: (user, token, remember = false) => {
+    if (remember) {
+      localStorage.setItem('fl_token', token)
+      sessionStorage.removeItem('fl_token')
+    } else {
+      sessionStorage.setItem('fl_token', token)
+      localStorage.removeItem('fl_token')
+    }
     set({ user, token, screen: 'lists' })
   },
   clearAuth: () => {
     localStorage.removeItem('fl_token')
+    sessionStorage.removeItem('fl_token')
     set({ user: null, token: null, screen: 'login' })
   },
 
@@ -72,6 +79,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeTrip: null,
   setActiveTrip: (trip) => set({ activeTrip: trip }),
 
-  screen: localStorage.getItem('fl_token') ? 'lists' : 'login',
+  screen: (localStorage.getItem('fl_token') || sessionStorage.getItem('fl_token')) ? 'lists' : 'login',
   setScreen: (screen) => set({ screen }),
 }))
