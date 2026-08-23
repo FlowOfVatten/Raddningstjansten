@@ -47,9 +47,25 @@ jobs:
         run: |
           npm install --prefix Familjelistan/client
           npm run build --prefix Familjelistan/client
-          rm -f Familjelistan/index.html
-          rm -rf Familjelistan/assets
-          cp -R Familjelistan/client/dist/. Familjelistan/
+
+      - name: Prepare minimal static app payload
+        run: |
+          rm -rf swa-app
+          mkdir -p swa-app
+
+          # Root public files
+          for file in index.html admin.html app.js config.js styles.css staticwebapp.config.json; do
+            if [ -f "$file" ]; then cp "$file" swa-app/; fi
+          done
+
+          # Existing static site folders that should remain published
+          for dir in 16WOH Brandresa Brandvatten Karta presentation RISE Schema Stress URF UtbBokning utlagg; do
+            if [ -d "$dir" ]; then cp -R "$dir" swa-app/; fi
+          done
+
+          # Familjelistan deploys only its built assets, not source/server files
+          mkdir -p swa-app/Familjelistan
+          cp -R Familjelistan/client/dist/. swa-app/Familjelistan/
 
       - name: Remove large build-only folders before deploy
         run: |
@@ -67,9 +83,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AMBITIOUS_ISLAND_0A12CD003 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "/"
+          app_location: "swa-app"
           api_location: "api"
-          output_location: "/"
+          output_location: ""
           skip_app_build: true
 
       - name: Build And Deploy (retry once)
@@ -84,9 +100,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AMBITIOUS_ISLAND_0A12CD003 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "/"
+          app_location: "swa-app"
           api_location: "api"
-          output_location: "/"
+          output_location: ""
           skip_app_build: true
 
       - name: Fail if deploy failed twice
