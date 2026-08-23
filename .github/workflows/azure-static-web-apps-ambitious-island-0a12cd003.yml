@@ -47,6 +47,9 @@ jobs:
         run: |
           npm install --prefix Familjelistan/client
           npm run build --prefix Familjelistan/client
+          rm -f Familjelistan/index.html
+          rm -rf Familjelistan/assets
+          cp -R Familjelistan/client/dist/. Familjelistan/
 
       - name: Build And Deploy
         id: builddeploy_primary

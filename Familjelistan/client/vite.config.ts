@@ -10,11 +10,6 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
-  build: {
-    // Emit deploy-ready static files in the parent folder so Azure can serve /Familjelistan/
-    outDir: '..',
-    emptyOutDir: false,
-  },
   server: {
     port: 5173,
     proxy: {
