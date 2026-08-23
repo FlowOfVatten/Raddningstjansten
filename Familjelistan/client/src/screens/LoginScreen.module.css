@@ -1,0 +1,72 @@
+.container {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--ica-red);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+}
+
+.logo {
+  text-align: center;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: var(--ica-red);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form input {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  width: 100%;
+}
+
+.form input:focus {
+  outline: 2px solid var(--ica-red);
+  border-color: transparent;
+}
+
+.primary {
+  background: var(--ica-red);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 0.85rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+}
+
+.error {
+  color: #c62828;
+  font-size: 0.875rem;
+}
+
+.toggle {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 1rem;
+  color: var(--ica-red);
+  font-size: 0.9rem;
+  text-decoration: underline;
+}

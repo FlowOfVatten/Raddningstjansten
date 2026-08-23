@@ -1,0 +1,128 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  background: var(--bg);
+}
+
+.header {
+  background: var(--ica-red);
+  color: #fff;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h1 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.endBtn {
+  color: #fff;
+  font-size: 0.875rem;
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.75rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0.5rem 1rem 0.25rem;
+}
+
+.now {
+  padding: 0 1rem 0.5rem;
+}
+
+.bigItem {
+  width: 100%;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: var(--shadow);
+  text-align: center;
+  border: 2px solid var(--ica-red);
+}
+
+.itemName {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.qty {
+  color: var(--text-muted);
+}
+
+.badge {
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.checkHint {
+  color: var(--ica-red);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 3rem 1rem;
+  font-size: 1.25rem;
+}
+
+.endBtnLarge {
+  background: var(--ica-red);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.upcoming {
+  padding: 0 1rem;
+}
+
+.upcomingItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 1rem;
+}
+
+.further {
+  padding: 0 1rem;
+}
+
+.furtherItem {
+  padding: 0.4rem 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.checkedCount {
+  text-align: center;
+  color: var(--success);
+  font-size: 0.875rem;
+  padding: 1rem;
+}
