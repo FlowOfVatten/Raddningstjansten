@@ -62,6 +62,7 @@ jobs:
           app_location: "/"
           api_location: "api"
           output_location: "/"
+          skip_app_build: true
 
       - name: Build And Deploy (retry once)
         id: builddeploy_retry
@@ -78,6 +79,7 @@ jobs:
           app_location: "/"
           api_location: "api"
           output_location: "/"
+          skip_app_build: true
 
       - name: Fail if deploy failed twice
         if: steps.builddeploy_primary.outcome == 'failure' && steps.builddeploy_retry.outcome == 'failure'
