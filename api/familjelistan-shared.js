@@ -176,7 +176,12 @@ async function requireAuthUser(req, pool) {
   if (!userId) throw new Error('Unauthorized');
 
   const user = await getState(pool, userByIdKey(userId));
-  if (!user || user.token !== token) {
+  if (!user) throw new Error('Unauthorized');
+
+  // Support multiple active sessions (one per device/browser).
+  // tokens is the authoritative list; token is kept for backwards compat.
+  const activeSessions = Array.isArray(user.tokens) ? user.tokens : (user.token ? [user.token] : []);
+  if (!activeSessions.includes(token)) {
     throw new Error('Unauthorized');
   }
 

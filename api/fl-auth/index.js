@@ -52,6 +52,7 @@ module.exports = async function (_context, req) {
         passwordSalt: salt,
         passwordHash: hashPassword(password, salt),
         token,
+        tokens: [token],
         householdId,
         createdAt,
         updatedAt: createdAt,
@@ -100,13 +101,19 @@ module.exports = async function (_context, req) {
         return json(401, { error: 'Fel e-post eller losenord' });
       }
 
-      user.token = signSession(user.id);
+      const newToken = signSession(user.id);
+      // Add to active sessions list (max 10 devices).
+      const sessions = Array.isArray(user.tokens) ? user.tokens : (user.token ? [user.token] : []);
+      sessions.push(newToken);
+      if (sessions.length > 10) sessions.splice(0, sessions.length - 10);
+      user.tokens = sessions;
+      user.token = newToken; // kept for backwards compat
       user.updatedAt = nowIso();
       await putState(pool, userByIdKey(user.id), user);
 
       return json(200, {
         user: mapUserForClient(user),
-        token: user.token,
+        token: newToken,
       });
     }
 
@@ -125,11 +132,13 @@ module.exports = async function (_context, req) {
       const newSalt = crypto.randomBytes(16).toString('hex');
       authUser.passwordSalt = newSalt;
       authUser.passwordHash = hashPassword(newPassword, newSalt);
-      authUser.token = signSession(authUser.id); // invalidera gamla sessioner
+      const changedToken = signSession(authUser.id);
+      authUser.token = changedToken; // backwards compat
+      authUser.tokens = [changedToken]; // all other sessions are invalidated
       authUser.updatedAt = nowIso();
       await putState(pool, userByIdKey(authUser.id), authUser);
 
-      return json(200, { user: mapUserForClient(authUser), token: authUser.token });
+      return json(200, { user: mapUserForClient(authUser), token: changedToken });
     }
 
     return json(404, { error: 'Endpoint finns inte' });
