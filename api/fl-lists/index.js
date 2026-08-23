@@ -22,45 +22,107 @@ function splitTail(tail) {
 }
 
 const GROUP_ORDER = ['produce', 'bread', 'meat', 'dairy', 'pantry', 'frozen', 'household', 'other'];
-const ITEM_ALIASES = {
-  tomat: ['tomat', 'tomater', 'körsbärstomat', 'körsbärstomater', 'plommontomat', 'plommontomater', 'cocktailtomat', 'cocktailtomater'],
-  gurka: ['gurka', 'gurkor', 'slanggurka', 'slanggurkor', 'mini gurka', 'minigurka'],
-  morot: ['morot', 'morötter', 'baby morötter', 'babymorötter'],
-  lök: ['lök', 'lökar', 'gul lök', 'gul lök', 'röd lök', 'rödlök', 'silverlök'],
-  paprika: ['paprika', 'paprikor'],
-  sallad: ['sallad', 'isberg', 'isbergssallad', 'ruccola', 'rucola', 'spenat'],
-  potatis: ['potatis', 'potatisar', 'färskpotatis'],
-  äpple: ['äpple', 'äpplen'],
-  banan: ['banan', 'bananer'],
-  mjölk: ['mjölk', 'standardmjölk', 'mellanmjölk', 'lättmjölk'],
-  grädde: ['grädde', 'vispgrädde', 'matlagningsgrädde'],
-  creme fraiche: ['creme fraiche', 'crème fraîche', 'fraiche'],
-  yoghurt: ['yoghurt', 'yoghurt naturell'],
-  ost: ['ost', 'hushållsost', 'prästost', 'cheddar'],
-  smör: ['smör', 'bregott'],
-  ägg: ['ägg', 'ägg 12-pack', 'ägg 6-pack'],
-  bröd: ['bröd', 'limpa', 'rostbröd', 'toast', 'franska'],
-  knäckebröd: ['knäckebröd', 'knäcke'],
-  pasta: ['pasta', 'spaghetti', 'makaroner', 'penne', 'fusilli'],
-  ris: ['ris', 'jasminris', 'basmatiris'],
-  kyckling: ['kyckling', 'kycklingfilé', 'kycklingfile', 'grillad kyckling'],
-  köttfärs: ['köttfärs', 'nötfärs', 'blandfärs'],
-  korv: ['korv', 'falukorv', 'grillkorv'],
-  bacon: ['bacon'],
-  lax: ['lax', 'laxfilé', 'laxfile'],
-  kaffe: ['kaffe'],
-  toapapper: ['toapapper', 'toa papper'],
-  hushållspapper: ['hushållspapper'],
-};
-const GROUP_KEYWORDS = {
-  produce: ['tomat', 'gurka', 'sallad', 'isberg', 'ruccola', 'spenat', 'paprika', 'avokado', 'lök', 'gul lök', 'röd lök', 'vitlök', 'morot', 'potatis', 'citron', 'lime', 'äpple', 'banan', 'päron', 'apelsin', 'broccoli', 'blomkål', 'zucc', 'zucchini', 'purjo', 'majs', 'persilja', 'dill'],
-  bread: ['bröd', 'limpa', 'fralla', 'toast', 'knäcke', 'knäckebröd', 'tortilla', 'pitabröd', 'hamburgerbröd', 'korvbröd', 'baguette'],
-  meat: ['kyckling', 'köttfärs', 'nötfärs', 'färs', 'korv', 'bacon', 'skinka', 'salami', 'kalkon', 'kött', 'lax', 'fisk', 'räkor', 'chark'],
-  dairy: ['mjölk', 'grädde', 'creme fraiche', 'crème fraîche', 'yoghurt', 'fil', 'ost', 'smör', 'kvarg', 'halloumi', 'mozzarella', 'fetaost', 'ägg'],
-  pantry: ['pasta', 'ris', 'bulgur', 'quinoa', 'mjöl', 'socker', 'salt', 'peppar', 'olja', 'olivolja', 'vinäger', 'krossade tomater', 'bönor', 'linser', 'havregryn', 'kaffe', 'te', 'krydd', 'soja', 'senap', 'ketchup', 'majonnäs'],
-  frozen: ['fryst', 'glass', 'ärtor', 'wokmix', 'fiskpinnar', 'pommes'],
-  household: ['toapapper', 'hushållspapper', 'diskmedel', 'tvättmedel', 'sköljmedel', 'soppåsar', 'tandkräm', 'tvål', 'schampo', 'balsam', 'blöjor']
-};
+const ITEM_CATALOG = [
+  { canonical: 'tomat', group: 'produce', aliases: ['tomat', 'tomater', 'körsbärstomat', 'körsbärstomater', 'plommontomat', 'plommontomater', 'cocktailtomat', 'cocktailtomater', 'bifftomat', 'romatomat'] },
+  { canonical: 'gurka', group: 'produce', aliases: ['gurka', 'gurkor', 'slanggurka', 'slanggurkor', 'minigurka', 'mini gurka', 'växthusgurka'] },
+  { canonical: 'morot', group: 'produce', aliases: ['morot', 'morötter', 'babymorot', 'babymorötter', 'baby morot', 'baby morötter'] },
+  { canonical: 'lök', group: 'produce', aliases: ['lök', 'lökar', 'gul lök', 'gullök', 'röd lök', 'rödlök', 'silverlök', 'bananschalottenlök', 'schalottenlök'] },
+  { canonical: 'vitlök', group: 'produce', aliases: ['vitlök', 'vitlöksklyftor'] },
+  { canonical: 'paprika', group: 'produce', aliases: ['paprika', 'paprikor', 'röd paprika', 'gul paprika', 'grön paprika'] },
+  { canonical: 'sallad', group: 'produce', aliases: ['sallad', 'isberg', 'isbergssallad', 'ruccola', 'rucola', 'spenat', 'babyspenat', 'machesallad', 'romansallad'] },
+  { canonical: 'potatis', group: 'produce', aliases: ['potatis', 'potatisar', 'färskpotatis', 'fast potatis', 'mjölig potatis'] },
+  { canonical: 'avokado', group: 'produce', aliases: ['avokado', 'avokador'] },
+  { canonical: 'citron', group: 'produce', aliases: ['citron', 'citroner'] },
+  { canonical: 'lime', group: 'produce', aliases: ['lime', 'limes'] },
+  { canonical: 'äpple', group: 'produce', aliases: ['äpple', 'äpplen'] },
+  { canonical: 'banan', group: 'produce', aliases: ['banan', 'bananer'] },
+  { canonical: 'päron', group: 'produce', aliases: ['päron', 'päronkonferens'] },
+  { canonical: 'apelsin', group: 'produce', aliases: ['apelsin', 'apelsiner', 'clementin', 'clementiner', 'mandarin', 'mandariner'] },
+  { canonical: 'broccoli', group: 'produce', aliases: ['broccoli', 'broccolibuketter'] },
+  { canonical: 'blomkål', group: 'produce', aliases: ['blomkål'] },
+  { canonical: 'zucchini', group: 'produce', aliases: ['zucchini', 'zuccini', 'zucc', 'squash'] },
+  { canonical: 'purjolök', group: 'produce', aliases: ['purjo', 'purjolök'] },
+  { canonical: 'majs', group: 'produce', aliases: ['majs', 'majskolv', 'majskolvar'] },
+  { canonical: 'svamp', group: 'produce', aliases: ['svamp', 'champinjon', 'champinjoner', 'portabello', 'kantarell', 'kantareller'] },
+  { canonical: 'ingefära', group: 'produce', aliases: ['ingefära', 'ingefara'] },
+  { canonical: 'persilja', group: 'produce', aliases: ['persilja'] },
+  { canonical: 'dill', group: 'produce', aliases: ['dill'] },
+  { canonical: 'koriander', group: 'produce', aliases: ['koriander'] },
+
+  { canonical: 'bröd', group: 'bread', aliases: ['bröd', 'rostbröd', 'toast', 'limpa', 'franska', 'frallor', 'fralla', 'surdegsbröd', 'levain'] },
+  { canonical: 'knäckebröd', group: 'bread', aliases: ['knäckebröd', 'knäcke'] },
+  { canonical: 'tortilla', group: 'bread', aliases: ['tortilla', 'tortillabröd', 'wraps'] },
+  { canonical: 'pitabröd', group: 'bread', aliases: ['pitabröd', 'pita'] },
+  { canonical: 'hamburgerbröd', group: 'bread', aliases: ['hamburgerbröd', 'burgerbröd'] },
+  { canonical: 'korvbröd', group: 'bread', aliases: ['korvbröd', 'hotdogbröd'] },
+  { canonical: 'baguette', group: 'bread', aliases: ['baguette'] },
+
+  { canonical: 'kyckling', group: 'meat', aliases: ['kyckling', 'kycklingfilé', 'kycklingfile', 'grillad kyckling', 'kycklinglårfilé', 'kycklingfärs'] },
+  { canonical: 'köttfärs', group: 'meat', aliases: ['köttfärs', 'nötfärs', 'blandfärs', 'färs'] },
+  { canonical: 'korv', group: 'meat', aliases: ['korv', 'falukorv', 'grillkorv', 'chorizo', 'isterband'] },
+  { canonical: 'bacon', group: 'meat', aliases: ['bacon'] },
+  { canonical: 'skinka', group: 'meat', aliases: ['skinka', 'rökt skinka', 'kokt skinka', 'julskinka'] },
+  { canonical: 'salami', group: 'meat', aliases: ['salami'] },
+  { canonical: 'kalkon', group: 'meat', aliases: ['kalkon', 'kalkonpålägg'] },
+  { canonical: 'lax', group: 'meat', aliases: ['lax', 'laxfilé', 'laxfile', 'varmrökt lax', 'kallrökt lax'] },
+  { canonical: 'fisk', group: 'meat', aliases: ['fisk', 'torsk', 'sej', 'kolja', 'fiskfilé', 'fiskfile', 'fiskpinnar'] },
+  { canonical: 'räkor', group: 'meat', aliases: ['räkor', 'rakaor', 'scampi'] },
+  { canonical: 'kött', group: 'meat', aliases: ['kött', 'entrecote', 'ryggbiff', 'fläskkotlett', 'fläskfilé', 'fläskfile'] },
+
+  { canonical: 'mjölk', group: 'dairy', aliases: ['mjölk', 'standardmjölk', 'mellanmjölk', 'lättmjölk', 'havremjölk', 'sojamjölk', 'mandelmjölk'] },
+  { canonical: 'grädde', group: 'dairy', aliases: ['grädde', 'vispgrädde', 'matlagningsgrädde', 'gräddfil', 'matgrädde'] },
+  { canonical: 'creme fraiche', group: 'dairy', aliases: ['creme fraiche', 'crème fraîche', 'fraiche'] },
+  { canonical: 'yoghurt', group: 'dairy', aliases: ['yoghurt', 'yoghurt naturell', 'grekisk yoghurt', 'turkisk yoghurt'] },
+  { canonical: 'fil', group: 'dairy', aliases: ['fil', 'filmjölk'] },
+  { canonical: 'ost', group: 'dairy', aliases: ['ost', 'hushållsost', 'prästost', 'cheddar', 'herrgård', 'grevé', 'greve', 'parmesan'] },
+  { canonical: 'mozzarella', group: 'dairy', aliases: ['mozzarella'] },
+  { canonical: 'fetaost', group: 'dairy', aliases: ['fetaost'] },
+  { canonical: 'halloumi', group: 'dairy', aliases: ['halloumi'] },
+  { canonical: 'smör', group: 'dairy', aliases: ['smör', 'bregott', 'margarin'] },
+  { canonical: 'kvarg', group: 'dairy', aliases: ['kvarg'] },
+  { canonical: 'ägg', group: 'dairy', aliases: ['ägg', 'ägg 6-pack', 'ägg 10-pack', 'ägg 12-pack', 'ägg 15-pack'] },
+
+  { canonical: 'pasta', group: 'pantry', aliases: ['pasta', 'spaghetti', 'makaroner', 'penne', 'fusilli', 'tagliatelle', 'lasagneplattor'] },
+  { canonical: 'ris', group: 'pantry', aliases: ['ris', 'jasminris', 'basmatiris', 'sushiris', 'fullkornsris'] },
+  { canonical: 'bulgur', group: 'pantry', aliases: ['bulgur'] },
+  { canonical: 'quinoa', group: 'pantry', aliases: ['quinoa'] },
+  { canonical: 'mjöl', group: 'pantry', aliases: ['mjöl', 'vetemjöl', 'rågmjöl', 'fullkornsmjöl'] },
+  { canonical: 'socker', group: 'pantry', aliases: ['socker', 'strösocker', 'florsocker', 'farinsocker'] },
+  { canonical: 'salt', group: 'pantry', aliases: ['salt', 'havssalt'] },
+  { canonical: 'peppar', group: 'pantry', aliases: ['peppar', 'svartpeppar', 'vitpeppar'] },
+  { canonical: 'olja', group: 'pantry', aliases: ['olja', 'olivolja', 'rapsolja', 'solrosolja'] },
+  { canonical: 'vinäger', group: 'pantry', aliases: ['vinäger', 'balsamvinäger', 'vitvinsvinäger'] },
+  { canonical: 'krossade tomater', group: 'pantry', aliases: ['krossade tomater', 'passerade tomater', 'tomatpuré', 'tomatpure'] },
+  { canonical: 'bönor', group: 'pantry', aliases: ['bönor', 'kidneybönor', 'svarta bönor', 'vita bönor', 'borlottibönor'] },
+  { canonical: 'linser', group: 'pantry', aliases: ['linser', 'röda linser', 'gröna linser'] },
+  { canonical: 'havregryn', group: 'pantry', aliases: ['havregryn'] },
+  { canonical: 'kaffe', group: 'pantry', aliases: ['kaffe'] },
+  { canonical: 'te', group: 'pantry', aliases: ['te'] },
+  { canonical: 'soja', group: 'pantry', aliases: ['soja', 'japansk soja', 'kinesisk soja'] },
+  { canonical: 'senap', group: 'pantry', aliases: ['senap', 'dijonsenap'] },
+  { canonical: 'ketchup', group: 'pantry', aliases: ['ketchup'] },
+  { canonical: 'majonnäs', group: 'pantry', aliases: ['majonnäs', 'majonnas'] },
+  { canonical: 'honung', group: 'pantry', aliases: ['honung'] },
+  { canonical: 'jordnötssmör', group: 'pantry', aliases: ['jordnötssmör', 'jordnotssmor'] },
+
+  { canonical: 'glass', group: 'frozen', aliases: ['glass'] },
+  { canonical: 'frysta ärtor', group: 'frozen', aliases: ['frysta ärtor', 'ärtor'] },
+  { canonical: 'wokmix', group: 'frozen', aliases: ['wokmix', 'fryst wokmix'] },
+  { canonical: 'pommes', group: 'frozen', aliases: ['pommes', 'pommes frites'] },
+  { canonical: 'frysta bär', group: 'frozen', aliases: ['frysta bär', 'hallon frysta', 'blåbär frysta'] },
+
+  { canonical: 'toapapper', group: 'household', aliases: ['toapapper', 'toa papper', 'toa-rulle'] },
+  { canonical: 'hushållspapper', group: 'household', aliases: ['hushållspapper'] },
+  { canonical: 'diskmedel', group: 'household', aliases: ['diskmedel'] },
+  { canonical: 'tvättmedel', group: 'household', aliases: ['tvättmedel'] },
+  { canonical: 'sköljmedel', group: 'household', aliases: ['sköljmedel'] },
+  { canonical: 'soppåsar', group: 'household', aliases: ['soppåsar', 'soppasar'] },
+  { canonical: 'tandkräm', group: 'household', aliases: ['tandkräm', 'tandkram'] },
+  { canonical: 'tvål', group: 'household', aliases: ['tvål', 'tval', 'handtvål'] },
+  { canonical: 'schampo', group: 'household', aliases: ['schampo'] },
+  { canonical: 'balsam', group: 'household', aliases: ['balsam'] },
+  { canonical: 'blöjor', group: 'household', aliases: ['blöjor', 'blojor'] },
+];
 
 function normalizeItemName(name) {
   return String(name || '')
@@ -74,9 +136,9 @@ function canonicalizeItemName(name) {
   const normalized = normalizeItemName(name);
   if (!normalized) return '';
 
-  for (const [canonical, aliases] of Object.entries(ITEM_ALIASES)) {
-    if (aliases.some((alias) => normalized.includes(alias))) {
-      return canonical;
+  for (const item of ITEM_CATALOG) {
+    if (item.aliases.some((alias) => normalized.includes(alias))) {
+      return item.canonical;
     }
   }
 
@@ -84,12 +146,12 @@ function canonicalizeItemName(name) {
 }
 
 function classifyItemGroup(name) {
-  const normalized = canonicalizeItemName(name);
-  if (!normalized) return 'other';
+  const canonical = canonicalizeItemName(name);
+  if (!canonical) return 'other';
 
-  for (const [group, keywords] of Object.entries(GROUP_KEYWORDS)) {
-    if (keywords.some((keyword) => normalized.includes(keyword))) {
-      return group;
+  for (const item of ITEM_CATALOG) {
+    if (item.canonical === canonical) {
+      return item.group;
     }
   }
 
