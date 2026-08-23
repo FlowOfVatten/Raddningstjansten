@@ -94,12 +94,12 @@
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
-  width: 10rem;
+  width: 8rem;
 }
 
 .renameBtn,
 .deleteBtn {
-  width: 5rem;
+  width: 4rem;
   color: #fff;
   font-size: 0.85rem;
   font-weight: 600;
@@ -118,11 +118,13 @@
   display: flex;
   align-items: stretch;
   background: var(--surface);
-  transition: transform 0.22s ease;
+  transition: transform 0.18s cubic-bezier(0.22, 0.8, 0.36, 1);
+  will-change: transform;
+  touch-action: pan-y;
 }
 
 .listRowWrapOpen {
-  transform: translateX(-10rem);
+  transform: translateX(-8rem);
 }
 
 .listRow {

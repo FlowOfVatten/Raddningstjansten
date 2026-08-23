@@ -5,6 +5,8 @@ import type { ShoppingList } from '../types'
 import ProfileDrawer from './ProfileDrawer'
 import styles from './ListsScreen.module.css'
 
+const ACTION_WIDTH = 128
+
 function initials(name: string) {
   return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2)
 }
@@ -139,18 +141,32 @@ function ListRow({
   onDelete: () => void
 }) {
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const [touchStartReveal, setTouchStartReveal] = useState(0)
+  const [dragReveal, setDragReveal] = useState<number | null>(null)
+
+  const effectiveReveal = dragReveal ?? (isOpen ? ACTION_WIDTH : 0)
 
   function handleTouchStart(e: React.TouchEvent) {
     setTouchStartX(e.touches[0]?.clientX ?? null)
+    setTouchStartReveal(isOpen ? ACTION_WIDTH : 0)
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (touchStartX == null) return
+    const currentX = e.touches[0]?.clientX ?? touchStartX
+    const delta = touchStartX - currentX
+    const nextReveal = Math.max(0, Math.min(ACTION_WIDTH, touchStartReveal + delta))
+    setDragReveal(nextReveal)
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
     if (touchStartX == null) return
-    const endX = e.changedTouches[0]?.clientX ?? touchStartX
-    const delta = endX - touchStartX
-    if (delta < -45) onOpenActions()
-    if (delta > 45) onCloseActions()
+    const endReveal = dragReveal ?? (isOpen ? ACTION_WIDTH : 0)
+    if (endReveal > ACTION_WIDTH / 2) onOpenActions()
+    else onCloseActions()
     setTouchStartX(null)
+    setTouchStartReveal(0)
+    setDragReveal(null)
   }
 
   return (
@@ -163,9 +179,20 @@ function ListRow({
       <div
         className={`${styles.listRowWrap} ${isOpen ? styles.listRowWrapOpen : ''}`}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        style={{ transform: `translateX(-${effectiveReveal}px)` }}
       >
-        <button className={styles.listRow} onClick={onOpenList}>
+        <button
+          className={styles.listRow}
+          onClick={() => {
+            if (isOpen) {
+              onCloseActions()
+              return
+            }
+            onOpenList()
+          }}
+        >
           <span className={styles.listName}>{list.name}</span>
           <span className={styles.listMeta}>
             {list.items.filter((i) => i.status === 'remaining').length} kvar
@@ -174,7 +201,10 @@ function ListRow({
         <button
           type="button"
           className={styles.moreBtn}
-          onClick={isOpen ? onCloseActions : onOpenActions}
+          onClick={() => {
+            setDragReveal(null)
+            isOpen ? onCloseActions() : onOpenActions()
+          }}
           aria-label="Visa liståtgärder"
         >
           ⋯
