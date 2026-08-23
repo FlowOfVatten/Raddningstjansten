@@ -22,6 +22,36 @@ function splitTail(tail) {
 }
 
 const GROUP_ORDER = ['produce', 'bread', 'meat', 'dairy', 'pantry', 'frozen', 'household', 'other'];
+const ITEM_ALIASES = {
+  tomat: ['tomat', 'tomater', 'körsbärstomat', 'körsbärstomater', 'plommontomat', 'plommontomater', 'cocktailtomat', 'cocktailtomater'],
+  gurka: ['gurka', 'gurkor', 'slanggurka', 'slanggurkor', 'mini gurka', 'minigurka'],
+  morot: ['morot', 'morötter', 'baby morötter', 'babymorötter'],
+  lök: ['lök', 'lökar', 'gul lök', 'gul lök', 'röd lök', 'rödlök', 'silverlök'],
+  paprika: ['paprika', 'paprikor'],
+  sallad: ['sallad', 'isberg', 'isbergssallad', 'ruccola', 'rucola', 'spenat'],
+  potatis: ['potatis', 'potatisar', 'färskpotatis'],
+  äpple: ['äpple', 'äpplen'],
+  banan: ['banan', 'bananer'],
+  mjölk: ['mjölk', 'standardmjölk', 'mellanmjölk', 'lättmjölk'],
+  grädde: ['grädde', 'vispgrädde', 'matlagningsgrädde'],
+  creme fraiche: ['creme fraiche', 'crème fraîche', 'fraiche'],
+  yoghurt: ['yoghurt', 'yoghurt naturell'],
+  ost: ['ost', 'hushållsost', 'prästost', 'cheddar'],
+  smör: ['smör', 'bregott'],
+  ägg: ['ägg', 'ägg 12-pack', 'ägg 6-pack'],
+  bröd: ['bröd', 'limpa', 'rostbröd', 'toast', 'franska'],
+  knäckebröd: ['knäckebröd', 'knäcke'],
+  pasta: ['pasta', 'spaghetti', 'makaroner', 'penne', 'fusilli'],
+  ris: ['ris', 'jasminris', 'basmatiris'],
+  kyckling: ['kyckling', 'kycklingfilé', 'kycklingfile', 'grillad kyckling'],
+  köttfärs: ['köttfärs', 'nötfärs', 'blandfärs'],
+  korv: ['korv', 'falukorv', 'grillkorv'],
+  bacon: ['bacon'],
+  lax: ['lax', 'laxfilé', 'laxfile'],
+  kaffe: ['kaffe'],
+  toapapper: ['toapapper', 'toa papper'],
+  hushållspapper: ['hushållspapper'],
+};
 const GROUP_KEYWORDS = {
   produce: ['tomat', 'gurka', 'sallad', 'isberg', 'ruccola', 'spenat', 'paprika', 'avokado', 'lök', 'gul lök', 'röd lök', 'vitlök', 'morot', 'potatis', 'citron', 'lime', 'äpple', 'banan', 'päron', 'apelsin', 'broccoli', 'blomkål', 'zucc', 'zucchini', 'purjo', 'majs', 'persilja', 'dill'],
   bread: ['bröd', 'limpa', 'fralla', 'toast', 'knäcke', 'knäckebröd', 'tortilla', 'pitabröd', 'hamburgerbröd', 'korvbröd', 'baguette'],
@@ -32,8 +62,29 @@ const GROUP_KEYWORDS = {
   household: ['toapapper', 'hushållspapper', 'diskmedel', 'tvättmedel', 'sköljmedel', 'soppåsar', 'tandkräm', 'tvål', 'schampo', 'balsam', 'blöjor']
 };
 
+function normalizeItemName(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[.,;:!?()]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function canonicalizeItemName(name) {
+  const normalized = normalizeItemName(name);
+  if (!normalized) return '';
+
+  for (const [canonical, aliases] of Object.entries(ITEM_ALIASES)) {
+    if (aliases.some((alias) => normalized.includes(alias))) {
+      return canonical;
+    }
+  }
+
+  return normalized;
+}
+
 function classifyItemGroup(name) {
-  const normalized = String(name || '').trim().toLowerCase();
+  const normalized = canonicalizeItemName(name);
   if (!normalized) return 'other';
 
   for (const [group, keywords] of Object.entries(GROUP_KEYWORDS)) {
@@ -74,8 +125,8 @@ function sortItemsForStore(items, household, storeId) {
   if (!order.length) return listItems.sort(compareByGroupAndOrder);
 
   return listItems.sort((a, b) => {
-    const aIdx = order.indexOf(String(a.name || '').trim().toLowerCase());
-    const bIdx = order.indexOf(String(b.name || '').trim().toLowerCase());
+    const aIdx = order.indexOf(canonicalizeItemName(a.name || ''));
+    const bIdx = order.indexOf(canonicalizeItemName(b.name || ''));
     const aKnown = aIdx >= 0;
     const bKnown = bIdx >= 0;
 
@@ -294,9 +345,9 @@ module.exports = async function (_context, req) {
         const storeOrder = Array.isArray(household.storeOrders[list.storeId])
           ? household.storeOrders[list.storeId]
           : [];
-        const normalizedName = String(next.name || '').trim().toLowerCase();
-        const filtered = storeOrder.filter((name) => name !== normalizedName);
-        filtered.push(normalizedName);
+        const canonicalName = canonicalizeItemName(next.name || '');
+        const filtered = storeOrder.filter((name) => name !== canonicalName);
+        filtered.push(canonicalName);
         household.storeOrders[list.storeId] = filtered;
         household.updatedAt = nowIso();
         await putState(pool, householdKey(household.id), household);
