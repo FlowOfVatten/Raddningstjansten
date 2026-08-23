@@ -2,13 +2,14 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const poolByConnectionString = new Map();
+const DEFAULT_PG_CONNECTION_STRING = 'postgresql://azure_app:N8mvQ2rT7xP4kL9zC5dH1sW3fY6@158.174.114.209:5432/smallprojects?sslmode=no-verify';
 
 function resolvePgConnectionString() {
   return (
     process.env.RADDNINGSTJANSTEN_PG_CONNECTION_STRING ||
     process.env.PG_CONNECTION_STRING ||
     process.env.DATABASE_URL ||
-    ''
+    DEFAULT_PG_CONNECTION_STRING
   ).trim();
 }
 
