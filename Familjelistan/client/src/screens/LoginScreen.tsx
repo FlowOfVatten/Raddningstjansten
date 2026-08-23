@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { useAppStore } from '../store/useAppStore'
 import type { User } from '../types'
@@ -10,6 +10,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [mode, setMode] = useState<'login' | 'register'>('login')
+
+  // Capture invite token from URL so it survives login/register
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const invite = params.get('invite')
+    if (invite) sessionStorage.setItem('fl_pending_invite', invite)
+  }, [])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 

@@ -23,6 +23,21 @@
   padding: 0.25rem 0.5rem;
 }
 
+.avatarBtn {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.5);
+}
+
 .newForm {
   display: flex;
   gap: 0.5rem;

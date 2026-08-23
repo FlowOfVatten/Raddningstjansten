@@ -16,6 +16,7 @@ const {
   householdKey,
   nowIso,
   mapUserForClient,
+  requireAuthUser,
 } = require('../familjelistan-shared');
 
 module.exports = async function (_context, req) {
@@ -108,6 +109,29 @@ module.exports = async function (_context, req) {
     }
 
     return json(404, { error: 'Endpoint finns inte' });
+
+  // POST /api/auth/change-password
+    if (action === 'change-password') {
+      const authUser = await requireAuthUser(req, pool);
+      const currentPassword = String(body.currentPassword || '');
+      const newPassword = String(body.newPassword || '');
+      assertPassword(newPassword);
+
+      const hashed = hashPassword(currentPassword, authUser.passwordSalt);
+      if (hashed !== authUser.passwordHash) {
+        return json(401, { error: 'Fel nuvarande lösenord' });
+      }
+
+      const newSalt = crypto.randomBytes(16).toString('hex');
+      authUser.passwordSalt = newSalt;
+      authUser.passwordHash = hashPassword(newPassword, newSalt);
+      authUser.token = signSession(authUser.id); // invalidera gamla sessioner
+      authUser.updatedAt = nowIso();
+      await putState(pool, userByIdKey(authUser.id), authUser);
+
+      return json(200, { user: mapUserForClient(authUser), token: authUser.token });
+    }
+
   } catch (err) {
     const message = err && err.message ? err.message : 'Internt serverfel';
     if (message === 'Unauthorized') return json(401, { error: 'Unauthorized' });
