@@ -108,9 +108,7 @@ module.exports = async function (_context, req) {
       });
     }
 
-    return json(404, { error: 'Endpoint finns inte' });
-
-  // POST /api/auth/change-password
+    // POST /api/auth/change-password
     if (action === 'change-password') {
       const authUser = await requireAuthUser(req, pool);
       const currentPassword = String(body.currentPassword || '');
@@ -131,6 +129,8 @@ module.exports = async function (_context, req) {
 
       return json(200, { user: mapUserForClient(authUser), token: authUser.token });
     }
+
+    return json(404, { error: 'Endpoint finns inte' });
 
   } catch (err) {
     const message = err && err.message ? err.message : 'Internt serverfel';
