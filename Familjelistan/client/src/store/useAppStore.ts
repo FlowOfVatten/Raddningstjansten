@@ -39,22 +39,38 @@ export type Screen =
   | 'household'
   | 'settings'
 
+function loadUser(): User | null {
+  try {
+    const raw = localStorage.getItem('fl_user') ?? sessionStorage.getItem('fl_user')
+    return raw ? (JSON.parse(raw) as User) : null
+  } catch {
+    return null
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
-  user: null,
+  user: loadUser(),
   token: localStorage.getItem('fl_token') ?? sessionStorage.getItem('fl_token'),
   setAuth: (user, token, remember = false) => {
+    const userJson = JSON.stringify(user)
     if (remember) {
       localStorage.setItem('fl_token', token)
+      localStorage.setItem('fl_user', userJson)
       sessionStorage.removeItem('fl_token')
+      sessionStorage.removeItem('fl_user')
     } else {
       sessionStorage.setItem('fl_token', token)
+      sessionStorage.setItem('fl_user', userJson)
       localStorage.removeItem('fl_token')
+      localStorage.removeItem('fl_user')
     }
     set({ user, token, screen: 'lists' })
   },
   clearAuth: () => {
     localStorage.removeItem('fl_token')
+    localStorage.removeItem('fl_user')
     sessionStorage.removeItem('fl_token')
+    sessionStorage.removeItem('fl_user')
     set({ user: null, token: null, screen: 'login' })
   },
 
