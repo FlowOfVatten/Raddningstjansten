@@ -23,6 +23,8 @@ export default function ListsScreen() {
   const [loading, setLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openActionsId, setOpenActionsId] = useState<string | null>(null)
+  const [storePickerList, setStorePickerList] = useState<ShoppingList | null>(null)
+  const [storeDraftName, setStoreDraftName] = useState('')
 
   // Handle pending invite (when joining via QR link)
   useEffect(() => {
@@ -75,22 +77,13 @@ export default function ListsScreen() {
     }
   }
 
-  async function chooseStore(list: ShoppingList) {
-    const existingStores = Array.from(
-      new Set(
-        lists
-          .map((entry) => entry.store?.name?.trim())
-          .filter((name): name is string => Boolean(name))
-      )
-    )
+  function chooseStore(list: ShoppingList) {
+    setStorePickerList(list)
+    setStoreDraftName(list.store?.name ?? '')
+    setOpenActionsId(null)
+  }
 
-    const help = existingStores.length > 0
-      ? `Befintliga affärer: ${existingStores.join(', ')}\n\nSkriv nytt namn, använd befintligt eller lämna tomt för att ta bort vald affär.`
-      : 'Skriv affärens namn. Lämna tomt för att ta bort vald affär.'
-
-    const nextStoreName = window.prompt(help, list.store?.name ?? '')
-    if (nextStoreName === null) return
-
+  async function saveStoreChoice(list: ShoppingList, nextStoreName: string) {
     const trimmed = nextStoreName.trim()
     const previous = list
     const optimisticStore = trimmed
@@ -108,7 +101,8 @@ export default function ListsScreen() {
       storeId: trimmed ? optimisticStore?.id : undefined,
       store: optimisticStore,
     })
-    setOpenActionsId(null)
+    setStorePickerList(null)
+    setStoreDraftName('')
 
     try {
       const updated = await api.patch<ShoppingList>(`/lists/${list.id}`, token, { storeName: trimmed })
@@ -117,6 +111,14 @@ export default function ListsScreen() {
       upsertList(previous)
     }
   }
+
+  const knownStores = Array.from(
+    new Set(
+      lists
+        .map((entry) => entry.store?.name?.trim())
+        .filter((name): name is string => Boolean(name))
+    )
+  )
 
   return (
     <div className={styles.container}>
@@ -163,7 +165,80 @@ export default function ListsScreen() {
       )}
 
       <ProfileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <StorePicker
+        open={Boolean(storePickerList)}
+        draftName={storeDraftName}
+        knownStores={knownStores}
+        onChangeDraft={setStoreDraftName}
+        onClose={() => {
+          setStorePickerList(null)
+          setStoreDraftName('')
+        }}
+        onSave={() => {
+          if (storePickerList) saveStoreChoice(storePickerList, storeDraftName)
+        }}
+      />
     </div>
+  )
+}
+
+function StorePicker({
+  open,
+  draftName,
+  knownStores,
+  onChangeDraft,
+  onClose,
+  onSave,
+}: {
+  open: boolean
+  draftName: string
+  knownStores: string[]
+  onChangeDraft: (value: string) => void
+  onClose: () => void
+  onSave: () => void
+}) {
+  return (
+    <>
+      <div
+        className={`${styles.sheetBackdrop} ${open ? styles.sheetBackdropVisible : ''}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className={`${styles.sheet} ${open ? styles.sheetOpen : ''}`} role="dialog" aria-modal="true">
+        <div className={styles.sheetHandle} />
+        <div className={styles.sheetBody}>
+          <h2 className={styles.sheetTitle}>Välj affär</h2>
+          <p className={styles.sheetHint}>Listan sorteras olika beroende på vald butik.</p>
+
+          {knownStores.length > 0 && (
+            <div className={styles.storeChipGrid}>
+              {knownStores.map((storeName) => (
+                <button
+                  key={storeName}
+                  type="button"
+                  className={`${styles.storeChip} ${draftName.trim().toLowerCase() === storeName.toLowerCase() ? styles.storeChipActive : ''}`}
+                  onClick={() => onChangeDraft(storeName)}
+                >
+                  {storeName}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <input
+            className={styles.sheetInput}
+            placeholder="Skriv affärens namn"
+            value={draftName}
+            onChange={(e) => onChangeDraft(e.target.value)}
+          />
+
+          <div className={styles.sheetActions}>
+            <button type="button" className={styles.sheetClearBtn} onClick={() => onChangeDraft('')}>Ta bort affär</button>
+            <button type="button" className={styles.sheetSaveBtn} onClick={onSave}>Spara</button>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 

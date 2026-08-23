@@ -21,18 +21,57 @@ function splitTail(tail) {
     .filter(Boolean);
 }
 
+const GROUP_ORDER = ['produce', 'bread', 'meat', 'dairy', 'pantry', 'frozen', 'household', 'other'];
+const GROUP_KEYWORDS = {
+  produce: ['tomat', 'gurka', 'sallad', 'isberg', 'ruccola', 'spenat', 'paprika', 'avokado', 'lök', 'gul lök', 'röd lök', 'vitlök', 'morot', 'potatis', 'citron', 'lime', 'äpple', 'banan', 'päron', 'apelsin', 'broccoli', 'blomkål', 'zucc', 'zucchini', 'purjo', 'majs', 'persilja', 'dill'],
+  bread: ['bröd', 'limpa', 'fralla', 'toast', 'knäcke', 'knäckebröd', 'tortilla', 'pitabröd', 'hamburgerbröd', 'korvbröd', 'baguette'],
+  meat: ['kyckling', 'köttfärs', 'nötfärs', 'färs', 'korv', 'bacon', 'skinka', 'salami', 'kalkon', 'kött', 'lax', 'fisk', 'räkor', 'chark'],
+  dairy: ['mjölk', 'grädde', 'creme fraiche', 'crème fraîche', 'yoghurt', 'fil', 'ost', 'smör', 'kvarg', 'halloumi', 'mozzarella', 'fetaost', 'ägg'],
+  pantry: ['pasta', 'ris', 'bulgur', 'quinoa', 'mjöl', 'socker', 'salt', 'peppar', 'olja', 'olivolja', 'vinäger', 'krossade tomater', 'bönor', 'linser', 'havregryn', 'kaffe', 'te', 'krydd', 'soja', 'senap', 'ketchup', 'majonnäs'],
+  frozen: ['fryst', 'glass', 'ärtor', 'wokmix', 'fiskpinnar', 'pommes'],
+  household: ['toapapper', 'hushållspapper', 'diskmedel', 'tvättmedel', 'sköljmedel', 'soppåsar', 'tandkräm', 'tvål', 'schampo', 'balsam', 'blöjor']
+};
+
+function classifyItemGroup(name) {
+  const normalized = String(name || '').trim().toLowerCase();
+  if (!normalized) return 'other';
+
+  for (const [group, keywords] of Object.entries(GROUP_KEYWORDS)) {
+    if (keywords.some((keyword) => normalized.includes(keyword))) {
+      return group;
+    }
+  }
+
+  return 'other';
+}
+
+function getEffectiveGroup(item) {
+  if (item && item.group && item.group !== 'other') return item.group;
+  return classifyItemGroup(item && item.name);
+}
+
+function compareByGroupAndOrder(a, b) {
+  const aGroup = getEffectiveGroup(a);
+  const bGroup = getEffectiveGroup(b);
+  const aGroupIndex = GROUP_ORDER.indexOf(aGroup);
+  const bGroupIndex = GROUP_ORDER.indexOf(bGroup);
+
+  if (aGroupIndex !== bGroupIndex) return aGroupIndex - bGroupIndex;
+  return (a.sortOrder || 0) - (b.sortOrder || 0);
+}
+
 function getStoreById(household, storeId) {
   return (household.stores || []).find((store) => store.id === storeId) || null;
 }
 
 function sortItemsForStore(items, household, storeId) {
   const listItems = Array.isArray(items) ? items.slice() : [];
-  if (!storeId) return listItems;
+  if (!storeId) return listItems.sort(compareByGroupAndOrder);
 
   const order = household.storeOrders && Array.isArray(household.storeOrders[storeId])
     ? household.storeOrders[storeId]
     : [];
-  if (!order.length) return listItems;
+  if (!order.length) return listItems.sort(compareByGroupAndOrder);
 
   return listItems.sort((a, b) => {
     const aIdx = order.indexOf(String(a.name || '').trim().toLowerCase());
@@ -43,7 +82,7 @@ function sortItemsForStore(items, household, storeId) {
     if (aKnown && bKnown) return aIdx - bIdx;
     if (aKnown) return -1;
     if (bKnown) return 1;
-    return (a.sortOrder || 0) - (b.sortOrder || 0);
+    return compareByGroupAndOrder(a, b);
   });
 }
 
@@ -207,7 +246,7 @@ module.exports = async function (_context, req) {
         quantity: body.quantity || null,
         note: body.note || null,
         status: 'remaining',
-        group: 'other',
+        group: classifyItemGroup(name),
         sortOrder,
         createdBy: user.id,
         createdAt: nowIso(),
