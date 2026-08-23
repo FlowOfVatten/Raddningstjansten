@@ -5,24 +5,12 @@ import { useListWebSocket } from '../hooks/useListWebSocket'
 import type { ListItem } from '../types'
 import styles from './ListScreen.module.css'
 
-const GROUP_LABELS: Record<string, string> = {
-  produce: 'Frukt & grönt',
-  bread: 'Bröd',
-  meat: 'Kött & chark',
-  dairy: 'Mejeri',
-  pantry: 'Skafferi',
-  frozen: 'Fryst',
-  household: 'Hushåll',
-  other: 'Övrigt',
-}
-
 export default function ListScreen() {
   const token = useAppStore((s) => s.token)
   const lists = useAppStore((s) => s.lists)
   const activeListId = useAppStore((s) => s.activeListId)
   const upsertList = useAppStore((s) => s.upsertList)
   const setScreen = useAppStore((s) => s.setScreen)
-  const setActiveTrip = useAppStore((s) => s.setActiveTrip)
 
   const list = lists.find((l) => l.id === activeListId)
 
@@ -49,28 +37,62 @@ export default function ListScreen() {
     return () => clearTimeout(timer)
   }, [newName, activeListId, token])
 
+  // Optimistic: update UI immediately, sync server in background
+  function optimisticUpdate(updatedItems: ListItem[]) {
+    if (!list) return
+    upsertList({ ...list, items: updatedItems })
+  }
+
   async function addItem(name: string) {
     if (!name.trim() || !list) return
-    await api.post(`/lists/${activeListId}/items`, token, { name: name.trim() })
     setNewName('')
     setSuggestions([])
     inputRef.current?.focus()
+    const newItem: ListItem = {
+      id: `temp-${Date.now()}`,
+      listId: list.id,
+      name: name.trim(),
+      status: 'remaining',
+      group: 'other',
+      sortOrder: list.items.length + 1,
+      createdBy: '',
+      createdAt: new Date().toISOString(),
+    }
+    optimisticUpdate([...list.items, newItem])
+    try {
+      const saved = await api.post<ListItem>(`/lists/${activeListId}/items`, token, { name: name.trim() })
+      // replace temp item with real one from server
+      upsertList({ ...list, items: [...list.items.filter((i) => i.id !== newItem.id), saved] })
+    } catch {
+      // rollback
+      optimisticUpdate(list.items)
+    }
   }
 
   async function toggleItem(item: ListItem) {
-    await api.patch(`/lists/${activeListId}/items/${item.id}`, token, {
-      status: item.status === 'remaining' ? 'checked' : 'remaining',
-    })
+    if (!list) return
+    const newStatus = item.status === 'remaining' ? 'checked' : 'remaining'
+    // Optimistic
+    optimisticUpdate(list.items.map((i) => i.id === item.id ? { ...i, status: newStatus } : i))
+    try {
+      await api.patch(`/lists/${activeListId}/items/${item.id}`, token, { status: newStatus })
+    } catch {
+      // rollback
+      optimisticUpdate(list.items)
+    }
   }
 
   async function clearChecked() {
-    await api.post(`/lists/${activeListId}/clear-checked`, token)
-  }
-
-  async function startTrip() {
-    const trip = await api.post<ReturnType<typeof setActiveTrip>>(`/lists/${activeListId}/trips`, token)
-    setActiveTrip(trip as never)
-    setScreen('trip')
+    if (!list) return
+    const kept = list.items.filter((i) => i.status !== 'checked')
+    // Optimistic
+    optimisticUpdate(kept)
+    try {
+      await api.post(`/lists/${activeListId}/clear-checked`, token)
+    } catch {
+      // rollback
+      optimisticUpdate(list.items)
+    }
   }
 
   if (!list) return <p className={styles.muted}>Laddar lista…</p>
@@ -83,7 +105,6 @@ export default function ListScreen() {
       <header className={styles.header}>
         <button onClick={() => setScreen('lists')} className={styles.back}>←</button>
         <h1>{list.name}</h1>
-        <button onClick={startTrip} className={styles.tripBtn}>🛒</button>
       </header>
 
       <form
@@ -159,7 +180,6 @@ function ItemRow({
       {item.offer && (
         <span className={styles.badge}>{item.offer.dealType}</span>
       )}
-      <span className={styles.group}>{GROUP_LABELS[item.group] ?? item.group}</span>
     </li>
   )
 }
