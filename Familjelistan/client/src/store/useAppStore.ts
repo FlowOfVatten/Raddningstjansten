@@ -18,6 +18,7 @@ interface AppState {
   setLists: (lists: ShoppingList[]) => void
   setActiveList: (id: string) => void
   upsertList: (list: ShoppingList) => void
+  removeList: (id: string) => void
 
   // Active trip
   activeTrip: Trip | null
@@ -74,6 +75,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
       set({ lists: [list, ...lists] })
     }
+  },
+  removeList: (id) => {
+    const { lists, activeListId } = get()
+    const nextLists = lists.filter((list) => list.id !== id)
+    set({
+      lists: nextLists,
+      activeListId: activeListId === id ? null : activeListId,
+      screen: activeListId === id ? 'lists' : get().screen,
+    })
   },
 
   activeTrip: null,

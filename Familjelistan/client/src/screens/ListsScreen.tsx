@@ -16,9 +16,11 @@ export default function ListsScreen() {
   const setLists = useAppStore((s) => s.setLists)
   const setActiveList = useAppStore((s) => s.setActiveList)
   const upsertList = useAppStore((s) => s.upsertList)
+  const removeList = useAppStore((s) => s.removeList)
   const [newName, setNewName] = useState('')
   const [loading, setLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [openActionsId, setOpenActionsId] = useState<string | null>(null)
 
   // Handle pending invite (when joining via QR link)
   useEffect(() => {
@@ -41,6 +43,34 @@ export default function ListsScreen() {
     const list = await api.post<ShoppingList>('/lists', token, { name: newName.trim() })
     upsertList(list)
     setNewName('')
+  }
+
+  async function renameList(list: ShoppingList) {
+    const nextName = window.prompt('Nytt namn på listan', list.name)?.trim()
+    if (!nextName || nextName === list.name) return
+
+    const previous = list
+    upsertList({ ...list, name: nextName })
+    setOpenActionsId(null)
+    try {
+      const updated = await api.patch<ShoppingList>(`/lists/${list.id}`, token, { name: nextName })
+      upsertList(updated)
+    } catch {
+      upsertList(previous)
+    }
+  }
+
+  async function deleteList(list: ShoppingList) {
+    const confirmed = window.confirm(`Radera listan "${list.name}"?`)
+    if (!confirmed) return
+
+    removeList(list.id)
+    setOpenActionsId(null)
+    try {
+      await api.delete<{ ok: boolean }>(`/lists/${list.id}`, token)
+    } catch {
+      upsertList(list)
+    }
   }
 
   return (
@@ -72,19 +102,84 @@ export default function ListsScreen() {
       ) : (
         <ul className={styles.list}>
           {lists.map((l) => (
-            <li key={l.id}>
-              <button className={styles.listRow} onClick={() => setActiveList(l.id)}>
-                <span className={styles.listName}>{l.name}</span>
-                <span className={styles.listMeta}>
-                  {l.items.filter((i) => i.status === 'remaining').length} kvar
-                </span>
-              </button>
-            </li>
+            <ListRow
+              key={l.id}
+              list={l}
+              isOpen={openActionsId === l.id}
+              onOpenActions={() => setOpenActionsId(l.id)}
+              onCloseActions={() => setOpenActionsId(null)}
+              onOpenList={() => setActiveList(l.id)}
+              onRename={() => renameList(l)}
+              onDelete={() => deleteList(l)}
+            />
           ))}
         </ul>
       )}
 
       <ProfileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
+  )
+}
+
+function ListRow({
+  list,
+  isOpen,
+  onOpenActions,
+  onCloseActions,
+  onOpenList,
+  onRename,
+  onDelete,
+}: {
+  list: ShoppingList
+  isOpen: boolean
+  onOpenActions: () => void
+  onCloseActions: () => void
+  onOpenList: () => void
+  onRename: () => void
+  onDelete: () => void
+}) {
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    setTouchStartX(e.touches[0]?.clientX ?? null)
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX == null) return
+    const endX = e.changedTouches[0]?.clientX ?? touchStartX
+    const delta = endX - touchStartX
+    if (delta < -45) onOpenActions()
+    if (delta > 45) onCloseActions()
+    setTouchStartX(null)
+  }
+
+  return (
+    <li className={styles.listItemShell}>
+      <div className={styles.listActions}>
+        <button type="button" className={styles.renameBtn} onClick={onRename}>Ändra</button>
+        <button type="button" className={styles.deleteBtn} onClick={onDelete}>Radera</button>
+      </div>
+
+      <div
+        className={`${styles.listRowWrap} ${isOpen ? styles.listRowWrapOpen : ''}`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <button className={styles.listRow} onClick={onOpenList}>
+          <span className={styles.listName}>{list.name}</span>
+          <span className={styles.listMeta}>
+            {list.items.filter((i) => i.status === 'remaining').length} kvar
+          </span>
+        </button>
+        <button
+          type="button"
+          className={styles.moreBtn}
+          onClick={isOpen ? onCloseActions : onOpenActions}
+          aria-label="Visa liståtgärder"
+        >
+          ⋯
+        </button>
+      </div>
+    </li>
   )
 }

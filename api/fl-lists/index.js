@@ -95,6 +95,32 @@ module.exports = async function (_context, req) {
       return json(200, toClientList(list));
     }
 
+    // /api/lists/:id
+    if (parts.length === 1 && method === 'PATCH') {
+      const name = String(body.name || '').trim();
+      if (!name) return json(400, { error: 'Namn kravs' });
+
+      list.name = name;
+      list.updatedAt = nowIso();
+      await putState(pool, listKey(list.id), list);
+      return json(200, toClientList(list));
+    }
+
+    // /api/lists/:id
+    if (parts.length === 1 && method === 'DELETE') {
+      household.lists = (household.lists || []).filter((id) => id !== list.id);
+      household.updatedAt = nowIso();
+
+      await putState(pool, householdKey(household.id), household);
+      await putState(pool, listKey(list.id), {
+        ...list,
+        deletedAt: nowIso(),
+        items: [],
+      });
+
+      return json(200, { ok: true, deletedId: list.id });
+    }
+
     // /api/lists/:id/suggestions?q=milk
     if (parts.length === 2 && parts[1] === 'suggestions' && method === 'GET') {
       const q = String((req.query && req.query.q) || '').trim().toLowerCase();
