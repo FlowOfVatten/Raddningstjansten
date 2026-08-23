@@ -94,15 +94,20 @@
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
-  width: 8rem;
+  width: 12rem;
 }
 
+.storeBtn,
 .renameBtn,
 .deleteBtn {
   width: 4rem;
   color: #fff;
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.storeBtn {
+  background: #1565c0;
 }
 
 .renameBtn {
@@ -124,7 +129,7 @@
 }
 
 .listRowWrapOpen {
-  transform: translateX(-8rem);
+  transform: translateX(-12rem);
 }
 
 .listRow {
@@ -147,8 +152,16 @@
 }
 
 .listName {
+  display: block;
   font-size: 1.05rem;
   font-weight: 500;
+}
+
+.storeMeta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 .listMeta {

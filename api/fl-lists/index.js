@@ -21,14 +21,42 @@ function splitTail(tail) {
     .filter(Boolean);
 }
 
-function toClientList(list) {
+function getStoreById(household, storeId) {
+  return (household.stores || []).find((store) => store.id === storeId) || null;
+}
+
+function sortItemsForStore(items, household, storeId) {
+  const listItems = Array.isArray(items) ? items.slice() : [];
+  if (!storeId) return listItems;
+
+  const order = household.storeOrders && Array.isArray(household.storeOrders[storeId])
+    ? household.storeOrders[storeId]
+    : [];
+  if (!order.length) return listItems;
+
+  return listItems.sort((a, b) => {
+    const aIdx = order.indexOf(String(a.name || '').trim().toLowerCase());
+    const bIdx = order.indexOf(String(b.name || '').trim().toLowerCase());
+    const aKnown = aIdx >= 0;
+    const bKnown = bIdx >= 0;
+
+    if (aKnown && bKnown) return aIdx - bIdx;
+    if (aKnown) return -1;
+    if (bKnown) return 1;
+    return (a.sortOrder || 0) - (b.sortOrder || 0);
+  });
+}
+
+function toClientList(list, household) {
+  const store = list.storeId ? getStoreById(household, list.storeId) : null;
   return {
     id: list.id,
     householdId: list.householdId,
     name: list.name,
     storeId: list.storeId || null,
+    store,
     createdAt: list.createdAt,
-    items: Array.isArray(list.items) ? list.items : [],
+    items: sortItemsForStore(list.items, household, list.storeId),
   };
 }
 
@@ -52,7 +80,7 @@ module.exports = async function (_context, req) {
       const lists = [];
       for (const listId of household.lists || []) {
         const list = await getState(pool, listKey(listId));
-        if (list) lists.push(toClientList(list));
+        if (list) lists.push(toClientList(list, household));
       }
       lists.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       return json(200, lists);
@@ -81,7 +109,7 @@ module.exports = async function (_context, req) {
       await putState(pool, listKey(id), list);
       await putState(pool, householdKey(household.id), household);
 
-      return json(201, toClientList(list));
+      return json(201, toClientList(list, household));
     }
 
     const listId = parts[0];
@@ -92,18 +120,51 @@ module.exports = async function (_context, req) {
 
     // /api/lists/:id
     if (parts.length === 1 && method === 'GET') {
-      return json(200, toClientList(list));
+      return json(200, toClientList(list, household));
     }
 
     // /api/lists/:id
     if (parts.length === 1 && method === 'PATCH') {
-      const name = String(body.name || '').trim();
-      if (!name) return json(400, { error: 'Namn kravs' });
+      const nextName = body.name == null ? null : String(body.name).trim();
+      const nextStoreId = body.storeId == null ? null : String(body.storeId).trim();
+      const nextStoreName = body.storeName == null ? null : String(body.storeName).trim();
 
-      list.name = name;
+      if (nextName !== null) {
+        if (!nextName) return json(400, { error: 'Namn kravs' });
+        list.name = nextName;
+      }
+
+      if (nextStoreName !== null) {
+        household.stores = Array.isArray(household.stores) ? household.stores : [];
+
+        if (!nextStoreName) {
+          list.storeId = null;
+        } else {
+          const normalized = nextStoreName.toLowerCase();
+          let store = household.stores.find((entry) => String(entry.name || '').trim().toLowerCase() === normalized) || null;
+
+          if (!store) {
+            store = {
+              id: crypto.randomUUID(),
+              name: nextStoreName,
+              chain: nextStoreName,
+              lat: 0,
+              lng: 0,
+            };
+            household.stores.push(store);
+          }
+
+          list.storeId = store.id;
+        }
+        household.updatedAt = nowIso();
+        await putState(pool, householdKey(household.id), household);
+      } else if (nextStoreId !== null) {
+        list.storeId = nextStoreId || null;
+      }
+
       list.updatedAt = nowIso();
       await putState(pool, listKey(list.id), list);
-      return json(200, toClientList(list));
+      return json(200, toClientList(list, household));
     }
 
     // /api/lists/:id
@@ -188,6 +249,20 @@ module.exports = async function (_context, req) {
 
       list.items[idx] = next;
       await putState(pool, listKey(list.id), list);
+
+      if (next.status === 'checked' && current.status !== 'checked' && list.storeId) {
+        household.storeOrders = household.storeOrders || {};
+        const storeOrder = Array.isArray(household.storeOrders[list.storeId])
+          ? household.storeOrders[list.storeId]
+          : [];
+        const normalizedName = String(next.name || '').trim().toLowerCase();
+        const filtered = storeOrder.filter((name) => name !== normalizedName);
+        filtered.push(normalizedName);
+        household.storeOrders[list.storeId] = filtered;
+        household.updatedAt = nowIso();
+        await putState(pool, householdKey(household.id), household);
+      }
+
       return json(200, next);
     }
 

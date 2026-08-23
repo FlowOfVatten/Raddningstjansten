@@ -12,12 +12,17 @@ const {
   requireAuthUser,
 } = require('../familjelistan-shared');
 
-function toClientList(list) {
+function getStoreById(household, storeId) {
+  return (household.stores || []).find((store) => store.id === storeId) || null;
+}
+
+function toClientList(list, household) {
   return {
     id: list.id,
     householdId: list.householdId,
     name: list.name,
     storeId: list.storeId || null,
+    store: list.storeId ? getStoreById(household, list.storeId) : null,
     createdAt: list.createdAt,
     items: Array.isArray(list.items) ? list.items : [],
   };
@@ -41,7 +46,7 @@ module.exports = async function (_context, req) {
       const lists = [];
       for (const listId of household.lists || []) {
         const list = await getState(pool, listKey(listId));
-        if (list) lists.push(toClientList(list));
+        if (list) lists.push(toClientList(list, household));
       }
       lists.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       return json(200, lists);
@@ -69,7 +74,7 @@ module.exports = async function (_context, req) {
       await putState(pool, listKey(id), list);
       await putState(pool, householdKey(household.id), household);
 
-      return json(201, toClientList(list));
+      return json(201, toClientList(list, household));
     }
 
     return json(405, { error: 'Method not allowed' });

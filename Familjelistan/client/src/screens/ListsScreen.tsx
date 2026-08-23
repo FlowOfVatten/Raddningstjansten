@@ -5,7 +5,7 @@ import type { ShoppingList } from '../types'
 import ProfileDrawer from './ProfileDrawer'
 import styles from './ListsScreen.module.css'
 
-const ACTION_WIDTH = 128
+const ACTION_WIDTH = 192
 
 function initials(name: string) {
   return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2)
@@ -75,6 +75,49 @@ export default function ListsScreen() {
     }
   }
 
+  async function chooseStore(list: ShoppingList) {
+    const existingStores = Array.from(
+      new Set(
+        lists
+          .map((entry) => entry.store?.name?.trim())
+          .filter((name): name is string => Boolean(name))
+      )
+    )
+
+    const help = existingStores.length > 0
+      ? `Befintliga affärer: ${existingStores.join(', ')}\n\nSkriv nytt namn, använd befintligt eller lämna tomt för att ta bort vald affär.`
+      : 'Skriv affärens namn. Lämna tomt för att ta bort vald affär.'
+
+    const nextStoreName = window.prompt(help, list.store?.name ?? '')
+    if (nextStoreName === null) return
+
+    const trimmed = nextStoreName.trim()
+    const previous = list
+    const optimisticStore = trimmed
+      ? {
+          id: list.store?.id ?? `temp-store-${Date.now()}`,
+          name: trimmed,
+          chain: trimmed,
+          lat: 0,
+          lng: 0,
+        }
+      : undefined
+
+    upsertList({
+      ...list,
+      storeId: trimmed ? optimisticStore?.id : undefined,
+      store: optimisticStore,
+    })
+    setOpenActionsId(null)
+
+    try {
+      const updated = await api.patch<ShoppingList>(`/lists/${list.id}`, token, { storeName: trimmed })
+      upsertList(updated)
+    } catch {
+      upsertList(previous)
+    }
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -111,6 +154,7 @@ export default function ListsScreen() {
               onOpenActions={() => setOpenActionsId(l.id)}
               onCloseActions={() => setOpenActionsId(null)}
               onOpenList={() => setActiveList(l.id)}
+              onChooseStore={() => chooseStore(l)}
               onRename={() => renameList(l)}
               onDelete={() => deleteList(l)}
             />
@@ -129,6 +173,7 @@ function ListRow({
   onOpenActions,
   onCloseActions,
   onOpenList,
+  onChooseStore,
   onRename,
   onDelete,
 }: {
@@ -137,6 +182,7 @@ function ListRow({
   onOpenActions: () => void
   onCloseActions: () => void
   onOpenList: () => void
+  onChooseStore: () => void
   onRename: () => void
   onDelete: () => void
 }) {
@@ -159,7 +205,7 @@ function ListRow({
     setDragReveal(nextReveal)
   }
 
-  function handleTouchEnd(e: React.TouchEvent) {
+  function handleTouchEnd() {
     if (touchStartX == null) return
     const endReveal = dragReveal ?? (isOpen ? ACTION_WIDTH : 0)
     if (endReveal > ACTION_WIDTH / 2) onOpenActions()
@@ -172,6 +218,7 @@ function ListRow({
   return (
     <li className={styles.listItemShell}>
       <div className={styles.listActions}>
+        <button type="button" className={styles.storeBtn} onClick={onChooseStore}>Affär</button>
         <button type="button" className={styles.renameBtn} onClick={onRename}>Ändra</button>
         <button type="button" className={styles.deleteBtn} onClick={onDelete}>Radera</button>
       </div>
@@ -193,7 +240,10 @@ function ListRow({
             onOpenList()
           }}
         >
-          <span className={styles.listName}>{list.name}</span>
+          <span>
+            <span className={styles.listName}>{list.name}</span>
+            {list.store?.name && <span className={styles.storeMeta}>{list.store.name}</span>}
+          </span>
           <span className={styles.listMeta}>
             {list.items.filter((i) => i.status === 'remaining').length} kvar
           </span>

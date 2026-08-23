@@ -63,6 +63,8 @@ module.exports = async function (_context, req) {
         members: [{ userId, displayName, role: 'owner' }],
         lists: [],
         itemHistory: [],
+        stores: [],
+        storeOrders: {},
         createdAt,
         updatedAt: createdAt,
       };
