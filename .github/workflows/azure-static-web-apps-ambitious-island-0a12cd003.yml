@@ -38,6 +38,16 @@ jobs:
       - name: Install API dependencies
         run: npm install --prefix api
 
+      - name: Setup Node for frontend build
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Familjelistan frontend
+        run: |
+          npm install --prefix Familjelistan/client
+          npm run build --prefix Familjelistan/client
+
       - name: Build And Deploy
         id: builddeploy_primary
         continue-on-error: true

@@ -1,6 +1,11 @@
 {
   "routes": [
     {
+      "route": "/Familjelistan",
+      "redirect": "/Familjelistan/",
+      "statusCode": 301
+    },
+    {
       "route": "/Karta",
       "redirect": "/Karta/",
       "statusCode": 301
