@@ -25,6 +25,7 @@ class EPAGame {
     this.sessionStorageKey = 'epa_player_session';
     this.broadcastLastSeen = 0;
     this.broadcastPollInterval = null;
+    this.lastGameStatus = null;  // Track previous game status to detect changes
     
     // Auto-question and timer state
     this.questionAutoShown = false;
@@ -277,19 +278,23 @@ class EPAGame {
         if (!response.ok) throw new Error('Kunde inte hämta spelstatus');
 
         const data = await response.json();
-        console.log('Game status in waiting room:', data.status, '| Current screen:', this.currentScreen);
+        const statusChanged = this.lastGameStatus !== data.status;
+        
+        console.log('Game status in waiting room:', data.status, '| Previous:', this.lastGameStatus, '| Changed:', statusChanged, '| Current screen:', this.currentScreen);
 
-        // Show engine start screen ONLY when transitioning from waiting to ready
-        if (data.status === 'ready' && this.currentScreen === 'waiting') {
-          console.log('Transitioning from waiting to engine start screen');
+        this.lastGameStatus = data.status;
+
+        // Show engine start screen ONLY when status CHANGES to ready
+        if (statusChanged && data.status === 'ready' && this.currentScreen === 'waiting') {
+          console.log('Status changed to ready, showing engine start screen');
           this.showScreen('engineStart');
         }
 
-        // Start actual game when status is started
-        if (data.status === 'started') {
+        // Start actual game when status CHANGES to started
+        if (statusChanged && data.status === 'started') {
           clearInterval(this.waitingPollInterval);
           this.waitingPollInterval = null;
-          console.log('Game started, initializing...');
+          console.log('Status changed to started, initializing game');
           
           // Game started! Initialize the actual game
           await this.initializeGameForPlayer();
