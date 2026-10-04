@@ -241,12 +241,15 @@ h1 {
 /* ============ GAME SCREEN ============ */
 #gameScreen {
   flex-direction: column;
+  position: relative;
 }
 
 .map-container {
-  flex: 1;
+  flex: 0 0 70vh;
   width: 100%;
-  height: 100%;
+  height: 70vh;
+  max-height: 70vh;
+  min-height: 300px;
   background: #1a1a1a;
 }
 
@@ -256,10 +259,7 @@ h1 {
 }
 
 .game-panel {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   background: rgba(10, 10, 10, 0.95);
   backdrop-filter: blur(10px);
   border-top: 3px solid var(--primary-accent);

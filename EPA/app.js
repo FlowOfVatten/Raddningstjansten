@@ -20,6 +20,8 @@ class EPAGame {
     this.currentPosition = null;
     this.currentQuestion = null;
     this.isAnswering = false;
+    this.mapFollowPlayer = true;
+    this.mapFocusTimer = null;
     
     // Auto-question and timer state
     this.questionAutoShown = false;
@@ -41,9 +43,13 @@ class EPAGame {
     });
 
     // Game screen
-    const arrivedBtn = document.getElementById('arrivedBtn');
-    if (arrivedBtn) {
-      arrivedBtn.removeEventListener('click', () => this.showQuestion());
+    const poiName = document.getElementById('poiName');
+    const distanceEl = document.getElementById('distance');
+    if (poiName) {
+      poiName.addEventListener('click', () => this.focusOnPlayer());
+    }
+    if (distanceEl) {
+      distanceEl.addEventListener('click', () => this.focusOnPlayer());
     }
 
     // Question screen
@@ -261,6 +267,21 @@ class EPAGame {
     this.markers[poi.id] = marker;
   }
 
+  focusOnPlayer(durationMs = 2500) {
+    if (!this.map || !this.currentPosition) return;
+
+    this.mapFollowPlayer = false;
+    this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
+
+    clearTimeout(this.mapFocusTimer);
+    this.mapFocusTimer = setTimeout(() => {
+      this.mapFollowPlayer = true;
+      if (this.currentPoi) {
+        this.map.setView([this.currentPoi.lat, this.currentPoi.lng], 15);
+      }
+    }, durationMs);
+  }
+
   updateActiveRadiusCircle() {
     // Remove old circle
     if (this.radiusCircle) {
@@ -313,8 +334,10 @@ class EPAGame {
     // Update player marker position on map
     if (this.map && this.playerMarker) {
       this.playerMarker.setLatLng([this.currentPosition.lat, this.currentPosition.lng]);
-      // Center map on player, with slight offset to show POI circle
-      this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
+
+      if (this.mapFollowPlayer) {
+        this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
+      }
     }
 
     if (this.map && this.currentPoi) {
