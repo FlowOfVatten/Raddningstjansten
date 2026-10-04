@@ -1,5 +1,4 @@
 const { Pool } = require('pg');
-const https = require('https');
 
 const poolByConnectionString = new Map();
 
@@ -115,6 +114,7 @@ function fairShuffleCheckpoints(checkpoints) {
 // Helper: Get road distance from Azure Maps Routing API with fallback to Haversine
 async function getRoutingDistance(lat1, lng1, lat2, lng2) {
   try {
+    const https = require('https');
     const apiKey = process.env.AZURE_MAPS_KEY || 'lF9BdGlqb1lSVEhON0V3ZlhXZDNGMVJrQTJtRy9BNDQ=';
     const url = `https://atlas.microsoft.com/route/directions/json?subscription-key=${apiKey}&api-version=1.0&query=${lat1},${lng1}:${lat2},${lng2}`;
 
