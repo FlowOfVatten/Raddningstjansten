@@ -139,6 +139,10 @@
         <div style="border-bottom: 2px solid #ffff00; padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
           <h2 style="margin-bottom: 1rem;">Spelkontroll</h2>
           
+          <button onclick="resetGameForNewRound()" style="width: 100%; background: #666; color: #fff; font-weight: bold; margin-bottom: 1rem; padding: 0.75rem;">
+            🔄 Nollställ för nytt spel
+          </button>
+          
           <div id="gameControlSection">
             <h3 style="margin-bottom: 0.5rem; color: #ffff00;">Registrerade spelare:</h3>
             <div id="registeredPlayersList" class="player-list" style="margin-bottom: 1rem; max-height: 200px; overflow-y: auto;"></div>
@@ -399,6 +403,41 @@
           console.error('Error polling players:', err);
         }
       }, 2000);
+    }
+
+    async function resetGameForNewRound() {
+      if (!adminPassword) {
+        alert('Du är inte inloggad');
+        return;
+      }
+      
+      if (!confirm('Nollställ spelet för en ny körning? Detta återställer statusen till idle.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/epa/admin/game-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPassword })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error('API error: ' + (errorData.error || 'Unknown error'));
+        }
+        
+        alert('Spelet är nollställt. Statusen är nu idle.');
+        
+        // Refresh the UI by clearing intervals and restarting them
+        clearInterval(gameStatusPollInterval);
+        clearInterval(playersListPollInterval);
+        startGameStatusPoll();
+        startPlayersListPoll();
+      } catch (err) {
+        console.error('Error resetting game:', err);
+        alert('Fel: ' + err.message);
+      }
     }
 
     async function prepareGame() {
