@@ -784,7 +784,7 @@ class EPAGame {
     const progressPercent = totalPois > 0 ? (completedPois / totalPois) * 100 : 0;
 
     document.getElementById('progressFill').style.width = progressPercent + '%';
-    document.getElementById('progressText').textContent = `${completedPois + 1} av ${totalPois}`;
+    document.getElementById('progressText').textContent = `${completedPois} av ${totalPois}`;
 
     const distanceEl = document.getElementById('distance');
     if (this.currentPosition) {

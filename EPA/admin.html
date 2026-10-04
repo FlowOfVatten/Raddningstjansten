@@ -251,6 +251,10 @@
         <div id="poiMessage"></div>
 
         <h2>POI:er</h2>
+        <button onclick="lockPoiDistances()" style="width: 100%; background: #00aa00; color: #000; font-weight: bold; margin-bottom: 1rem;">
+          🔒 Lås in POI (räkna vägar)
+        </button>
+        <div id="lockStatus" style="display: none; margin-bottom: 1rem;"></div>
         <div id="poiList" class="poi-list"></div>
 
         <h2>Spelare</h2>
@@ -837,6 +841,42 @@
       }
     }
 
+    async function lockPoiDistances() {
+      const statusEl = document.getElementById('lockStatus');
+      statusEl.style.display = 'block';
+      statusEl.innerHTML = '<div class="info-text" style="color: #ffff00;">Räknar vägavstånd mellan alla POI:er...</div>';
+      
+      try {
+        const response = await fetch('/api/epa/lock-poi-distances', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Kunde inte låsa in POI:er');
+        }
+
+        const stats = data.stats || {};
+        statusEl.innerHTML = `
+          <div class="success">
+            <strong>✓ Vägavstånd inlåsta!</strong><br>
+            POI:er: ${stats.poiCount || '?'}<br>
+            Genomsnitt: ${stats.avgDistance || '?'}<br>
+            Min-Max: ${stats.minDistance || '?'} - ${stats.maxDistance || '?'}<br>
+            Totalt anslutningar: ${stats.totalConnections || '?'}
+          </div>
+        `;
+
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 5000);
+      } catch (err) {
+        statusEl.innerHTML = `<div class="error">Fel: ${err.message}</div>`;
+      }
+    }
+
     async function loadPlayers() {
       if (!adminPassword) return;
 
@@ -861,12 +901,16 @@
           const locationInfo = gpsOk
             ? `<br><small style="color: #7efc8d;">GPS OK – sista position: ${Number(player.last_lat).toFixed(4)}, ${Number(player.last_lng).toFixed(4)}</small>`
             : '<br><small style="color: #ffb703;">GPS ej godkänd eller ingen position registrerad</small>';
+          const verificationStatus = player.route_verified 
+            ? '<br><small style="color: #7efc8d;">✓ Runda kontrollerad</small>'
+            : '<br><small style="color: #ffb703;">⚠ Runda ej helt kontrollerad (använder fågelväg)</small>';
           return `
             <div class="player-item">
               <div>
                 <strong>${player.namn}</strong>
                 <br><small>${timeString} - ${player.klar_count}/${totalPois} POI</small>
                 ${locationInfo}
+                ${verificationStatus}
               </div>
               <button onclick="resetPlayer(${player.id})">Nollställ</button>
             </div>

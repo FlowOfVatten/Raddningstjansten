@@ -10,9 +10,11 @@ module.exports = async function (context, req) {
 
     // Get active POI and question
     const poiResult = await pool.query(
-      `SELECT pp.poi_id, pp.forsok
+      `SELECT pp.poi_id, pp.forsok, pp.sekvens
        FROM epa_player_poi pp
-       WHERE pp.player_id = $1 AND pp.status = 'aktiv'`,
+       WHERE pp.player_id = $1 AND pp.status = 'aktiv'
+       ORDER BY pp.sekvens ASC
+       LIMIT 1`,
       [playerId]
     );
 
@@ -23,7 +25,7 @@ module.exports = async function (context, req) {
       };
     }
 
-    const { poi_id, forsok } = poiResult.rows[0];
+    const { poi_id, forsok, sekvens } = poiResult.rows[0];
 
     const questionResult = await pool.query(
       'SELECT id, ratt_index, ledtrad FROM epa_question WHERE poi_id = $1',
@@ -52,24 +54,28 @@ module.exports = async function (context, req) {
 
       const player = playerRow.rows[0];
 
-      // Mark POI as clear and unlock next
       const nextPoiResult = await pool.query(
         `SELECT poi_id FROM epa_player_poi 
-         WHERE player_id = $1 AND sekvens = (
-           SELECT sekvens + 1 FROM epa_player_poi WHERE player_id = $1 AND status = 'aktiv'
-         )`,
-        [playerId]
+         WHERE player_id = $1 AND sekvens = $2
+         ORDER BY sekvens ASC
+         LIMIT 1`,
+        [playerId, sekvens + 1]
       );
 
-      // Mark current as clear
       await pool.query(
         `UPDATE epa_player_poi 
          SET status = 'klar', klar_tid = NOW(), forsok = $1
-         WHERE player_id = $2 AND status = 'aktiv'`,
-        [forsok + 1, playerId]
+         WHERE player_id = $2 AND status = 'aktiv' AND sekvens = $3`,
+        [forsok + 1, playerId, sekvens]
       );
 
-      // Unlock next POI if exists
+      await pool.query(
+        `UPDATE epa_player_poi
+         SET status = 'låst'
+         WHERE player_id = $1 AND status = 'aktiv' AND sekvens != $2`,
+        [playerId, sekvens]
+      );
+
       if (nextPoiResult.rows.length > 0) {
         await pool.query(
           `UPDATE epa_player_poi 
@@ -78,7 +84,6 @@ module.exports = async function (context, req) {
           [playerId, nextPoiResult.rows[0].poi_id]
         );
       } else {
-        // Game completed
         await pool.query(
           'UPDATE epa_player SET status = $1, mal_tid = NOW() WHERE id = $2',
           ['klar', playerId]

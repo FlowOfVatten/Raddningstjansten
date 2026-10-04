@@ -27,8 +27,10 @@ module.exports = async function (context, req) {
 
     const player = playerRow.rows[0];
     const activePoiResult = await pool.query(
-      `SELECT poi_id, forsok FROM epa_player_poi
-       WHERE player_id = $1 AND status = 'aktiv'`,
+      `SELECT poi_id, forsok, sekvens FROM epa_player_poi
+       WHERE player_id = $1 AND status = 'aktiv'
+       ORDER BY sekvens ASC
+       LIMIT 1`,
       [playerId]
     );
 
@@ -39,20 +41,27 @@ module.exports = async function (context, req) {
       };
     }
 
-    const { poi_id, forsok } = activePoiResult.rows[0];
+    const { poi_id, forsok, sekvens } = activePoiResult.rows[0];
     const nextPoiResult = await pool.query(
       `SELECT poi_id FROM epa_player_poi
-       WHERE player_id = $1 AND sekvens = (
-         SELECT sekvens + 1 FROM epa_player_poi WHERE player_id = $1 AND status = 'aktiv'
-       )`,
-      [playerId]
+       WHERE player_id = $1 AND sekvens = $2
+       ORDER BY sekvens ASC
+       LIMIT 1`,
+      [playerId, sekvens + 1]
     );
 
     await pool.query(
       `UPDATE epa_player_poi
        SET status = 'klar', klar_tid = NOW(), forsok = $1
-       WHERE player_id = $2 AND status = 'aktiv'`,
-      [forsok + 1, playerId]
+       WHERE player_id = $2 AND status = 'aktiv' AND sekvens = $3`,
+      [forsok + 1, playerId, sekvens]
+    );
+
+    await pool.query(
+      `UPDATE epa_player_poi
+       SET status = 'låst'
+       WHERE player_id = $1 AND status = 'aktiv' AND sekvens != $2`,
+      [playerId, sekvens]
     );
 
     if (nextPoiResult.rows.length > 0) {
