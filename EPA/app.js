@@ -26,6 +26,8 @@ class EPAGame {
     this.broadcastLastSeen = 0;
     this.broadcastPollInterval = null;
     this.lastGameStatus = null;  // Track previous game status to detect changes
+    this.audioUnlocked = false;
+    this.audioElement = null;
     
     // Auto-question and timer state
     this.questionAutoShown = false;
@@ -112,6 +114,25 @@ class EPAGame {
     }
   }
 
+  unlockAudio() {
+    if (this.audioUnlocked) return;
+
+    try {
+      this.audioElement = this.audioElement || new Audio('https://www.myinstants.com/media/sounds/gentlemen-start-your-engines.mp3');
+      this.audioElement.preload = 'auto';
+      this.audioElement.volume = 1;
+      this.audioElement.loop = false;
+      this.audioUnlocked = true;
+      this.audioElement.play().catch(() => {
+        console.log('Audio start blocked until next user interaction.');
+      });
+      console.log('Audio unlocked');
+    } catch (err) {
+      console.warn('Could not unlock audio:', err);
+      this.audioUnlocked = true;
+    }
+  }
+
   playSound(soundId) {
     console.log('playSound called with soundId:', soundId);
     if (soundId === 'gentlemen-start-engines') {
@@ -122,6 +143,28 @@ class EPAGame {
   }
 
   playEnginesSound() {
+    this.unlockAudio();
+
+    try {
+      if (this.audioElement) {
+        this.audioElement.currentTime = 0;
+        const playPromise = this.audioElement.play();
+        if (playPromise) {
+          playPromise.catch((err) => {
+            console.warn('Remote MP3 blocked by browser, falling back to oscillator sound.', err);
+            this.playSynthEngineSound();
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not play remote engine sound, falling back to synth:', err);
+    }
+
+    this.playSynthEngineSound();
+  }
+
+  playSynthEngineSound() {
     // Generate engine rev sound using Web Audio API
     try {
       console.log('Starting engine sound generation');
@@ -244,6 +287,7 @@ class EPAGame {
       this.playerName = data.playerName;
       this.sessionId = data.sessionId;
       this.savePlayerSession();
+      this.unlockAudio();
 
       if (data.existingPlayer) {
         this.showScreen('game');
