@@ -23,12 +23,15 @@ class EPAGame {
     this.mapFollowPlayer = true;
     this.mapFocusTimer = null;
     this.sessionStorageKey = 'epa_player_session';
+    this.broadcastLastSeen = 0;
+    this.broadcastPollInterval = null;
     
     // Auto-question and timer state
     this.questionAutoShown = false;
     this.wrongAnswerTimer = null;
     this.canAnswerAgain = true;
     this.timerInterval = null;
+    this.missionOverlayTimer = null;
     
     // Waiting room polling
     this.waitingPollInterval = null;
@@ -75,6 +78,46 @@ class EPAGame {
     }));
   }
 
+  async loadBroadcasts() {
+    if (!this.playerId) return;
+
+    try {
+      const response = await fetch(`/api/epa/player/${this.playerId}/events?since=${this.broadcastLastSeen || 0}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      const messages = data.messages || [];
+
+      messages.forEach((item) => {
+        if (!item?.message) return;
+        this.showBroadcast(`${item.playerName}: ${item.message}`);
+        this.broadcastLastSeen = Math.max(this.broadcastLastSeen, Number(item.id || 0));
+      });
+    } catch (err) {
+      console.error('Error loading broadcasts:', err);
+    }
+  }
+
+  showBroadcast(message) {
+    const container = document.getElementById('broadcastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'broadcast-toast';
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 500);
+    }, 4000);
+  }
+
+  startBroadcastPolling() {
+    if (this.broadcastPollInterval) clearInterval(this.broadcastPollInterval);
+    this.loadBroadcasts();
+    this.broadcastPollInterval = setInterval(() => this.loadBroadcasts(), 4000);
+  }
+
   loadPlayerSession() {
     try {
       const raw = localStorage.getItem(this.sessionStorageKey);
@@ -109,6 +152,7 @@ class EPAGame {
       await this.loadPOIs();
       this.initMap();
       this.startPositionTracking();
+      this.startBroadcastPolling();
     } catch (err) {
       console.error('Error restoring saved session:', err);
       this.clearPlayerSession();
@@ -144,6 +188,7 @@ class EPAGame {
         await this.loadPOIs();
         this.initMap();
         this.startPositionTracking();
+        this.startBroadcastPolling();
         return;
       }
 
@@ -205,6 +250,7 @@ class EPAGame {
       
       // THEN init map (so POIs are available)
       this.initMap();
+      this.startBroadcastPolling();
       
       // Start tracking position
       this.startPositionTracking();
@@ -280,11 +326,14 @@ class EPAGame {
     const centerLat = this.pois[0]?.lat || 60.5;
     const centerLng = this.pois[0]?.lng || 15.5;
 
-    this.map = L.map('mapContainer').setView([centerLat, centerLng], 15);
+    this.map = L.map('mapContainer', {
+      minZoom: 8,
+      maxZoom: 22
+    }).setView([centerLat, centerLng], 15);
 
     // Use Azure Maps like Brandvatten
     L.tileLayer(`${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`, {
-      minZoom: 10,
+      minZoom: 8,
       maxZoom: 22,
       attribution: '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
     }).addTo(this.map);
@@ -483,6 +532,7 @@ class EPAGame {
     document.getElementById('feedback').innerHTML = '';
     document.getElementById('attemptsLeft').innerHTML = '';
     this.isAnswering = false;
+    this.hideMissionOverlay();
     
     // Reset timer display
     this.clearWrongAnswerTimer();
@@ -510,9 +560,11 @@ class EPAGame {
         feedback.textContent = '✓ ' + data.message;
         feedback.className = 'feedback correct';
         document.querySelectorAll('.answer-btn')[answerIndex].classList.add('correct');
+        this.showMissionOverlay('completed', 'Uppdraget är klart', 0);
 
         // Wait and show next
         setTimeout(() => {
+          this.hideMissionOverlay();
           this.loadGameState().then(() => {
             if (this.gameState.player.status === 'klar') {
               this.showFinish();
@@ -522,7 +574,7 @@ class EPAGame {
           });
         }, 1500);
       } else {
-        // Wrong answer - start 60 second timer
+        // Wrong answer - start 60 second timer immediately
         feedback.textContent = '✗ ' + data.message;
         feedback.className = 'feedback incorrect';
         document.querySelectorAll('.answer-btn')[answerIndex].classList.add('incorrect');
@@ -534,9 +586,9 @@ class EPAGame {
           attemptsDiv.textContent = `Försök kvar: ${data.attemptsLeft}`;
         }
 
-        // Start 60-second countdown timer
         this.canAnswerAgain = false;
         this.startWrongAnswerTimer(60);
+        this.showMissionOverlay('busted', 'Nytt försök snart...', 60);
         
         this.isAnswering = false;
       }
@@ -592,21 +644,47 @@ class EPAGame {
     this.updateActiveRadiusCircle();
   }
 
+  showMissionOverlay(type, subtitle, seconds) {
+    const overlay = document.getElementById('missionOverlay');
+    const title = document.getElementById('missionTitle');
+    const subtitleEl = document.getElementById('missionSubtitle');
+    const timerEl = document.getElementById('missionTimer');
+
+    title.textContent = type === 'completed' ? 'MISSION COMPLETED' : 'BUSTED';
+    title.className = `mission-title ${type === 'completed' ? 'completed' : 'busted'}`;
+    subtitleEl.textContent = subtitle || 'Nytt uppdrag laddas...';
+    overlay.classList.add('visible');
+
+    if (seconds > 0) {
+      timerEl.textContent = `${seconds}s`;
+      timerEl.style.display = 'block';
+    } else {
+      timerEl.style.display = 'none';
+    }
+  }
+
+  hideMissionOverlay() {
+    const overlay = document.getElementById('missionOverlay');
+    overlay.classList.remove('visible');
+    document.getElementById('missionTimer').style.display = 'none';
+  }
+
   startWrongAnswerTimer(seconds) {
     this.wrongAnswerTimer = seconds;
-    
+    const attemptsDiv = document.getElementById('attemptsLeft');
+    const timerEl = document.getElementById('missionTimer');
+
     // Disable all answer buttons
     document.querySelectorAll('.answer-btn').forEach(btn => {
       btn.disabled = true;
       btn.style.opacity = '0.5';
     });
 
-    const attemptsDiv = document.getElementById('attemptsLeft');
-    
     this.timerInterval = setInterval(() => {
       this.wrongAnswerTimer--;
       attemptsDiv.textContent = `Vänta: ${this.wrongAnswerTimer}s innan nytt försök`;
       attemptsDiv.style.color = 'var(--secondary-accent)';
+      timerEl.textContent = `${this.wrongAnswerTimer}s`;
 
       if (this.wrongAnswerTimer <= 0) {
         this.clearWrongAnswerTimer();
@@ -622,6 +700,7 @@ class EPAGame {
     
     this.wrongAnswerTimer = null;
     this.canAnswerAgain = true;
+    this.hideMissionOverlay();
     
     // Enable all answer buttons
     document.querySelectorAll('.answer-btn').forEach(btn => {

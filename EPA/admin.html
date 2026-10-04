@@ -223,6 +223,27 @@
     let adminPassword = null;
     let selectedCoords = null;
     let pois = [];
+    let playerMarkers = [];
+
+    function clearPlayerMarkers() {
+      playerMarkers.forEach(marker => map.removeLayer(marker));
+      playerMarkers = [];
+    }
+
+    function renderPlayerMarkers(players) {
+      if (!map) return;
+      clearPlayerMarkers();
+
+      players.forEach(player => {
+        if (player.last_lat == null || player.last_lng == null) return;
+        const marker = L.marker([Number(player.last_lat), Number(player.last_lng)]).addTo(map);
+        marker.bindPopup(`
+          <strong>${player.namn}</strong><br>
+          POI klara: ${player.klar_count || 0}
+        `);
+        playerMarkers.push(marker);
+      });
+    }
 
     function initMap() {
       map = L.map('mapContainer').setView([56.88, 15.63], 13);
@@ -331,14 +352,18 @@
             
             const list = document.getElementById('activePlayers');
             const totalPois = Math.max(1, pois.length || 1);
+            renderPlayerMarkers(players);
             list.innerHTML = players.map(p => {
               const completedCount = p.klar_count || 0;
               const progress = `${completedCount} av ${totalPois}`;
               const progressPercent = Math.min(100, (completedCount / totalPois) * 100);
+              const locText = (p.last_lat != null && p.last_lng != null)
+                ? ` <span style="color: #63d2ff;">📍 Live</span>`
+                : ' <span style="color: #aaa;">📍 Okänd</span>';
               return `
                 <div class="player-item">
                   <div style="flex: 1;">
-                    <div><strong>${p.namn}</strong></div>
+                    <div><strong>${p.namn}</strong>${locText}</div>
                     <div style="width: 100%; height: 8px; background: #333; border-radius: 4px; margin-top: 4px; overflow: hidden;">
                       <div style="width: ${progressPercent}%; height: 100%; background: #ffff00; transition: width 0.3s;"></div>
                     </div>
@@ -532,6 +557,7 @@
 
         const players = await response.json();
         const playerList = document.getElementById('playerList');
+        renderPlayerMarkers(players);
 
         if (players.length === 0) {
           playerList.innerHTML = '<p style="color: #888;">Inga speler ännu</p>';
@@ -542,11 +568,15 @@
         playerList.innerHTML = players.map(player => {
           const startTime = new Date(player.start_tid);
           const timeString = startTime.toLocaleTimeString('sv-SE');
+          const locationInfo = (player.last_lat != null && player.last_lng != null)
+            ? `<br><small style="color: #63d2ff;">Sista position: ${Number(player.last_lat).toFixed(4)}, ${Number(player.last_lng).toFixed(4)}</small>`
+            : '<br><small style="color: #aaa;">Ingen position registrerad</small>';
           return `
             <div class="player-item">
               <div>
                 <strong>${player.namn}</strong>
                 <br><small>${timeString} - ${player.klar_count}/${totalPois} POI</small>
+                ${locationInfo}
               </div>
               <button onclick="resetPlayer(${player.id})">Nollställ</button>
             </div>

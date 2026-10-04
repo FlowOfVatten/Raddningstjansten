@@ -41,6 +41,17 @@ module.exports = async function (context, req) {
     const isCorrect = answerIndex === question.ratt_index;
 
     if (isCorrect) {
+      const playerRow = await pool.query(
+        'SELECT id, namn, game_session_id FROM epa_player WHERE id = $1',
+        [playerId]
+      );
+
+      if (playerRow.rows.length === 0) {
+        return { status: 404, body: { error: 'Spelare hittades inte' } };
+      }
+
+      const player = playerRow.rows[0];
+
       // Mark POI as clear and unlock next
       const nextPoiResult = await pool.query(
         `SELECT poi_id FROM epa_player_poi 
@@ -73,6 +84,33 @@ module.exports = async function (context, req) {
           ['klar', playerId]
         );
       }
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS epa_game_broadcast (
+          id SERIAL PRIMARY KEY,
+          game_session_id INTEGER NOT NULL,
+          player_id INTEGER REFERENCES epa_player(id) ON DELETE CASCADE,
+          player_name VARCHAR(255) NOT NULL,
+          message TEXT NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      const completedCountResult = await pool.query(
+        `SELECT COUNT(*)::int AS completed_count
+         FROM epa_player_poi
+         WHERE player_id = $1 AND status = 'klar'`,
+        [playerId]
+      );
+
+      const completedCount = completedCountResult.rows[0]?.completed_count || 0;
+      const message = `${player.namn} klarade POI ${completedCount}!`;
+
+      await pool.query(
+        `INSERT INTO epa_game_broadcast (game_session_id, player_id, player_name, message)
+         VALUES ($1, $2, $3, $4)`,
+        [player.game_session_id, player.id, player.namn, message]
+      );
 
       return {
         status: 200,
