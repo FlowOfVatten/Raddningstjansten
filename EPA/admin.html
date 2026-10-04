@@ -429,12 +429,21 @@
             if (players.length === 0) {
               list.innerHTML = '<p style="color: #888; padding: 1rem; text-align: center;">Väntar på spelare...</p>';
             } else {
-              list.innerHTML = players.map(p => `
-                <div class="player-item">
-                  <span>${p.namn}</span>
-                  <span style="color: #aaa; font-size: 0.9rem;">Registrerad</span>
-                </div>
-              `).join('');
+              list.innerHTML = players.map(p => {
+                const gpsOk = p.gps_ok === true || (p.last_lat != null && p.last_lng != null);
+                const gpsText = gpsOk ? 'GPS OK' : 'GPS väntar';
+                const gpsColor = gpsOk ? '#7efc8d' : '#ffb703';
+
+                return `
+                  <div class="player-item">
+                    <div>
+                      <div><strong>${p.namn}</strong></div>
+                      <small style="color: #aaa;">Registrerad</small>
+                    </div>
+                    <span style="color: ${gpsColor}; font-size: 0.8rem; font-weight: 700;">${gpsText}</span>
+                  </div>
+                `;
+              }).join('');
             }
           } else if (status.status === 'ready') {
             // Show ready players
@@ -443,12 +452,21 @@
             const players = await response.json();
             
             const list = document.getElementById('readyPlayersList');
-            list.innerHTML = players.map(p => `
-              <div class="player-item">
-                <span>${p.namn}</span>
-                <span style="color: #aaa; font-size: 0.9rem;">Redo</span>
-              </div>
-            `).join('');
+            list.innerHTML = players.map(p => {
+              const gpsOk = p.gps_ok === true || (p.last_lat != null && p.last_lng != null);
+              const gpsText = gpsOk ? 'GPS OK' : 'GPS väntar';
+              const gpsColor = gpsOk ? '#7efc8d' : '#ffb703';
+
+              return `
+                <div class="player-item">
+                  <div>
+                    <div><strong>${p.namn}</strong></div>
+                    <small style="color: #aaa;">Redo</small>
+                  </div>
+                  <span style="color: ${gpsColor}; font-size: 0.8rem; font-weight: 700;">${gpsText}</span>
+                </div>
+              `;
+            }).join('');
           } else if (status.status === 'started') {
             // Show active players
             const response = await fetch('/api/epa/admin/players?password=' + encodeURIComponent(adminPassword));
@@ -462,9 +480,10 @@
               const completedCount = p.klar_count || 0;
               const progress = `${completedCount} av ${totalPois}`;
               const progressPercent = Math.min(100, (completedCount / totalPois) * 100);
-              const locText = (p.last_lat != null && p.last_lng != null)
-                ? ` <span style="color: #63d2ff;">📍 Live</span>`
-                : ' <span style="color: #aaa;">📍 Okänd</span>';
+              const gpsOk = p.last_lat != null && p.last_lng != null;
+              const locText = gpsOk
+                ? ` <span style="color: #7efc8d;">📍 GPS OK</span>`
+                : ' <span style="color: #ffb703;">📍 GPS väntar</span>';
               return `
                 <div class="player-item">
                   <div style="flex: 1;">
@@ -838,9 +857,10 @@
         playerList.innerHTML = players.map(player => {
           const startTime = new Date(player.start_tid);
           const timeString = startTime.toLocaleTimeString('sv-SE');
-          const locationInfo = (player.last_lat != null && player.last_lng != null)
-            ? `<br><small style="color: #63d2ff;">Sista position: ${Number(player.last_lat).toFixed(4)}, ${Number(player.last_lng).toFixed(4)}</small>`
-            : '<br><small style="color: #aaa;">Ingen position registrerad</small>';
+          const gpsOk = player.last_lat != null && player.last_lng != null;
+          const locationInfo = gpsOk
+            ? `<br><small style="color: #7efc8d;">GPS OK – sista position: ${Number(player.last_lat).toFixed(4)}, ${Number(player.last_lng).toFixed(4)}</small>`
+            : '<br><small style="color: #ffb703;">GPS ej godkänd eller ingen position registrerad</small>';
           return `
             <div class="player-item">
               <div>

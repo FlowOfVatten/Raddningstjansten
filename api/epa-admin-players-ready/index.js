@@ -32,8 +32,11 @@ module.exports = async function (context, req) {
 
     // Get all players registered for this session
     const result = await pool.query(
-      `SELECT p.id, p.namn, p.created_at as registered_at, p.player_status
+      `SELECT p.id, p.namn, p.created_at as registered_at, p.player_status,
+              pl.lat as last_lat, pl.lng as last_lng, pl.last_seen_at,
+              CASE WHEN pl.lat IS NOT NULL AND pl.lng IS NOT NULL THEN true ELSE false END as gps_ok
        FROM epa_player p
+       LEFT JOIN epa_player_location pl ON pl.player_id = p.id
        WHERE p.game_session_id = $1
        ORDER BY p.created_at ASC`,
       [sessionId]
