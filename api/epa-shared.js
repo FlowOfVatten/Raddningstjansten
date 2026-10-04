@@ -5,6 +5,7 @@ const poolByConnectionString = new Map();
 function resolveEpaPgConnectionString() {
   return (
     process.env.EPA_PG_CONNECTION_STRING ||
+    process.env.RISE_PG_CONNECTION_STRING ||
     process.env.RADDNINGSTJANSTEN_PG_CONNECTION_STRING ||
     process.env.PG_CONNECTION_STRING ||
     process.env.DATABASE_URL ||
