@@ -21,6 +21,10 @@
       "statusCode": 301
     },
     {
+      "route": "/EPA/",
+      "rewrite": "/EPA/index.html"
+    },
+    {
       "route": "/EPA/*",
       "statusCode": 200
     },
