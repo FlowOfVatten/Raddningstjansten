@@ -13,6 +13,22 @@ module.exports = async function (context, req) {
   try {
     const pool = getEpaPool();
 
+    // Verify player exists
+    const playerCheckResult = await pool.query(
+      'SELECT id FROM epa_player WHERE id = $1',
+      [playerId]
+    );
+
+    if (playerCheckResult.rows.length === 0) {
+      return {
+        status: 404,
+        body: { error: 'Spelare inte found' }
+      };
+    }
+
+    // First, delete any existing POI entries for this player (cleanup)
+    await pool.query('DELETE FROM epa_player_poi WHERE player_id = $1', [playerId]);
+
     // Get all POIs with coordinates
     const poisResult = await pool.query(
       'SELECT id, lat, lng FROM epa_poi WHERE aktiv = true ORDER BY ordning_fast ASC'
@@ -56,6 +72,13 @@ module.exports = async function (context, req) {
       [firstPoiId]
     );
 
+    if (firstPoiResult.rows.length === 0) {
+      return {
+        status: 500,
+        body: { error: 'Kunde inte hitta första POI' }
+      };
+    }
+
     return {
       status: 200,
       body: {
@@ -66,9 +89,10 @@ module.exports = async function (context, req) {
     };
   } catch (err) {
     context.log('Error starting player game:', err.message);
+    context.log('Error details:', err);
     return {
       status: 500,
-      body: { error: 'Kunde inte starta spelarspelet' }
+      body: { error: 'Kunde inte starta spelarspelet: ' + err.message }
     };
   }
 };

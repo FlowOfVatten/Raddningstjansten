@@ -119,7 +119,12 @@ class EPAGame {
         headers: { 'Content-Type': 'application/json' }
       });
 
-      if (!response.ok) throw new Error('Kunde inte starta ditt spel');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Kunde inte starta ditt spel');
+      }
+
+      const data = await response.json();
 
       // Show game screen and init map FIRST
       this.showScreen('game');
@@ -132,6 +137,10 @@ class EPAGame {
       // Start tracking position
       this.startPositionTracking();
     } catch (err) {
+      console.error('Error initializing game for player:', err);
+      alert('Fel vid start: ' + err.message);
+    }
+  }
       console.error('Error starting game:', err);
       alert('Fel vid start: ' + err.message);
     }
