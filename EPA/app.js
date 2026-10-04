@@ -83,6 +83,27 @@ class EPAGame {
       if (!response.ok) throw new Error('Kunde inte hämta spelstatus');
 
       this.gameState = await response.json();
+      
+      // Ensure activePoi has numeric coordinates
+      if (this.gameState.activePoi) {
+        this.gameState.activePoi = {
+          ...this.gameState.activePoi,
+          lat: Number(this.gameState.activePoi.lat),
+          lng: Number(this.gameState.activePoi.lng),
+          radie_meter: Number(this.gameState.activePoi.radie_meter)
+        };
+      }
+      
+      // Ensure all pois in pois array have numeric coordinates
+      if (this.gameState.pois) {
+        this.gameState.pois = this.gameState.pois.map(poi => ({
+          ...poi,
+          lat: poi.lat ? Number(poi.lat) : undefined,
+          lng: poi.lng ? Number(poi.lng) : undefined,
+          radie_meter: poi.radie_meter ? Number(poi.radie_meter) : undefined
+        }));
+      }
+      
       this.currentPoi = this.gameState.activePoi;
       this.updateGameUI();
     } catch (err) {
@@ -95,7 +116,15 @@ class EPAGame {
       const response = await fetch('/api/epa/poi');
       if (!response.ok) throw new Error('Kunde inte hämta POI:er');
 
-      this.pois = await response.json();
+      const pois = await response.json();
+      
+      // Ensure lat/lng are numbers
+      this.pois = pois.map(poi => ({
+        ...poi,
+        lat: Number(poi.lat),
+        lng: Number(poi.lng),
+        radie_meter: Number(poi.radie_meter)
+      }));
     } catch (err) {
       console.error('Error loading POIs:', err);
     }

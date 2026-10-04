@@ -297,6 +297,14 @@
         const response = await fetch('/api/epa/poi');
         pois = await response.json();
 
+        // Ensure lat/lng are numbers
+        pois = pois.map(poi => ({
+          ...poi,
+          lat: Number(poi.lat),
+          lng: Number(poi.lng),
+          radie_meter: Number(poi.radie_meter)
+        }));
+
         const poiList = document.getElementById('poiList');
         poiList.innerHTML = pois.map((poi, idx) => `
           <div class="poi-item">
