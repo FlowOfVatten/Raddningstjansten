@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const https = require('https');
 
 const poolByConnectionString = new Map();
 
@@ -111,6 +112,38 @@ function fairShuffleCheckpoints(checkpoints) {
   return result;
 }
 
+// Helper: Get road distance from Azure Maps Routing API with fallback to Haversine
+async function getRoutingDistance(lat1, lng1, lat2, lng2) {
+  try {
+    const apiKey = process.env.AZURE_MAPS_KEY || 'lF9BdGlqb1lSVEhON0V3ZlhXZDNGMVJrQTJtRy9BNDQ=';
+    const url = `https://atlas.microsoft.com/route/directions/json?subscription-key=${apiKey}&api-version=1.0&query=${lat1},${lng1}:${lat2},${lng2}`;
+
+    return new Promise((resolve) => {
+      https.get(url, { timeout: 5000 }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.routes && json.routes.length > 0) {
+              const distanceMeters = json.routes[0].summary.lengthInMeters;
+              resolve({ distance: distanceMeters, isFallback: false });
+            } else {
+              resolve({ distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true });
+            }
+          } catch (e) {
+            resolve({ distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true });
+          }
+        });
+      }).on('error', () => {
+        resolve({ distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true });
+      });
+    });
+  } catch (err) {
+    return { distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true };
+  }
+}
+
 module.exports = {
   getEpaPool,
   calculateDistance,
@@ -118,6 +151,7 @@ module.exports = {
   getMedian,
   calculateRouteDistance,
   fairShuffleCheckpoints,
+  getRoutingDistance,
   verifyAdminPassword
 };
 
