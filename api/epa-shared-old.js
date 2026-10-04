@@ -1,4 +1,4 @@
-const { Pool } = require('pg');
+﻿const { Pool } = require('pg');
 
 const poolByConnectionString = new Map();
 
@@ -52,27 +52,6 @@ function toRad(deg) {
   return deg * (Math.PI / 180);
 }
 
-// Helper: Calculate median of an array
-function getMedian(values) {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
-}
-
-// Helper: Calculate total distance of a route using Haversine
-function calculateRouteDistance(route) {
-  let total = 0;
-  for (let i = 1; i < route.length; i++) {
-    const from = route[i - 1];
-    const to = route[i];
-    total += calculateDistance(from.lat, from.lng, to.lat, to.lng);
-  }
-  return total;
-}
-
 // Helper: Fair shuffle using greedy nearest-neighbor with randomization
 function fairShuffleCheckpoints(checkpoints) {
   if (checkpoints.length === 0) return [];
@@ -115,8 +94,6 @@ module.exports = {
   getEpaPool,
   calculateDistance,
   toRad,
-  getMedian,
-  calculateRouteDistance,
   fairShuffleCheckpoints,
   verifyAdminPassword
 };
