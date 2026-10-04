@@ -1,10 +1,11 @@
-const { getEpaPool, ADMIN_PASSWORD } = require('../epa-shared');
+const { getEpaPool, verifyAdminPassword } = require('../epa-shared');
 
 module.exports = async function (context, req) {
   const { password, sessionId, soundId } = req.body;
 
   // Validate admin password
-  if (password !== ADMIN_PASSWORD) {
+  const isValid = await verifyAdminPassword(password);
+  if (!isValid) {
     return { status: 403, body: { error: 'Felaktigt lösenord' } };
   }
 

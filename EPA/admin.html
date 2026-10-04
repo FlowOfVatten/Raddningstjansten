@@ -304,6 +304,8 @@
           if (!response.ok) return;
           const data = await response.json();
           
+          console.log('Game status:', data.status);
+          
           document.getElementById('currentGameStatus').textContent = 
             data.status.charAt(0).toUpperCase() + data.status.slice(1);
           
@@ -324,7 +326,7 @@
         } catch (err) {
           console.error('Error polling game status:', err);
         }
-      }, 1000);
+      }, 500);
     }
 
     async function startPlayersListPoll() {
@@ -400,30 +402,47 @@
     }
 
     async function prepareGame() {
+      console.log('prepareGame called');
+      
+      if (!adminPassword) {
+        alert('Fel: Du är inte inloggad som admin');
+        return;
+      }
+      
       try {
+        console.log('Calling /api/epa/admin/game-start');
         const response = await fetch('/api/epa/admin/game-start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password: adminPassword })
         });
         
-        if (!response.ok) throw new Error('Kunde inte förbereda spel');
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error('API error: ' + (errorData.error || 'Unknown error'));
+        }
         
         const data = await response.json();
+        console.log('Game started, sessionId:', data.sessionId);
         
         // Broadcast the "gentlemen start your engines" sound to all players
         try {
+          console.log('Broadcasting sound');
           await fetch(`/api/epa/admin/broadcast-sound`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ password: adminPassword, sessionId: data.sessionId, soundId: 'gentlemen-start-engines' })
           });
+          console.log('Sound broadcast sent');
         } catch (e) {
           console.error('Could not broadcast sound:', e);
         }
         
         alert('Spel förberett! Spelare kan nu registrera sig.\nKlicka "GO" när alla är redo.');
       } catch (err) {
+        console.error('Error in prepareGame:', err);
         alert('Fel: ' + err.message);
       }
     }
