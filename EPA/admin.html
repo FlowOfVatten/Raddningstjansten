@@ -140,6 +140,9 @@
           <h2 style="margin-bottom: 1rem;">Spelkontroll</h2>
           
           <div id="gameControlSection">
+            <h3 style="margin-bottom: 0.5rem; color: #ffff00;">Registrerade spelare:</h3>
+            <div id="registeredPlayersList" class="player-list" style="margin-bottom: 1rem; max-height: 200px; overflow-y: auto;"></div>
+            
             <button onclick="prepareGame()" class="btn-primary" style="width: 100%; background: #ffff00; color: #000; font-weight: bold; margin-bottom: 0.5rem; padding: 1rem;">
               Start Your Engine 🚀
             </button>
@@ -331,7 +334,24 @@
         try {
           const status = await (await fetch('/api/epa/game-status')).json();
           
-          if (status.status === 'ready') {
+          if (status.status === 'idle') {
+            // Show registered players waiting for engine start
+            const response = await fetch('/api/epa/admin/players-ready?password=' + encodeURIComponent(adminPassword));
+            if (!response.ok) return;
+            const players = await response.json();
+            
+            const list = document.getElementById('registeredPlayersList');
+            if (players.length === 0) {
+              list.innerHTML = '<p style="color: #888; padding: 1rem; text-align: center;">Väntar på spelare...</p>';
+            } else {
+              list.innerHTML = players.map(p => `
+                <div class="player-item">
+                  <span>${p.namn}</span>
+                  <span style="color: #aaa; font-size: 0.9rem;">Registrerad</span>
+                </div>
+              `).join('');
+            }
+          } else if (status.status === 'ready') {
             // Show ready players
             const response = await fetch('/api/epa/admin/players-ready?password=' + encodeURIComponent(adminPassword));
             if (!response.ok) return;
