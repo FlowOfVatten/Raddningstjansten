@@ -200,6 +200,32 @@ function calculateRouteDistanceWithMatrix(route, distanceMatrix) {
   return total;
 }
 
+// Helper: Build a balanced route for a player using greedy nearest-neighbor
+function buildBalancedPlayerRoute(checkpoints, goal, existingRoutes = [], distanceMatrix = null) {
+  if (checkpoints.length === 0) return [];
+
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const route = [checkpoints[0], ...fairShuffleCheckpoints(checkpoints.slice(1), null, distanceMatrix), goal];
+    
+    const routeDistance = distanceMatrix
+      ? calculateRouteDistanceWithMatrix(route, distanceMatrix)
+      : calculateRouteDistance(route);
+
+    const otherDistances = existingRoutes
+      .map(r => distanceMatrix ? calculateRouteDistanceWithMatrix(r, distanceMatrix) : calculateRouteDistance(r))
+      .filter(d => d > 0);
+
+    if (otherDistances.length === 0) return route;
+
+    const median = getMedian(otherDistances);
+    const threshold = median * 1.2;
+
+    if (routeDistance <= threshold) return route;
+  }
+
+  return [checkpoints[0], ...fairShuffleCheckpoints(checkpoints.slice(1), null, distanceMatrix), goal];
+}
+
 module.exports = {
   getEpaPool,
   calculateDistance,
@@ -208,6 +234,7 @@ module.exports = {
   calculateRouteDistance,
   calculateRouteDistanceWithMatrix,
   fairShuffleCheckpoints,
+  buildBalancedPlayerRoute,
   getRoutingDistance,
   buildDistanceMatrix,
   readDistanceMatrixFromCache,
