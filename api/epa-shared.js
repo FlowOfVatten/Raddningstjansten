@@ -336,28 +336,6 @@ async function readDistanceMatrixFromCache(pool, sessionId) {
   return { matrix, fallbackMap };
 }
 
-// Helper: Check if a player route has any fallback (straight-line) distances
-async function hasPlayerRouteFallback(pool, playerId, fallbackMap) {
-  const poiResult = await pool.query(
-    `SELECT pp.sekvens, p.id
-     FROM epa_player_poi pp
-     JOIN epa_poi p ON p.id = pp.poi_id
-     WHERE pp.player_id = $1
-     ORDER BY pp.sekvens ASC`,
-    [playerId]
-  );
-
-  const route = poiResult.rows;
-  for (let i = 1; i < route.length; i++) {
-    const fromId = route[i - 1].id;
-    const toId = route[i].id;
-    if (fallbackMap[fromId]?.[toId]) {
-      return true;
-    }
-  }
-  return false;
-}
-
 module.exports = {
   getEpaPool,
   calculateDistance,
@@ -370,7 +348,6 @@ module.exports = {
   getRoutingDistance,
   buildDistanceMatrix,
   readDistanceMatrixFromCache,
-  hasPlayerRouteFallback,
   verifyAdminPassword
 };
 
