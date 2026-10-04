@@ -144,14 +144,73 @@ async function getRoutingDistance(lat1, lng1, lat2, lng2) {
   }
 }
 
+// Helper: Build distance matrix for all POI pairs via Azure Maps
+async function buildDistanceMatrix(checkpoints) {
+  const distanceEntries = [];
+  for (let i = 0; i < checkpoints.length; i++) {
+    for (let j = 0; j < checkpoints.length; j++) {
+      if (i === j) continue;
+      const from = checkpoints[i];
+      const to = checkpoints[j];
+      const { distance, isFallback } = await getRoutingDistance(from.lat, from.lng, to.lat, to.lng);
+      distanceEntries.push({
+        fromId: from.id,
+        toId: to.id,
+        distanceMeters: Math.round(distance),
+        isFallback
+      });
+    }
+  }
+  return distanceEntries;
+}
+
+// Helper: Read pre-calculated distance matrix from database cache
+async function readDistanceMatrixFromCache(pool, sessionId) {
+  const result = await pool.query(
+    `SELECT from_poi_id, to_poi_id, distance_meters, is_fallback
+     FROM epa_distance_cache
+     WHERE game_session_id = $1`,
+    [sessionId]
+  );
+
+  const matrix = {};
+  const fallbackMap = {};
+  
+  for (const row of result.rows) {
+    if (!matrix[row.from_poi_id]) matrix[row.from_poi_id] = {};
+    if (!fallbackMap[row.from_poi_id]) fallbackMap[row.from_poi_id] = {};
+
+    matrix[row.from_poi_id][row.to_poi_id] = Number(row.distance_meters);
+    fallbackMap[row.from_poi_id][row.to_poi_id] = row.is_fallback;
+  }
+
+  return { matrix, fallbackMap };
+}
+
+// Helper: Calculate route distance using pre-calculated distance matrix
+function calculateRouteDistanceWithMatrix(route, distanceMatrix) {
+  let total = 0;
+  for (let i = 1; i < route.length; i++) {
+    const fromId = route[i - 1].id;
+    const toId = route[i].id;
+    if (distanceMatrix[fromId] && distanceMatrix[fromId][toId]) {
+      total += distanceMatrix[fromId][toId];
+    }
+  }
+  return total;
+}
+
 module.exports = {
   getEpaPool,
   calculateDistance,
   toRad,
   getMedian,
   calculateRouteDistance,
+  calculateRouteDistanceWithMatrix,
   fairShuffleCheckpoints,
   getRoutingDistance,
+  buildDistanceMatrix,
+  readDistanceMatrixFromCache,
   verifyAdminPassword
 };
 
