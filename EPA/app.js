@@ -347,6 +347,10 @@ class EPAGame {
         if (statusChanged && data.status === 'ready' && this.currentScreen === 'waiting') {
           console.log('Status changed to ready, showing engine start screen');
           this.showScreen('engineStart');
+          // Play engine sound immediately when transitioning to engine start screen
+          console.log('Playing engine sound on screen transition');
+          this.playEnginesSound();
+          this.showBroadcast('🎙️ Gentlemen, start your engines!');
         }
 
         // Start actual game when status CHANGES to started
