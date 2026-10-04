@@ -61,10 +61,15 @@ class EPAGame {
       this.playerId = data.playerId;
       this.playerName = data.namn;
 
-      await this.loadGameState();
-      await this.loadPOIs();
+      // Show game screen and init map FIRST
       this.showScreen('game');
       this.initMap();
+
+      // Then load game state and POIs
+      await this.loadGameState();
+      await this.loadPOIs();
+      
+      // Start tracking position
       this.startPositionTracking();
     } catch (err) {
       console.error('Error starting game:', err);
