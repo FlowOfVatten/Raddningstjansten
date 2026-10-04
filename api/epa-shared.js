@@ -94,5 +94,23 @@ module.exports = {
   getEpaPool,
   calculateDistance,
   toRad,
-  fairShuffleCheckpoints
+  fairShuffleCheckpoints,
+  verifyAdminPassword
 };
+
+// Helper: Verify admin password against database
+async function verifyAdminPassword(password) {
+  if (!password) return false;
+  
+  try {
+    const pool = getEpaPool();
+    const result = await pool.query(
+      'SELECT id FROM epa_admin WHERE password_hash = $1 LIMIT 1',
+      [password]
+    );
+    return result.rows.length > 0;
+  } catch (err) {
+    console.error('Error verifying admin password:', err.message);
+    return false;
+  }
+}
