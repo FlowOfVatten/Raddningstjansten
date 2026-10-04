@@ -6,7 +6,7 @@
       "direction": "in",
       "name": "req",
       "methods": ["get"],
-      "route": "admin/players-ready"
+      "route": "epa/admin/players-ready"
     },
     {
       "type": "http",

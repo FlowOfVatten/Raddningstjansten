@@ -6,7 +6,7 @@
       "direction": "in",
       "name": "req",
       "methods": ["get"],
-      "route": "game-status"
+      "route": "epa/game-status"
     },
     {
       "type": "http",

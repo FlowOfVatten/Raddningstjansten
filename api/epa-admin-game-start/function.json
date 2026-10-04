@@ -6,7 +6,7 @@
       "direction": "in",
       "name": "req",
       "methods": ["post"],
-      "route": "admin/game-start"
+      "route": "epa/admin/game-start"
     },
     {
       "type": "http",
