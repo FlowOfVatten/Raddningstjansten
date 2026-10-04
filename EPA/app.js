@@ -46,10 +46,10 @@ class EPAGame {
     const poiName = document.getElementById('poiName');
     const distanceEl = document.getElementById('distance');
     if (poiName) {
-      poiName.addEventListener('click', () => this.focusOnPlayer());
+      poiName.addEventListener('click', () => this.focusOnPoi());
     }
     if (distanceEl) {
-      distanceEl.addEventListener('click', () => this.focusOnPlayer());
+      distanceEl.addEventListener('click', () => this.focusOnPoi());
     }
 
     // Question screen
@@ -267,17 +267,17 @@ class EPAGame {
     this.markers[poi.id] = marker;
   }
 
-  focusOnPlayer(durationMs = 2500) {
-    if (!this.map || !this.currentPosition) return;
+  focusOnPoi(durationMs = 2500) {
+    if (!this.map || !this.currentPoi) return;
 
     this.mapFollowPlayer = false;
-    this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
+    this.map.setView([this.currentPoi.lat, this.currentPoi.lng], 15);
 
     clearTimeout(this.mapFocusTimer);
     this.mapFocusTimer = setTimeout(() => {
       this.mapFollowPlayer = true;
-      if (this.currentPoi) {
-        this.map.setView([this.currentPoi.lat, this.currentPoi.lng], 15);
+      if (this.currentPosition) {
+        this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
       }
     }, durationMs);
   }
