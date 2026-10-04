@@ -135,6 +135,36 @@
       </div>
       
       <div class="sidebar-content" id="adminContent" style="display: none;">
+        <!-- Game Control Section -->
+        <div style="border-bottom: 2px solid #ffff00; padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
+          <h2 style="margin-bottom: 1rem;">Spelkontroll</h2>
+          
+          <div id="gameControlSection">
+            <button onclick="prepareGame()" class="btn-primary" style="width: 100%; background: #ffff00; color: #000; font-weight: bold; margin-bottom: 0.5rem; padding: 1rem;">
+              Start Your Engine 🚀
+            </button>
+            
+            <div id="gameStatus" style="color: #888; font-size: 0.9rem; margin-bottom: 1rem; text-align: center;">
+              Status: <strong id="currentGameStatus">Idle</strong>
+            </div>
+          </div>
+
+          <div id="playersReadySection" style="display: none;">
+            <h3 style="margin-bottom: 0.5rem; color: #ffff00;">Anmälda spelare:</h3>
+            <div id="readyPlayersList" class="player-list" style="margin-bottom: 1rem; max-height: 200px; overflow-y: auto;"></div>
+            
+            <button onclick="startGame()" class="btn-primary" style="width: 100%; background: #ff6600; color: #000; font-weight: bold; padding: 1rem; margin-bottom: 1rem;">
+              GO 🏁
+            </button>
+          </div>
+
+          <div id="gameRunningSection" style="display: none;">
+            <h3 style="margin-bottom: 1rem; color: #ffff00;">Aktiva spelare:</h3>
+            <div id="activePlayers" class="player-list" style="max-height: 300px; overflow-y: auto;"></div>
+          </div>
+        </div>
+
+        <!-- POI Management Section -->
         <h2>Ny POI</h2>
         <div class="form-group">
           <label>POI Namn</label>
@@ -228,11 +258,136 @@
 
         document.getElementById('adminContent').style.display = 'block';
         authStatus.innerHTML = '<div class="success">Inloggad</div>';
+        
+        // Start polling for game status and players
+        startGameStatusPoll();
+        startPlayersListPoll();
       } catch (err) {
         authStatus.innerHTML = '<div class="error">Felaktigt lösenord</div>';
         adminPassword = null;
       }
     }
+
+    let gameStatusPollInterval = null;
+    let playersListPollInterval = null;
+
+    async function startGameStatusPoll() {
+      if (gameStatusPollInterval) clearInterval(gameStatusPollInterval);
+      
+      gameStatusPollInterval = setInterval(async () => {
+        try {
+          const response = await fetch('/api/epa/game-status');
+          if (!response.ok) return;
+          const data = await response.json();
+          
+          document.getElementById('currentGameStatus').textContent = 
+            data.status.charAt(0).toUpperCase() + data.status.slice(1);
+          
+          // Show/hide sections based on game status
+          if (data.status === 'idle') {
+            document.getElementById('gameControlSection').style.display = 'block';
+            document.getElementById('playersReadySection').style.display = 'none';
+            document.getElementById('gameRunningSection').style.display = 'none';
+          } else if (data.status === 'ready') {
+            document.getElementById('gameControlSection').style.display = 'none';
+            document.getElementById('playersReadySection').style.display = 'block';
+            document.getElementById('gameRunningSection').style.display = 'none';
+          } else if (data.status === 'started') {
+            document.getElementById('gameControlSection').style.display = 'none';
+            document.getElementById('playersReadySection').style.display = 'none';
+            document.getElementById('gameRunningSection').style.display = 'block';
+          }
+        } catch (err) {
+          console.error('Error polling game status:', err);
+        }
+      }, 1000);
+    }
+
+    async function startPlayersListPoll() {
+      if (playersListPollInterval) clearInterval(playersListPollInterval);
+      
+      playersListPollInterval = setInterval(async () => {
+        try {
+          const status = await (await fetch('/api/epa/game-status')).json();
+          
+          if (status.status === 'ready') {
+            // Show ready players
+            const response = await fetch('/api/epa/admin/players-ready?password=' + encodeURIComponent(adminPassword));
+            if (!response.ok) return;
+            const players = await response.json();
+            
+            const list = document.getElementById('readyPlayersList');
+            list.innerHTML = players.map(p => `
+              <div class="player-item">
+                <span>${p.namn}</span>
+                <span style="color: #aaa; font-size: 0.9rem;">Redo</span>
+              </div>
+            `).join('');
+          } else if (status.status === 'started') {
+            // Show active players
+            const response = await fetch('/api/epa/admin/players?password=' + encodeURIComponent(adminPassword));
+            if (!response.ok) return;
+            const players = await response.json();
+            
+            const list = document.getElementById('activePlayers');
+            list.innerHTML = players.map(p => {
+              const completedCount = p.klar_count || 0;
+              const progress = `${completedCount} av 10`;
+              const progressPercent = (completedCount / 10) * 100;
+              return `
+                <div class="player-item">
+                  <div style="flex: 1;">
+                    <div><strong>${p.namn}</strong></div>
+                    <div style="width: 100%; height: 8px; background: #333; border-radius: 4px; margin-top: 4px; overflow: hidden;">
+                      <div style="width: ${progressPercent}%; height: 100%; background: #ffff00; transition: width 0.3s;"></div>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">${progress}</div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        } catch (err) {
+          console.error('Error polling players:', err);
+        }
+      }, 2000);
+    }
+
+    async function prepareGame() {
+      try {
+        const response = await fetch('/api/epa/admin/game-start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPassword })
+        });
+        
+        if (!response.ok) throw new Error('Kunde inte förbereda spel');
+        
+        const data = await response.json();
+        alert('Spel förberett! Spelare kan nu registrera sig.\nKlicka "GO" när alla är redo.');
+      } catch (err) {
+        alert('Fel: ' + err.message);
+      }
+    }
+
+    async function startGame() {
+      const status = await (await fetch('/api/epa/game-status')).json();
+      
+      try {
+        const response = await fetch('/api/epa/admin/game-go', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPassword, sessionId: status.sessionId })
+        });
+        
+        if (!response.ok) throw new Error('Kunde inte starta spel');
+        
+        alert('SPELET STARTAT! 🏁');
+      } catch (err) {
+        alert('Fel: ' + err.message);
+      }
+    }
+
 
     async function addPOI() {
       if (!adminPassword || !selectedCoords) {

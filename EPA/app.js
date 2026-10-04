@@ -9,6 +9,7 @@ class EPAGame {
   constructor() {
     this.playerId = null;
     this.playerName = null;
+    this.sessionId = null;
     this.currentPoi = null;
     this.pois = [];
     this.gameState = null;
@@ -24,6 +25,9 @@ class EPAGame {
     this.wrongAnswerTimer = null;
     this.canAnswerAgain = true;
     this.timerInterval = null;
+    
+    // Waiting room polling
+    this.waitingPollInterval = null;
     
     this.setupEventListeners();
   }
@@ -66,11 +70,56 @@ class EPAGame {
         body: JSON.stringify({ namn: playerName })
       });
 
-      if (!response.ok) throw new Error('Kunde inte starta spelet');
+      if (!response.ok) throw new Error('Kunde inte registrera dig');
 
       const data = await response.json();
       this.playerId = data.playerId;
-      this.playerName = data.namn;
+      this.playerName = data.playerName;
+      this.sessionId = data.sessionId;
+
+      // Show waiting room
+      this.showScreen('waiting');
+      document.getElementById('waitingPlayerName').textContent = this.playerName;
+      
+      // Start polling for game start
+      this.startWaitingRoomPoll();
+    } catch (err) {
+      console.error('Error registering for game:', err);
+      alert('Fel vid registrering: ' + err.message);
+    }
+  }
+
+  startWaitingRoomPoll() {
+    // Poll every 2 seconds
+    this.waitingPollInterval = setInterval(async () => {
+      try {
+        const response = await fetch('/api/epa/game-status');
+        if (!response.ok) throw new Error('Kunde inte hämta spelstatus');
+
+        const data = await response.json();
+
+        if (data.status === 'started') {
+          clearInterval(this.waitingPollInterval);
+          this.waitingPollInterval = null;
+          
+          // Game started! Initialize the actual game
+          await this.initializeGameForPlayer();
+        }
+      } catch (err) {
+        console.error('Error polling game status:', err);
+      }
+    }, 2000);
+  }
+
+  async initializeGameForPlayer() {
+    try {
+      // Call the new endpoint to shuffle POIs and start game
+      const response = await fetch(`/api/epa/player/${this.playerId}/game-start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error('Kunde inte starta ditt spel');
 
       // Show game screen and init map FIRST
       this.showScreen('game');

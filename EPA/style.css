@@ -550,6 +550,57 @@ h1 {
   font-weight: bold;
 }
 
+/* ============ WAITING ROOM SCREEN ============ */
+#waitingScreen {
+  background: var(--primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.waiting-loader {
+  margin-bottom: 2rem;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 0, 0.2);
+  border-top: 4px solid var(--primary-accent);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.waiting-name {
+  font-size: var(--font-size-md);
+  color: var(--primary-accent);
+  font-weight: bold;
+  margin: 1rem 0;
+}
+
+.waiting-text {
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  margin-bottom: 2rem;
+}
+
+.waiting-status {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-height: 600px) {
   .epa-logo {

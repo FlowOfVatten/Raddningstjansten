@@ -1,4 +1,4 @@
-const { getEpaPool, fairShuffleCheckpoints } = require('../epa-shared');
+const { getEpaPool } = require('../epa-shared');
 
 module.exports = async function (context, req) {
   const { namn } = req.body || {};
@@ -13,56 +13,47 @@ module.exports = async function (context, req) {
   try {
     const pool = getEpaPool();
 
-    // Create player
+    // Get or create active game session
+    let sessionResult = await pool.query(
+      `SELECT id FROM epa_game_session 
+       WHERE status IN ('idle', 'ready') 
+       ORDER BY created_at DESC LIMIT 1`
+    );
+
+    let sessionId;
+    if (sessionResult.rows.length === 0) {
+      // Create new session
+      const newSession = await pool.query(
+        `INSERT INTO epa_game_session (status) VALUES ('idle') RETURNING id`
+      );
+      sessionId = newSession.rows[0].id;
+    } else {
+      sessionId = sessionResult.rows[0].id;
+    }
+
+    // Create player as "registered" (not yet started)
     const playerResult = await pool.query(
-      'INSERT INTO epa_player (namn, status) VALUES ($1, $2) RETURNING id, namn, start_tid',
-      [namn, 'aktiv']
+      `INSERT INTO epa_player (namn, status, game_session_id, player_status) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING id, namn`,
+      [namn, 'väntar', sessionId, 'registered']
     );
     const playerId = playerResult.rows[0].id;
-
-    // Get all POIs with coordinates
-    const poisResult = await pool.query(
-      'SELECT id, lat, lng FROM epa_poi WHERE aktiv = true ORDER BY ordning_fast ASC'
-    );
-    const pois = poisResult.rows;
-
-    if (pois.length < 10) {
-      return {
-        status: 400,
-        body: { error: 'Inte tillräckligt med POI:er (behövs 10)' }
-      };
-    }
-
-    // Separate checkpoints (1-9) and goal (10)
-    const checkpoints = pois.slice(0, 9);
-    const goal = pois[9];
-
-    // Fair shuffle: Use greedy nearest-neighbor with randomization
-    const fairShuffledCheckpoints = fairShuffleCheckpoints(checkpoints);
-    const sequence = [...fairShuffledCheckpoints.map(p => p.id), goal.id];
-
-    // Create PlayerPoi entries
-    for (let i = 0; i < sequence.length; i++) {
-      const status = i === 0 ? 'aktiv' : 'låst';
-      await pool.query(
-        'INSERT INTO epa_player_poi (player_id, poi_id, sekvens, status) VALUES ($1, $2, $3, $4)',
-        [playerId, sequence[i], i + 1, status]
-      );
-    }
 
     return {
       status: 200,
       body: {
         playerId,
-        namn: playerResult.rows[0].namn,
-        startTid: playerResult.rows[0].start_tid
+        playerName: playerResult.rows[0].namn,
+        message: 'Registrerad! Väntar på att admin startar spelet...',
+        sessionId
       }
     };
   } catch (err) {
-    context.log('Error starting game:', err.message);
+    context.log('Error registering player:', err.message);
     return {
       status: 500,
-      body: { error: 'Kunde inte starta spelet' }
+      body: { error: 'Kunde inte registrera spelare' }
     };
   }
 };
