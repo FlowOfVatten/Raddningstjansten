@@ -53,19 +53,17 @@ jobs:
           rm -rf swa-app
           mkdir -p swa-app
 
-          # Root public files
-          for file in index.html admin.html app.js config.js styles.css staticwebapp.config.json; do
-            if [ -f "$file" ]; then cp "$file" swa-app/; fi
-          done
-
-          # Existing static site folders that should remain published
+          # Copy all static site folders
           for dir in 16WOH Brandresa Brandvatten EPA Karta presentation RISE Schema Stress URF UtbBokning utlagg; do
             if [ -d "$dir" ]; then cp -R "$dir" swa-app/; fi
           done
 
-          # Familjelistan deploys only its built assets, not source/server files
+          # Familjelistan deploys only its built assets
           mkdir -p swa-app/Familjelistan
           cp -R Familjelistan/client/dist/. swa-app/Familjelistan/
+          
+          # Copy Familjelistan index as root fallback for SWA
+          cp Familjelistan/client/dist/index.html swa-app/index.html || true
 
       - name: Remove large build-only folders before deploy
         run: |
