@@ -330,10 +330,11 @@
             const players = await response.json();
             
             const list = document.getElementById('activePlayers');
+            const totalPois = Math.max(1, pois.length || 1);
             list.innerHTML = players.map(p => {
               const completedCount = p.klar_count || 0;
-              const progress = `${completedCount} av 10`;
-              const progressPercent = (completedCount / 10) * 100;
+              const progress = `${completedCount} av ${totalPois}`;
+              const progressPercent = Math.min(100, (completedCount / totalPois) * 100);
               return `
                 <div class="player-item">
                   <div style="flex: 1;">
@@ -466,15 +467,20 @@
         }));
 
         const poiList = document.getElementById('poiList');
-        poiList.innerHTML = pois.map((poi, idx) => `
-          <div class="poi-item">
-            <div>
-              <strong>${poi.namn}</strong>
-              <br><small>${poi.lat.toFixed(4)}, ${poi.lng.toFixed(4)}</small>
+        const goalPoi = pois.length > 0 ? pois[pois.length - 1] : null;
+        poiList.innerHTML = pois.map((poi, idx) => {
+          const isGoal = goalPoi && poi.id === goalPoi.id;
+          return `
+            <div class="poi-item">
+              <div>
+                <strong>${poi.namn}</strong>
+                ${isGoal ? '<br><small style="color: #ffb703; font-weight: 700;">🏁 Final POI (mål)</small>' : '<br><small>Checkpunkt</small>'}
+                <br><small>${poi.lat.toFixed(4)}, ${poi.lng.toFixed(4)}</small>
+              </div>
+              <button onclick="deletePOI(${poi.id})">Ta bort</button>
             </div>
-            <button onclick="deletePOI(${poi.id})">Ta bort</button>
-          </div>
-        `).join('');
+          `;
+        }).join('');
 
         // Update map
         map.eachLayer(layer => {
@@ -483,16 +489,17 @@
           }
         });
 
-        pois.forEach(poi => {
+        pois.forEach((poi, idx) => {
+          const isGoal = goalPoi && poi.id === goalPoi.id;
           L.circle([poi.lat, poi.lng], {
             radius: poi.radie_meter,
-            color: '#ffff00',
-            fillOpacity: 0.1,
+            color: isGoal ? '#ff4d4d' : '#ffff00',
+            fillOpacity: isGoal ? 0.18 : 0.1,
             weight: 2
           }).addTo(map);
 
           L.marker([poi.lat, poi.lng]).addTo(map)
-            .bindPopup(poi.namn);
+            .bindPopup(`${poi.namn}${isGoal ? ' (Final POI / mål)' : ''}`);
         });
       } catch (err) {
         console.error('Error loading POIs:', err);
@@ -531,6 +538,7 @@
           return;
         }
 
+        const totalPois = Math.max(1, pois.length || 1);
         playerList.innerHTML = players.map(player => {
           const startTime = new Date(player.start_tid);
           const timeString = startTime.toLocaleTimeString('sv-SE');
@@ -538,7 +546,7 @@
             <div class="player-item">
               <div>
                 <strong>${player.namn}</strong>
-                <br><small>${timeString} - ${player.klar_count}/10 POI</small>
+                <br><small>${timeString} - ${player.klar_count}/${totalPois} POI</small>
               </div>
               <button onclick="resetPlayer(${player.id})">Nollställ</button>
             </div>

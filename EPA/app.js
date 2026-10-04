@@ -466,9 +466,9 @@ class EPAGame {
 
     document.getElementById('poiName').textContent = this.currentPoi.namn;
 
-    const totalPois = this.gameState.pois.length;
+    const totalPois = Math.max(1, this.gameState.pois.length);
     const completedPois = this.gameState.pois.filter(p => p.status === 'klar').length;
-    const progressPercent = (completedPois / totalPois) * 100;
+    const progressPercent = totalPois > 0 ? (completedPois / totalPois) * 100 : 0;
 
     document.getElementById('progressFill').style.width = progressPercent + '%';
     document.getElementById('progressText').textContent = `${completedPois + 1} av ${totalPois}`;
@@ -565,6 +565,8 @@ class EPAGame {
     const startTime = new Date(player.start_tid);
     const endTime = new Date(player.mal_tid);
     const duration = Math.round((endTime - startTime) / 1000);
+    const totalPois = Math.max(1, this.gameState.pois.length);
+    const completedPois = this.gameState.pois.filter(p => p.status === 'klar').length;
     
     const minutes = Math.floor(duration / 60);
     const seconds = duration % 60;
@@ -572,6 +574,7 @@ class EPAGame {
 
     document.getElementById('finishName').textContent = player.namn;
     document.getElementById('finishTime').textContent = timeString;
+    document.getElementById('finishCount').textContent = `${completedPois} / ${totalPois}`;
 
     this.showScreen('finish');
 

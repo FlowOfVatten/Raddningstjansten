@@ -29,24 +29,24 @@ module.exports = async function (context, req) {
     // First, delete any existing POI entries for this player (cleanup)
     await pool.query('DELETE FROM epa_player_poi WHERE player_id = $1', [playerId]);
 
-    // Get all POIs with coordinates
+    // Get all active POIs with coordinates. The last POI in the ordered list is treated as the
+    // Final POI / goal, regardless of total count. This lets admins configure any number of POIs.
     const poisResult = await pool.query(
       'SELECT id, lat, lng FROM epa_poi WHERE aktiv = true ORDER BY ordning_fast ASC'
     );
     const pois = poisResult.rows;
 
-    if (pois.length < 10) {
+    if (pois.length === 0) {
       return {
         status: 400,
-        body: { error: 'Inte tillräckligt med POI:er (behövs 10)' }
+        body: { error: 'Det måste finnas minst 1 POI för att starta spelet' }
       };
     }
 
-    // Separate checkpoints (1-9) and goal (10)
-    const checkpoints = pois.slice(0, 9);
-    const goal = pois[9];
+    const goal = pois[pois.length - 1];
+    const checkpoints = pois.slice(0, -1);
 
-    // Fair shuffle: Use greedy nearest-neighbor with randomization
+    // Fair shuffle: Use greedy nearest-neighbor with randomization for all checkpoints.
     const fairShuffledCheckpoints = fairShuffleCheckpoints(checkpoints);
     const sequence = [...fairShuffledCheckpoints.map(p => p.id), goal.id];
 
