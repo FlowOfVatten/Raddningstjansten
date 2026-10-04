@@ -390,6 +390,18 @@
         if (!response.ok) throw new Error('Kunde inte förbereda spel');
         
         const data = await response.json();
+        
+        // Broadcast the "gentlemen start your engines" sound to all players
+        try {
+          await fetch(`/api/epa/admin/broadcast-sound`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: adminPassword, sessionId: data.sessionId, soundId: 'gentlemen-start-engines' })
+          });
+        } catch (e) {
+          console.error('Could not broadcast sound:', e);
+        }
+        
         alert('Spel förberett! Spelare kan nu registrera sig.\nKlicka "GO" när alla är redo.');
       } catch (err) {
         alert('Fel: ' + err.message);

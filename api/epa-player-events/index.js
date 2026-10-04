@@ -14,6 +14,7 @@ module.exports = async function (context, req) {
         player_id INTEGER REFERENCES epa_player(id) ON DELETE CASCADE,
         player_name VARCHAR(255) NOT NULL,
         message TEXT NOT NULL,
+        message_type VARCHAR(50) DEFAULT 'text',
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
@@ -30,7 +31,7 @@ module.exports = async function (context, req) {
     const gameSessionId = playerResult.rows[0].game_session_id;
 
     const result = await pool.query(
-      `SELECT id, player_name, message, created_at
+      `SELECT id, player_name, message, message_type, created_at
        FROM epa_game_broadcast
        WHERE game_session_id = $1 AND id > $2
        ORDER BY id ASC`,
@@ -44,6 +45,7 @@ module.exports = async function (context, req) {
           id: row.id,
           playerName: row.player_name,
           message: row.message,
+          type: row.message_type,
           createdAt: row.created_at
         }))
       }

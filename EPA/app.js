@@ -89,11 +89,60 @@ class EPAGame {
 
       messages.forEach((item) => {
         if (!item?.message) return;
-        this.showBroadcast(`${item.playerName}: ${item.message}`);
         this.broadcastLastSeen = Math.max(this.broadcastLastSeen, Number(item.id || 0));
+        
+        if (item.type === 'sound') {
+          this.playSound(item.message);
+        } else {
+          this.showBroadcast(`${item.playerName}: ${item.message}`);
+        }
       });
     } catch (err) {
       console.error('Error loading broadcasts:', err);
+    }
+  }
+
+  playSound(soundId) {
+    if (soundId === 'gentlemen-start-engines') {
+      this.playEnginesSound();
+      this.showBroadcast('🎙️ Gentlemen, start your engines!');
+    }
+  }
+
+  playEnginesSound() {
+    // Generate engine rev sound using Web Audio API
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const now = audioContext.currentTime;
+      const duration = 2.5;
+      const endTime = now + duration;
+
+      // Create engine revving effect
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      const filter = audioContext.createBiquadFilter();
+
+      oscillator.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.type = 'triangle';
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(2000, now);
+
+      // Ramp up the frequency for engine rev effect
+      oscillator.frequency.setValueAtTime(80, now);
+      oscillator.frequency.exponentialRampToValueAtTime(400, now + 0.3);
+      oscillator.frequency.exponentialRampToValueAtTime(200, now + 0.6);
+      oscillator.frequency.exponentialRampToValueAtTime(600, endTime);
+
+      gainNode.gain.setValueAtTime(0.3, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, endTime);
+
+      oscillator.start(now);
+      oscillator.stop(endTime);
+    } catch (e) {
+      console.error('Could not play engine sound:', e);
     }
   }
 
