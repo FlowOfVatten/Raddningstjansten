@@ -299,6 +299,33 @@
     let gameStatusPollInterval = null;
     let playersListPollInterval = null;
 
+    async function resetStaleReadyStateIfNoPlayers() {
+      if (!adminPassword) return;
+
+      try {
+        const statusResponse = await fetch('/api/epa/game-status');
+        if (!statusResponse.ok) return;
+        const statusData = await statusResponse.json();
+
+        if (statusData.status !== 'ready') return;
+
+        const playersResponse = await fetch('/api/epa/admin/players-ready?password=' + encodeURIComponent(adminPassword));
+        if (!playersResponse.ok) return;
+
+        const players = await playersResponse.json();
+        if (!players || players.length === 0) {
+          console.warn('Ready state detected without players. Resetting game to idle.');
+          await fetch('/api/epa/admin/game-reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: adminPassword })
+          });
+        }
+      } catch (err) {
+        console.warn('Could not validate stale ready state:', err);
+      }
+    }
+
     async function startGameStatusPoll() {
       if (gameStatusPollInterval) clearInterval(gameStatusPollInterval);
       
@@ -309,6 +336,12 @@
           const data = await response.json();
           
           console.log('Game status:', data.status);
+
+          if (adminPassword && data.status === 'ready') {
+            await resetStaleReadyStateIfNoPlayers();
+            const refreshedStatus = await (await fetch('/api/epa/game-status')).json();
+            if (refreshedStatus.status !== 'ready') return;
+          }
           
           document.getElementById('currentGameStatus').textContent = 
             data.status.charAt(0).toUpperCase() + data.status.slice(1);
