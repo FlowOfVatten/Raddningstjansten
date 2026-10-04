@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>EPA - Poängpromenad</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Start Screen -->
+  <div id="startScreen" class="screen active">
+    <div class="epa-container">
+      <div class="epa-logo">
+        <div class="logo-box"></div>
+        <div class="logo-text">EPA</div>
+      </div>
+      <h1>Dunka igång!</h1>
+      <p class="subtitle">Poängpromenad</p>
+      
+      <div class="form-group">
+        <input type="text" id="playerName" placeholder="Ditt namn" maxlength="50" class="input-field">
+      </div>
+      
+      <button id="startBtn" class="btn btn-primary">Nästa stopp</button>
+      
+      <div class="info-text">
+        <small>Besök 10 platser. Rätta svaren. Spara tiden.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" class="screen">
+    <div id="mapContainer" class="map-container"></div>
+    
+    <div class="game-panel">
+      <div class="panel-header">
+        <span id="poiName" class="poi-name">Nästa stopp</span>
+        <span id="distance" class="distance-badge">--m</span>
+      </div>
+      
+      <div class="panel-content">
+        <div id="gameStatus" class="game-status">
+          <p id="statusText">Navigera till startpunkten...</p>
+          <div id="progressBar" class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <small id="progressText">1 av 10</small>
+        </div>
+        
+        <button id="arrivedBtn" class="btn btn-secondary" disabled>Jag är framme</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Question Screen -->
+  <div id="questionScreen" class="screen">
+    <div class="question-container">
+      <div class="question-header">
+        <button id="backBtn" class="btn-back">← Tillbaka</button>
+        <span id="questionPoi" class="question-poi"></span>
+      </div>
+      
+      <div class="question-content">
+        <h2 id="questionText" class="question-text"></h2>
+        
+        <div id="answerOptions" class="answer-options"></div>
+        
+        <div id="feedback" class="feedback"></div>
+        
+        <div id="attemptsLeft" class="attempts-info"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finish Screen -->
+  <div id="finishScreen" class="screen">
+    <div class="epa-container">
+      <div class="finish-icon">🏁</div>
+      <h1>Målet!</h1>
+      
+      <div class="finish-stats">
+        <div class="stat">
+          <span class="stat-label">Spelare</span>
+          <span id="finishName" class="stat-value"></span>
+        </div>
+        
+        <div class="stat">
+          <span class="stat-label">Total tid</span>
+          <span id="finishTime" class="stat-value"></span>
+        </div>
+        
+        <div class="stat">
+          <span class="stat-label">Poäng besökta</span>
+          <span id="finishCount" class="stat-value">10 / 10</span>
+        </div>
+      </div>
+      
+      <button id="restartBtn" class="btn btn-primary">Ny tur</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
