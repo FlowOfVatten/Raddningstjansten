@@ -16,35 +16,25 @@ module.exports = async function (context, req) {
   try {
     const pool = getEpaPool();
 
-    // Ensure table exists with all columns
+    // Try to insert with message_type, fallback if column doesn't exist
+    let result;
     try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS epa_game_broadcast (
-          id SERIAL PRIMARY KEY,
-          game_session_id INTEGER NOT NULL,
-          player_id INTEGER REFERENCES epa_player(id) ON DELETE CASCADE,
-          player_name VARCHAR(255) NOT NULL,
-          message TEXT NOT NULL,
-          message_type VARCHAR(50) DEFAULT 'text',
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        )
-      `);
-    } catch (e) {
-      // Table might already exist, try to add missing column
-      try {
-        await pool.query(`ALTER TABLE epa_game_broadcast ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'`);
-      } catch (e2) {
-        // Column might already exist, that's fine
-      }
+      result = await pool.query(
+        `INSERT INTO epa_game_broadcast (game_session_id, player_id, player_name, message, message_type)
+         VALUES ($1, NULL, 'Admin', $2, 'sound')
+         RETURNING id`,
+        [sessionId, soundId]
+      );
+    } catch (columnError) {
+      // Fallback: insert without message_type column
+      context.log('Falling back to insert without message_type column');
+      result = await pool.query(
+        `INSERT INTO epa_game_broadcast (game_session_id, player_id, player_name, message)
+         VALUES ($1, NULL, $3, $2)
+         RETURNING id`,
+        [sessionId, soundId, 'Admin']
+      );
     }
-
-    // Insert broadcast sound message
-    const result = await pool.query(
-      `INSERT INTO epa_game_broadcast (game_session_id, player_id, player_name, message, message_type)
-       VALUES ($1, NULL, 'Admin', $2, 'sound')
-       RETURNING id`,
-      [sessionId, soundId]
-    );
 
     return {
       status: 200,

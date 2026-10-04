@@ -7,28 +7,6 @@ module.exports = async function (context, req) {
   try {
     const pool = getEpaPool();
 
-    // Ensure table exists with all columns
-    try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS epa_game_broadcast (
-          id SERIAL PRIMARY KEY,
-          game_session_id INTEGER NOT NULL,
-          player_id INTEGER REFERENCES epa_player(id) ON DELETE CASCADE,
-          player_name VARCHAR(255) NOT NULL,
-          message TEXT NOT NULL,
-          message_type VARCHAR(50) DEFAULT 'text',
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        )
-      `);
-    } catch (e) {
-      // Table might already exist, try to add missing column
-      try {
-        await pool.query(`ALTER TABLE epa_game_broadcast ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'`);
-      } catch (e2) {
-        // Column might already exist, that's fine
-      }
-    }
-
     const playerResult = await pool.query(
       'SELECT game_session_id FROM epa_player WHERE id = $1',
       [playerId]
@@ -40,15 +18,31 @@ module.exports = async function (context, req) {
 
     const gameSessionId = playerResult.rows[0].game_session_id;
 
-    const result = await pool.query(
-      `SELECT id, player_name, message, 
-              COALESCE(message_type, 'text') as message_type, 
-              created_at
-       FROM epa_game_broadcast
-       WHERE game_session_id = $1 AND id > $2
-       ORDER BY id ASC`,
-      [gameSessionId, since]
-    );
+    // Try to query with message_type, fallback to simple query if column doesn't exist
+    let result;
+    try {
+      result = await pool.query(
+        `SELECT id, player_name, message, 
+                COALESCE(message_type, 'text') as message_type, 
+                created_at
+         FROM epa_game_broadcast
+         WHERE game_session_id = $1 AND id > $2
+         ORDER BY id ASC
+         LIMIT 100`,
+        [gameSessionId, since]
+      );
+    } catch (columnError) {
+      // Fallback: query without message_type column
+      context.log('Falling back to query without message_type column');
+      result = await pool.query(
+        `SELECT id, player_name, message, created_at
+         FROM epa_game_broadcast
+         WHERE game_session_id = $1 AND id > $2
+         ORDER BY id ASC
+         LIMIT 100`,
+        [gameSessionId, since]
+      );
+    }
 
     return {
       status: 200,
@@ -57,7 +51,7 @@ module.exports = async function (context, req) {
           id: row.id,
           playerName: row.player_name,
           message: row.message,
-          type: row.message_type,
+          type: row.message_type || 'text',
           createdAt: row.created_at
         }))
       }

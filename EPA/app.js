@@ -83,15 +83,24 @@ class EPAGame {
 
     try {
       const response = await fetch(`/api/epa/player/${this.playerId}/events?since=${this.broadcastLastSeen || 0}`);
-      if (!response.ok) return;
+      if (!response.ok) {
+        console.warn('Broadcast API returned:', response.status);
+        return;
+      }
       const data = await response.json();
       const messages = data.messages || [];
+      console.log('Received broadcasts:', messages.length, 'messages');
 
       messages.forEach((item) => {
-        if (!item?.message) return;
+        if (!item?.message) {
+          console.log('Skipping empty broadcast item');
+          return;
+        }
+        console.log('Processing broadcast:', { type: item.type, message: item.message });
         this.broadcastLastSeen = Math.max(this.broadcastLastSeen, Number(item.id || 0));
         
         if (item.type === 'sound') {
+          console.log('Playing sound:', item.message);
           this.playSound(item.message);
         } else {
           this.showBroadcast(`${item.playerName}: ${item.message}`);
@@ -103,7 +112,9 @@ class EPAGame {
   }
 
   playSound(soundId) {
+    console.log('playSound called with soundId:', soundId);
     if (soundId === 'gentlemen-start-engines') {
+      console.log('Playing gentlemen start your engines');
       this.playEnginesSound();
       this.showBroadcast('🎙️ Gentlemen, start your engines!');
     }
@@ -112,6 +123,7 @@ class EPAGame {
   playEnginesSound() {
     // Generate engine rev sound using Web Audio API
     try {
+      console.log('Starting engine sound generation');
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const now = audioContext.currentTime;
       const duration = 2.5;
@@ -141,6 +153,7 @@ class EPAGame {
 
       oscillator.start(now);
       oscillator.stop(endTime);
+      console.log('Engine sound started');
     } catch (e) {
       console.error('Could not play engine sound:', e);
     }
