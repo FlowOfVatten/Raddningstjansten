@@ -105,8 +105,9 @@ class EPAGame {
         const isLegacySoundMessage = normalizedMessage === 'gentlemen-start-engines';
         const isSoundMessage = item.type === 'sound' || isLegacySoundMessage;
         const isStaleSound = isSoundMessage && this.currentScreen === 'waiting' && this.lastGameStatus !== 'ready';
+        const isDuplicateSound = isSoundMessage && this.currentScreen === 'engineStart';
 
-        console.log('Processing broadcast:', { type: item.type, message: normalizedMessage, isLegacySoundMessage, stale: isStaleSound, currentScreen: this.currentScreen, lastGameStatus: this.lastGameStatus });
+        console.log('Processing broadcast:', { type: item.type, message: normalizedMessage, isLegacySoundMessage, stale: isStaleSound, duplicate: isDuplicateSound, currentScreen: this.currentScreen, lastGameStatus: this.lastGameStatus });
         this.broadcastLastSeen = Math.max(this.broadcastLastSeen, itemId);
 
         if (isStaleSound) {
@@ -114,8 +115,13 @@ class EPAGame {
           return;
         }
         
+        if (isDuplicateSound) {
+          console.log('Ignoring duplicate sound broadcast (already played on screen transition)');
+          return;
+        }
+        
         if (isSoundMessage) {
-          console.log('Playing sound:', normalizedMessage);
+          console.log('Playing sound from broadcast:', normalizedMessage);
           this.playSound(normalizedMessage);
         } else {
           this.showBroadcast(`${item.playerName}: ${normalizedMessage}`);
@@ -348,7 +354,7 @@ class EPAGame {
           console.log('Status changed to ready, showing engine start screen');
           this.showScreen('engineStart');
           // Play engine sound immediately when transitioning to engine start screen
-          console.log('Playing engine sound on screen transition');
+          console.log('Playing engine sound on screen transition (source of truth)');
           this.playEnginesSound();
           this.showBroadcast('🎙️ Gentlemen, start your engines!');
         }
