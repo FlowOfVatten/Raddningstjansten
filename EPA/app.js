@@ -1,5 +1,10 @@
 // EPA Orienteering Game - Main Application Logic
 
+// Azure Maps configuration (from Brandvatten)
+const AZURE_MAPS_TILE_URL =
+  "https://atlas.microsoft.com/map/tile?api-version=2024-04-01&tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256&language=sv-SE&view=Auto&subscription-key=";
+const AZURE_MAPS_KEY = "DDyXGJo90rmsvZWRBl8gjVei030IlU4hcBqSgcOJ2n3xiTT1cgnWJQQJ99CDACi5YpzT8CmNAAAgAZMP34PQ";
+
 class EPAGame {
   constructor() {
     this.playerId = null;
@@ -139,9 +144,10 @@ class EPAGame {
 
     this.map = L.map('mapContainer').setView([centerLat, centerLng], 15);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
+    // Use Azure Maps like Brandvatten
+    L.tileLayer(`${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`, {
+      maxZoom: 22,
+      attribution: '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
     }).addTo(this.map);
 
     // Add POI markers
