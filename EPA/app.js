@@ -15,6 +15,7 @@ class EPAGame {
     this.gameState = null;
     this.map = null;
     this.markers = {};
+    this.playerMarker = null;
     this.geoWatchId = null;
     this.currentPosition = null;
     this.currentQuestion = null;
@@ -224,6 +225,15 @@ class EPAGame {
 
     // Add circle for active POI radius
     this.updateActiveRadiusCircle();
+
+    // Create player position marker
+    const playerIcon = L.divIcon({
+      html: '<div style="width: 20px; height: 20px; background: #0066ff; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 8px rgba(0, 102, 255, 0.6);"></div>',
+      className: '',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+    this.playerMarker = L.marker([centerLat, centerLng], { icon: playerIcon, zIndexOffset: 1000 }).addTo(this.map);
   }
 
   addMarker(poi, playerPoi) {
@@ -294,10 +304,14 @@ class EPAGame {
       accuracy: position.coords.accuracy
     };
 
-    if (this.map && this.currentPoi) {
-      // Update map center with player position (slightly)
-      // this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
+    // Update player marker position on map
+    if (this.map && this.playerMarker) {
+      this.playerMarker.setLatLng([this.currentPosition.lat, this.currentPosition.lng]);
+      // Center map on player, with slight offset to show POI circle
+      this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
+    }
 
+    if (this.map && this.currentPoi) {
       // Check distance to active POI
       await this.checkDistance();
     }
