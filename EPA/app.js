@@ -263,9 +263,33 @@ class EPAGame {
       
       // Start polling for game start
       this.startWaitingRoomPoll();
+      
+      // Also do an immediate check in case status is already ready/started
+      this.checkWaitingRoomStatus();
     } catch (err) {
       console.error('Error registering for game:', err);
       alert('Fel vid registrering: ' + err.message);
+    }
+  }
+
+  async checkWaitingRoomStatus() {
+    // Do an immediate check of game status without waiting for interval
+    try {
+      const response = await fetch('/api/epa/game-status');
+      if (!response.ok) return;
+
+      const data = await response.json();
+      console.log('Initial waiting room check - status:', data.status);
+
+      if (data.status === 'ready') {
+        console.log('Status already ready, showing engine start screen');
+        this.showScreen('engineStart');
+      } else if (data.status === 'started') {
+        console.log('Status already started, initializing game');
+        await this.initializeGameForPlayer();
+      }
+    } catch (err) {
+      console.error('Error checking initial status:', err);
     }
   }
 
@@ -277,11 +301,11 @@ class EPAGame {
         if (!response.ok) throw new Error('Kunde inte hämta spelstatus');
 
         const data = await response.json();
-        console.log('Game status in waiting room:', data.status);
+        console.log('Game status in waiting room:', data.status, '| Current screen:', this.currentScreen);
 
-        // Show engine start screen when status is ready
-        if (data.status === 'ready' && this.currentScreen !== 'engineStart') {
-          console.log('Showing engine start screen');
+        // Show engine start screen ONLY when transitioning from waiting to ready
+        if (data.status === 'ready' && this.currentScreen === 'waiting') {
+          console.log('Transitioning from waiting to engine start screen');
           this.showScreen('engineStart');
         }
 
