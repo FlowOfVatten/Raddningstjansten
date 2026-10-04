@@ -115,32 +115,64 @@ function fairShuffleCheckpoints(checkpoints) {
 async function getRoutingDistance(lat1, lng1, lat2, lng2) {
   try {
     const https = require('https');
-    const apiKey = process.env.AZURE_MAPS_KEY || 'lF9BdGlqb1lSVEhON0V3ZlhXZDNGMVJrQTJtRy9BNDQ=';
-    const url = `https://atlas.microsoft.com/route/directions/json?subscription-key=${apiKey}&api-version=1.0&query=${lat1},${lng1}:${lat2},${lng2}`;
+    const apiKey = process.env.AZURE_MAPS_KEY || 'DDyXGJo90rmsvZWRBl8gjVei030IlU4hcBqSgcOJ2n3xiTT1cgnWJQQJ99CDACi5YpzT8CmNAAAgAZMP34PQ';
+    const query = encodeURIComponent(`${lat1},${lng1}:${lat2},${lng2}`);
+    const url = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&query=${query}&subscription-key=${apiKey}`;
 
     return new Promise((resolve) => {
-      https.get(url, { timeout: 5000 }, (res) => {
+      const req = https.get(url, { timeout: 5000 }, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
           try {
             const json = JSON.parse(data);
-            if (json.routes && json.routes.length > 0) {
-              const distanceMeters = json.routes[0].summary.lengthInMeters;
+            const routes = json && Array.isArray(json.routes) ? json.routes : [];
+            const summary = routes[0] && routes[0].summary ? routes[0].summary : {};
+            const distanceMeters = Number(summary.lengthInMeters ?? routes[0]?.travelDistance ?? 0);
+
+            if (routes.length > 0 && Number.isFinite(distanceMeters) && distanceMeters > 0) {
               resolve({ distance: distanceMeters, isFallback: false });
-            } else {
-              resolve({ distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true });
+              return;
             }
+
+            resolve({
+              distance: calculateDistance(lat1, lng1, lat2, lng2),
+              isFallback: true,
+              reason: 'Azure Maps returned no route data'
+            });
           } catch (e) {
-            resolve({ distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true });
+            resolve({
+              distance: calculateDistance(lat1, lng1, lat2, lng2),
+              isFallback: true,
+              reason: e.message
+            });
           }
         });
-      }).on('error', () => {
-        resolve({ distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true });
+      });
+
+      req.on('error', () => {
+        resolve({
+          distance: calculateDistance(lat1, lng1, lat2, lng2),
+          isFallback: true,
+          reason: 'Azure Maps request failed'
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({
+          distance: calculateDistance(lat1, lng1, lat2, lng2),
+          isFallback: true,
+          reason: 'Azure Maps timeout'
+        });
       });
     });
   } catch (err) {
-    return { distance: calculateDistance(lat1, lng1, lat2, lng2), isFallback: true };
+    return {
+      distance: calculateDistance(lat1, lng1, lat2, lng2),
+      isFallback: true,
+      reason: err.message
+    };
   }
 }
 
