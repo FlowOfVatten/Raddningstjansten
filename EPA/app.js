@@ -141,10 +141,6 @@ class EPAGame {
       alert('Fel vid start: ' + err.message);
     }
   }
-      console.error('Error starting game:', err);
-      alert('Fel vid start: ' + err.message);
-    }
-  }
 
   async loadGameState() {
     try {
