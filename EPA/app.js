@@ -101,9 +101,12 @@ class EPAGame {
         }
 
         const itemId = Number(item.id || 0);
-        const isStaleSound = item.type === 'sound' && this.currentScreen === 'waiting' && this.lastGameStatus !== 'ready';
+        const normalizedMessage = String(item.message || '').trim();
+        const isLegacySoundMessage = normalizedMessage === 'gentlemen-start-engines';
+        const isSoundMessage = item.type === 'sound' || isLegacySoundMessage;
+        const isStaleSound = isSoundMessage && this.currentScreen === 'waiting' && this.lastGameStatus !== 'ready';
 
-        console.log('Processing broadcast:', { type: item.type, message: item.message, stale: isStaleSound, currentScreen: this.currentScreen, lastGameStatus: this.lastGameStatus });
+        console.log('Processing broadcast:', { type: item.type, message: normalizedMessage, isLegacySoundMessage, stale: isStaleSound, currentScreen: this.currentScreen, lastGameStatus: this.lastGameStatus });
         this.broadcastLastSeen = Math.max(this.broadcastLastSeen, itemId);
 
         if (isStaleSound) {
@@ -111,11 +114,11 @@ class EPAGame {
           return;
         }
         
-        if (item.type === 'sound') {
-          console.log('Playing sound:', item.message);
-          this.playSound(item.message);
+        if (isSoundMessage) {
+          console.log('Playing sound:', normalizedMessage);
+          this.playSound(normalizedMessage);
         } else {
-          this.showBroadcast(`${item.playerName}: ${item.message}`);
+          this.showBroadcast(`${item.playerName}: ${normalizedMessage}`);
         }
       });
     } catch (err) {

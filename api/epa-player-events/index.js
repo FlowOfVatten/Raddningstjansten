@@ -53,7 +53,7 @@ module.exports = async function (context, req) {
           id: row.id,
           playerName: row.player_name,
           message: row.message,
-          type: row.message_type || 'text',
+          type: row.message_type || (row.message === 'gentlemen-start-engines' ? 'sound' : 'text'),
           createdAt: row.created_at
         }))
       }
