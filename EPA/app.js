@@ -19,6 +19,12 @@ class EPAGame {
     this.currentQuestion = null;
     this.isAnswering = false;
     
+    // Auto-question and timer state
+    this.questionAutoShown = false;
+    this.wrongAnswerTimer = null;
+    this.canAnswerAgain = true;
+    this.timerInterval = null;
+    
     this.setupEventListeners();
   }
 
@@ -110,6 +116,12 @@ class EPAGame {
       }
       
       this.currentPoi = this.gameState.activePoi;
+      
+      // Reset auto-show flag for new POI, and clear wrong answer timer
+      this.questionAutoShown = false;
+      this.canAnswerAgain = true;
+      this.clearWrongAnswerTimer();
+      
       this.updateGameUI();
     } catch (err) {
       console.error('Error loading game state:', err);
@@ -257,7 +269,13 @@ class EPAGame {
       // Update distance display
       document.getElementById('distance').textContent = `${data.distance}m`;
 
-      // Enable "Jag är framme" button when close
+      // Auto-show question when within 40m (before verification)
+      if (data.withinRadius && !this.questionAutoShown && this.canAnswerAgain) {
+        this.questionAutoShown = true;
+        await this.showQuestion();
+      }
+
+      // Enable "Jag är framme" button when close (keep for manual trigger)
       const arrivedBtn = document.getElementById('arrivedBtn');
       if (data.withinRadius) {
         arrivedBtn.disabled = false;
@@ -309,18 +327,22 @@ class EPAGame {
       const button = document.createElement('button');
       button.className = 'answer-btn';
       button.textContent = option;
+      button.id = `answer-btn-${index}`;
       button.addEventListener('click', () => this.submitAnswer(index));
       optionsContainer.appendChild(button);
     });
 
-    // Clear feedback
+    // Clear feedback and timer
     document.getElementById('feedback').innerHTML = '';
     document.getElementById('attemptsLeft').innerHTML = '';
     this.isAnswering = false;
+    
+    // Reset timer display
+    this.clearWrongAnswerTimer();
   }
 
   async submitAnswer(answerIndex) {
-    if (this.isAnswering) return;
+    if (this.isAnswering || !this.canAnswerAgain) return;
     this.isAnswering = true;
 
     try {
@@ -353,6 +375,7 @@ class EPAGame {
           });
         }, 1500);
       } else {
+        // Wrong answer - start 60 second timer
         feedback.textContent = '✗ ' + data.message;
         feedback.className = 'feedback incorrect';
         document.querySelectorAll('.answer-btn')[answerIndex].classList.add('incorrect');
@@ -364,9 +387,11 @@ class EPAGame {
           attemptsDiv.textContent = `Försök kvar: ${data.attemptsLeft}`;
         }
 
-        setTimeout(() => {
-          this.isAnswering = false;
-        }, 1500);
+        // Start 60-second countdown timer
+        this.canAnswerAgain = false;
+        this.startWrongAnswerTimer(60);
+        
+        this.isAnswering = false;
       }
     } catch (err) {
       console.error('Error submitting answer:', err);
@@ -418,6 +443,47 @@ class EPAGame {
     });
 
     this.updateActiveRadiusCircle();
+  }
+
+  startWrongAnswerTimer(seconds) {
+    this.wrongAnswerTimer = seconds;
+    
+    // Disable all answer buttons
+    document.querySelectorAll('.answer-btn').forEach(btn => {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+    });
+
+    const attemptsDiv = document.getElementById('attemptsLeft');
+    
+    this.timerInterval = setInterval(() => {
+      this.wrongAnswerTimer--;
+      attemptsDiv.textContent = `Vänta: ${this.wrongAnswerTimer}s innan nytt försök`;
+      attemptsDiv.style.color = 'var(--secondary-accent)';
+
+      if (this.wrongAnswerTimer <= 0) {
+        this.clearWrongAnswerTimer();
+      }
+    }, 1000);
+  }
+
+  clearWrongAnswerTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    
+    this.wrongAnswerTimer = null;
+    this.canAnswerAgain = true;
+    
+    // Enable all answer buttons
+    document.querySelectorAll('.answer-btn').forEach(btn => {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.classList.remove('incorrect');
+    });
+
+    document.getElementById('attemptsLeft').textContent = 'Du kan svara igen!';
   }
 
   calculateDistance(lat1, lng1, lat2, lng2) {
