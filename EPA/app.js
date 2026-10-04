@@ -99,8 +99,17 @@ class EPAGame {
           console.log('Skipping empty broadcast item');
           return;
         }
-        console.log('Processing broadcast:', { type: item.type, message: item.message });
-        this.broadcastLastSeen = Math.max(this.broadcastLastSeen, Number(item.id || 0));
+
+        const itemId = Number(item.id || 0);
+        const isStaleSound = item.type === 'sound' && this.currentScreen === 'waiting' && this.lastGameStatus !== 'ready';
+
+        console.log('Processing broadcast:', { type: item.type, message: item.message, stale: isStaleSound, currentScreen: this.currentScreen, lastGameStatus: this.lastGameStatus });
+        this.broadcastLastSeen = Math.max(this.broadcastLastSeen, itemId);
+
+        if (isStaleSound) {
+          console.log('Ignoring stale sound broadcast before ready state is reached');
+          return;
+        }
         
         if (item.type === 'sound') {
           console.log('Playing sound:', item.message);

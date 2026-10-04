@@ -8,7 +8,7 @@ module.exports = async function (context, req) {
     const pool = getEpaPool();
 
     const playerResult = await pool.query(
-      'SELECT game_session_id FROM epa_player WHERE id = $1',
+      'SELECT game_session_id, created_at FROM epa_player WHERE id = $1',
       [playerId]
     );
 
@@ -17,7 +17,9 @@ module.exports = async function (context, req) {
     }
 
     const gameSessionId = playerResult.rows[0].game_session_id;
+    const playerCreatedAt = playerResult.rows[0].created_at;
 
+    // Only return broadcasts created after the player joined; prevents old session noise from replaying
     // Try to query with message_type, fallback to simple query if column doesn't exist
     let result;
     try {
@@ -26,10 +28,10 @@ module.exports = async function (context, req) {
                 COALESCE(message_type, 'text') as message_type, 
                 created_at
          FROM epa_game_broadcast
-         WHERE game_session_id = $1 AND id > $2
+         WHERE game_session_id = $1 AND id > $2 AND created_at >= $3
          ORDER BY id ASC
          LIMIT 100`,
-        [gameSessionId, since]
+        [gameSessionId, since, playerCreatedAt]
       );
     } catch (columnError) {
       // Fallback: query without message_type column
@@ -37,10 +39,10 @@ module.exports = async function (context, req) {
       result = await pool.query(
         `SELECT id, player_name, message, created_at
          FROM epa_game_broadcast
-         WHERE game_session_id = $1 AND id > $2
+         WHERE game_session_id = $1 AND id > $2 AND created_at >= $3
          ORDER BY id ASC
          LIMIT 100`,
-        [gameSessionId, since]
+        [gameSessionId, since, playerCreatedAt]
       );
     }
 
