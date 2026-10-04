@@ -1,9 +1,9 @@
 const { getEpaPool } = require('../epa-shared');
 
 module.exports = async function (context, req) {
-  const { namn } = req.body || {};
+  const namn = (req.body && req.body.namn ? req.body.namn.trim() : '').trim();
 
-  if (!namn || namn.trim().length === 0) {
+  if (!namn) {
     return {
       status: 400,
       body: { error: 'Namn är obligatoriskt' }
@@ -12,6 +12,25 @@ module.exports = async function (context, req) {
 
   try {
     const pool = getEpaPool();
+
+    const existingPlayerResult = await pool.query(
+      `SELECT id, namn FROM epa_player WHERE LOWER(namn) = LOWER($1) ORDER BY created_at DESC LIMIT 1`,
+      [namn]
+    );
+
+    if (existingPlayerResult.rows.length > 0) {
+      const existingPlayer = existingPlayerResult.rows[0];
+      return {
+        status: 200,
+        body: {
+          playerId: existingPlayer.id,
+          playerName: existingPlayer.namn,
+          message: 'Fortsätter existerande spelare',
+          existingPlayer: true,
+          sessionId: null
+        }
+      };
+    }
 
     // Get or create active game session
     let sessionResult = await pool.query(
@@ -46,7 +65,8 @@ module.exports = async function (context, req) {
         playerId,
         playerName: playerResult.rows[0].namn,
         message: 'Registrerad! Väntar på att admin startar spelet...',
-        sessionId
+        sessionId,
+        existingPlayer: false
       }
     };
   } catch (err) {

@@ -22,6 +22,7 @@ class EPAGame {
     this.isAnswering = false;
     this.mapFollowPlayer = true;
     this.mapFocusTimer = null;
+    this.sessionStorageKey = 'epa_player_session';
     
     // Auto-question and timer state
     this.questionAutoShown = false;
@@ -66,6 +67,55 @@ class EPAGame {
     });
   }
 
+  savePlayerSession() {
+    if (!this.playerId || !this.playerName) return;
+    localStorage.setItem(this.sessionStorageKey, JSON.stringify({
+      playerId: this.playerId,
+      playerName: this.playerName
+    }));
+  }
+
+  loadPlayerSession() {
+    try {
+      const raw = localStorage.getItem(this.sessionStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.playerId || !parsed?.playerName) return null;
+      return parsed;
+    } catch (err) {
+      console.warn('Could not load saved player session:', err);
+      return null;
+    }
+  }
+
+  clearPlayerSession() {
+    localStorage.removeItem(this.sessionStorageKey);
+  }
+
+  async restoreSavedSession() {
+    const saved = this.loadPlayerSession();
+    if (!saved) {
+      this.showScreen('start');
+      return;
+    }
+
+    this.playerId = saved.playerId;
+    this.playerName = saved.playerName;
+    document.getElementById('playerName').value = this.playerName;
+
+    try {
+      this.showScreen('game');
+      await this.loadGameState();
+      await this.loadPOIs();
+      this.initMap();
+      this.startPositionTracking();
+    } catch (err) {
+      console.error('Error restoring saved session:', err);
+      this.clearPlayerSession();
+      this.showScreen('start');
+    }
+  }
+
   async startGame() {
     const playerName = document.getElementById('playerName').value.trim();
     if (!playerName) {
@@ -86,6 +136,16 @@ class EPAGame {
       this.playerId = data.playerId;
       this.playerName = data.playerName;
       this.sessionId = data.sessionId;
+      this.savePlayerSession();
+
+      if (data.existingPlayer) {
+        this.showScreen('game');
+        await this.loadGameState();
+        await this.loadPOIs();
+        this.initMap();
+        this.startPositionTracking();
+        return;
+      }
 
       // Show waiting room
       this.showScreen('waiting');
@@ -628,6 +688,7 @@ class EPAGame {
     this.playerName = null;
     this.gameState = null;
     this.currentPoi = null;
+    this.clearPlayerSession();
     document.getElementById('playerName').value = '';
 
     if (this.map) this.map.remove();
@@ -641,5 +702,9 @@ class EPAGame {
 let game;
 document.addEventListener('DOMContentLoaded', () => {
   game = new EPAGame();
-  game.showScreen('start');
+  const savedSession = game.loadPlayerSession();
+  if (savedSession?.playerName) {
+    document.getElementById('playerName').value = savedSession.playerName;
+  }
+  game.restoreSavedSession();
 });
