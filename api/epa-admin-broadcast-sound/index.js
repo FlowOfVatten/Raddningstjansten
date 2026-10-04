@@ -16,18 +16,27 @@ module.exports = async function (context, req) {
   try {
     const pool = getEpaPool();
 
-    // Ensure table exists
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS epa_game_broadcast (
-        id SERIAL PRIMARY KEY,
-        game_session_id INTEGER NOT NULL,
-        player_id INTEGER REFERENCES epa_player(id) ON DELETE CASCADE,
-        player_name VARCHAR(255) NOT NULL,
-        message TEXT NOT NULL,
-        message_type VARCHAR(50) DEFAULT 'text',
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
+    // Ensure table exists with all columns
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS epa_game_broadcast (
+          id SERIAL PRIMARY KEY,
+          game_session_id INTEGER NOT NULL,
+          player_id INTEGER REFERENCES epa_player(id) ON DELETE CASCADE,
+          player_name VARCHAR(255) NOT NULL,
+          message TEXT NOT NULL,
+          message_type VARCHAR(50) DEFAULT 'text',
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+    } catch (e) {
+      // Table might already exist, try to add missing column
+      try {
+        await pool.query(`ALTER TABLE epa_game_broadcast ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'`);
+      } catch (e2) {
+        // Column might already exist, that's fine
+      }
+    }
 
     // Insert broadcast sound message
     const result = await pool.query(
@@ -46,7 +55,8 @@ module.exports = async function (context, req) {
       }
     };
   } catch (err) {
-    console.error('Error broadcasting sound:', err);
+    context.log('Error broadcasting sound:', err.message);
+    context.log('Stack:', err.stack);
     return {
       status: 500,
       body: { error: 'Kunde inte broadcastа ljud: ' + err.message }
