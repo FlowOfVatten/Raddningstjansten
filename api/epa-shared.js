@@ -336,21 +336,6 @@ async function readDistanceMatrixFromCache(pool, sessionId) {
   return { matrix, fallbackMap };
 }
 
-module.exports = {
-  getEpaPool,
-  calculateDistance,
-  toRad,
-  getMedian,
-  calculateRouteDistance,
-  calculateRouteDistanceWithMatrix,
-  fairShuffleCheckpoints,
-  buildBalancedPlayerRoute,
-  getRoutingDistance,
-  buildDistanceMatrix,
-  readDistanceMatrixFromCache,
-  verifyAdminPassword
-};
-
 // Helper: Verify admin password against database
 async function verifyAdminPassword(password) {
   if (!password) return false;
@@ -367,3 +352,18 @@ async function verifyAdminPassword(password) {
     return false;
   }
 }
+
+module.exports = {
+  getEpaPool,
+  calculateDistance,
+  toRad,
+  getMedian,
+  calculateRouteDistance,
+  calculateRouteDistanceWithMatrix,
+  fairShuffleCheckpoints,
+  buildBalancedPlayerRoute,
+  getRoutingDistance,
+  buildDistanceMatrix,
+  readDistanceMatrixFromCache,
+  verifyAdminPassword
+};
