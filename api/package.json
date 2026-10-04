@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Azure Functions API for Raddningstjansten",
   "scripts": {
-    "start": "func start"
+    "start": "func start",
+    "migrate:epa": "node scripts/epa-migrate.js",
+    "seed:epa": "node scripts/epa-seed.js"
   },
   "dependencies": {
     "mssql": "^11.0.1",

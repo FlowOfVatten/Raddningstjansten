@@ -1,0 +1,127 @@
+const { getEpaPool } = require('../epa-shared');
+
+module.exports = async function (context, req) {
+  const { playerId } = req.params;
+  const { answerIndex } = req.body || {};
+
+  try {
+    const pool = getEpaPool();
+    const maxForsok = 3;
+
+    // Get active POI and question
+    const poiResult = await pool.query(
+      `SELECT pp.poi_id, pp.forsok
+       FROM epa_player_poi pp
+       WHERE pp.player_id = $1 AND pp.status = 'aktiv'`,
+      [playerId]
+    );
+
+    if (poiResult.rows.length === 0) {
+      return {
+        status: 404,
+        body: { error: 'Ingen aktiv POI' }
+      };
+    }
+
+    const { poi_id, forsok } = poiResult.rows[0];
+
+    const questionResult = await pool.query(
+      'SELECT id, ratt_index, ledtrad FROM epa_question WHERE poi_id = $1',
+      [poi_id]
+    );
+
+    if (questionResult.rows.length === 0) {
+      return {
+        status: 404,
+        body: { error: 'Ingen fråga för denna POI' }
+      };
+    }
+
+    const question = questionResult.rows[0];
+    const isCorrect = answerIndex === question.ratt_index;
+
+    if (isCorrect) {
+      // Mark POI as clear and unlock next
+      const nextPoiResult = await pool.query(
+        `SELECT poi_id FROM epa_player_poi 
+         WHERE player_id = $1 AND sekvens = (
+           SELECT sekvens + 1 FROM epa_player_poi WHERE player_id = $1 AND status = 'aktiv'
+         )`,
+        [playerId]
+      );
+
+      // Mark current as clear
+      await pool.query(
+        `UPDATE epa_player_poi 
+         SET status = 'klar', klar_tid = NOW(), forsok = $1
+         WHERE player_id = $2 AND status = 'aktiv'`,
+        [forsok + 1, playerId]
+      );
+
+      // Unlock next POI if exists
+      if (nextPoiResult.rows.length > 0) {
+        await pool.query(
+          `UPDATE epa_player_poi 
+           SET status = 'aktiv'
+           WHERE player_id = $1 AND poi_id = $2`,
+          [playerId, nextPoiResult.rows[0].poi_id]
+        );
+      } else {
+        // Game completed
+        await pool.query(
+          'UPDATE epa_player SET status = $1, mal_tid = NOW() WHERE id = $2',
+          ['klar', playerId]
+        );
+      }
+
+      return {
+        status: 200,
+        body: {
+          correct: true,
+          message: 'Rätt svar!'
+        }
+      };
+    } else {
+      // Increment attempt
+      const newForsok = forsok + 1;
+
+      if (newForsok >= maxForsok) {
+        // Max attempts reached, show hint
+        await pool.query(
+          'UPDATE epa_player_poi SET forsok = $1 WHERE player_id = $2 AND status = $3',
+          [newForsok, playerId, 'aktiv']
+        );
+
+        return {
+          status: 200,
+          body: {
+            correct: false,
+            message: 'Fel svar, försök igen',
+            hint: question.ledtrad || 'Försök igen',
+            attemptsLeft: 0
+          }
+        };
+      } else {
+        await pool.query(
+          'UPDATE epa_player_poi SET forsok = $1 WHERE player_id = $2 AND status = $3',
+          [newForsok, playerId, 'aktiv']
+        );
+
+        return {
+          status: 200,
+          body: {
+            correct: false,
+            message: 'Fel svar, försök igen',
+            attemptsLeft: maxForsok - newForsok
+          }
+        };
+      }
+    }
+  } catch (err) {
+    context.log('Error submitting answer:', err.message);
+    return {
+      status: 500,
+      body: { error: 'Kunde inte behandla svar' }
+    };
+  }
+};

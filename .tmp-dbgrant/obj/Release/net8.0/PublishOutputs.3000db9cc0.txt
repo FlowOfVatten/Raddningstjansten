@@ -1,0 +1,9 @@
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\.tmp-dbgrant.exe
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\.tmp-dbgrant.dll
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\.tmp-dbgrant.deps.json
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\.tmp-dbgrant.runtimeconfig.json
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\.tmp-dbgrant.pdb
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\Microsoft.Extensions.Logging.Abstractions.dll
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\Npgsql.dll
+C:\Users\MXSU\Downloads\VattenfallGIT\Raddningstjansten-Ovning\.tmp-dbgrant\out\System.Diagnostics.DiagnosticSource.dll

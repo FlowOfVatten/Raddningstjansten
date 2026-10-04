@@ -14,6 +14,19 @@
       "route": "/Brandvatten",
       "redirect": "/Brandvatten/",
       "statusCode": 301
+    },
+    {
+      "route": "/EPA",
+      "redirect": "/EPA/",
+      "statusCode": 301
+    },
+    {
+      "route": "/EPA/*",
+      "statusCode": 200
+    },
+    {
+      "route": "/api/*",
+      "statusCode": 200
     }
   ]
 }
