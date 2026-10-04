@@ -59,7 +59,7 @@ jobs:
           done
 
           # Existing static site folders that should remain published
-          for dir in 16WOH Brandresa Brandvatten Karta presentation RISE Schema Stress URF UtbBokning utlagg; do
+          for dir in 16WOH Brandresa Brandvatten EPA Karta presentation RISE Schema Stress URF UtbBokning utlagg; do
             if [ -d "$dir" ]; then cp -R "$dir" swa-app/; fi
           done
 
