@@ -41,7 +41,10 @@ class EPAGame {
     });
 
     // Game screen
-    document.getElementById('arrivedBtn').addEventListener('click', () => this.showQuestion());
+    const arrivedBtn = document.getElementById('arrivedBtn');
+    if (arrivedBtn) {
+      arrivedBtn.removeEventListener('click', () => this.showQuestion());
+    }
 
     // Question screen
     document.getElementById('backBtn').addEventListener('click', () => this.showGame());
@@ -127,13 +130,15 @@ class EPAGame {
 
       const data = await response.json();
 
-      // Show game screen and init map FIRST
+      // Show game screen
       this.showScreen('game');
-      this.initMap();
 
-      // Then load game state and POIs
+      // Load game state and POIs FIRST
       await this.loadGameState();
       await this.loadPOIs();
+      
+      // THEN init map (so POIs are available)
+      this.initMap();
       
       // Start tracking position
       this.startPositionTracking();
@@ -213,6 +218,7 @@ class EPAGame {
 
     // Use Azure Maps like Brandvatten
     L.tileLayer(`${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`, {
+      minZoom: 10,
       maxZoom: 22,
       attribution: '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
     }).addTo(this.map);
@@ -341,16 +347,6 @@ class EPAGame {
       if (data.withinRadius && !this.questionAutoShown && this.canAnswerAgain) {
         this.questionAutoShown = true;
         await this.showQuestion();
-      }
-
-      // Enable "Jag är framme" button when close (keep for manual trigger)
-      const arrivedBtn = document.getElementById('arrivedBtn');
-      if (data.withinRadius) {
-        arrivedBtn.disabled = false;
-        arrivedBtn.style.background = 'var(--secondary-accent)';
-      } else {
-        arrivedBtn.disabled = true;
-        arrivedBtn.style.background = '';
       }
     } catch (err) {
       console.error('Error checking distance:', err);
