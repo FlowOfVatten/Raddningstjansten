@@ -131,11 +131,11 @@ class EPAGame {
       this.audioElement.preload = 'auto';
       this.audioElement.volume = 1;
       this.audioElement.loop = false;
+      this.audioElement.muted = false;
+      this.audioElement.pause();
+      this.audioElement.currentTime = 0;
       this.audioUnlocked = true;
-      this.audioElement.play().catch(() => {
-        console.log('Audio start blocked until next user interaction.');
-      });
-      console.log('Audio unlocked');
+      console.log('Audio unlocked; ready for playback when the broadcast arrives.');
     } catch (err) {
       console.warn('Could not unlock audio:', err);
       this.audioUnlocked = true;
@@ -156,10 +156,13 @@ class EPAGame {
 
     try {
       if (this.audioElement) {
+        this.audioElement.pause();
         this.audioElement.currentTime = 0;
         const playPromise = this.audioElement.play();
         if (playPromise) {
-          playPromise.catch((err) => {
+          playPromise.then(() => {
+            console.log('Remote MP3 started successfully.');
+          }).catch((err) => {
             console.warn('Remote MP3 blocked by browser, falling back to oscillator sound.', err);
             this.playSynthEngineSound();
           });
