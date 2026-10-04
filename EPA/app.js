@@ -467,6 +467,28 @@ class EPAGame {
     }
   }
 
+  async completeCurrentGoal() {
+    try {
+      const response = await fetch(`/api/epa/player/${this.playerId}/complete-goal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Kunde inte avsluta mål');
+      }
+
+      await this.loadGameState();
+      this.showFinish();
+      return true;
+    } catch (err) {
+      console.error('Error completing goal:', err);
+      alert('Fel vid mål: ' + err.message);
+      return false;
+    }
+  }
+
   initMap() {
     if (this.map) this.map.remove();
 
@@ -476,8 +498,11 @@ class EPAGame {
 
     this.map = L.map('mapContainer', {
       minZoom: 8,
-      maxZoom: 22
-    }).setView([centerLat, centerLng], 15);
+      maxZoom: 22,
+      zoomControl: true,
+      attributionControl: true,
+      scrollWheelZoom: true
+    }).setView([centerLat, centerLng], 12);
 
     // Use Azure Maps like Brandvatten
     L.tileLayer(`${AZURE_MAPS_TILE_URL}${encodeURIComponent(AZURE_MAPS_KEY)}`, {
@@ -486,10 +511,12 @@ class EPAGame {
       attribution: '&copy; <a href="https://www.microsoft.com/maps" target="_blank" rel="noreferrer">Microsoft Azure Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
     }).addTo(this.map);
 
-    // Add POI markers
+    // Add only unlocked and completed POIs; locked POIs stay hidden until reached
     this.pois.forEach((poi) => {
       const playerPoi = this.gameState.pois.find(p => p.poi_id === poi.id);
-      this.addMarker(poi, playerPoi);
+      if (playerPoi && playerPoi.status !== 'låst') {
+        this.addMarker(poi, playerPoi);
+      }
     });
 
     // Add circle for active POI radius
@@ -506,8 +533,10 @@ class EPAGame {
   }
 
   addMarker(poi, playerPoi) {
-    const status = playerPoi?.status || 'låst';
-    const sekvens = playerPoi?.sekvens || '?';
+    if (!playerPoi || playerPoi.status === 'låst') return;
+
+    const status = playerPoi.status || 'låst';
+    const sekvens = playerPoi.sekvens || '?';
 
     const className = `poi-marker ${status}`;
     const html = `<div class="${className}" id="marker-${poi.id}">${sekvens}</div>`;
@@ -524,19 +553,11 @@ class EPAGame {
     this.markers[poi.id] = marker;
   }
 
-  focusOnPoi(durationMs = 2500) {
+  focusOnPoi() {
     if (!this.map || !this.currentPoi) return;
 
     this.mapFollowPlayer = false;
-    this.map.setView([this.currentPoi.lat, this.currentPoi.lng], 15);
-
-    clearTimeout(this.mapFocusTimer);
-    this.mapFocusTimer = setTimeout(() => {
-      this.mapFollowPlayer = true;
-      if (this.currentPosition) {
-        this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
-      }
-    }, durationMs);
+    this.map.setView([this.currentPoi.lat, this.currentPoi.lng], this.map.getZoom());
   }
 
   updateActiveRadiusCircle() {
@@ -591,10 +612,6 @@ class EPAGame {
     // Update player marker position on map
     if (this.map && this.playerMarker) {
       this.playerMarker.setLatLng([this.currentPosition.lat, this.currentPosition.lng]);
-
-      if (this.mapFollowPlayer) {
-        this.map.setView([this.currentPosition.lat, this.currentPosition.lng], 15);
-      }
     }
 
     if (this.map && this.currentPoi) {
@@ -649,7 +666,14 @@ class EPAGame {
 
     try {
       const response = await fetch(`/api/epa/poi/${this.currentPoi.poi_id}/question`);
-      if (!response.ok) throw new Error('Kunde inte hämta fråga');
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('No question for this POI, treating as direct goal completion');
+          await this.completeCurrentGoal();
+          return;
+        }
+        throw new Error('Kunde inte hämta fråga');
+      }
 
       this.currentQuestion = await response.json();
       this.renderQuestion();
@@ -775,18 +799,31 @@ class EPAGame {
 
     // Update markers
     this.gameState.pois.forEach((poi) => {
-      if (this.markers[poi.poi_id]) {
-        const marker = this.markers[poi.poi_id];
-        const oldIcon = marker.getIcon();
-        const newHtml = `<div class="poi-marker ${poi.status}" id="marker-${poi.poi_id}">${poi.sekvens}</div>`;
-        const newIcon = L.divIcon({
-          html: newHtml,
-          className: '',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20]
-        });
-        marker.setIcon(newIcon);
+      if (poi.status === 'låst') {
+        if (this.markers[poi.poi_id]) {
+          this.map.removeLayer(this.markers[poi.poi_id]);
+          delete this.markers[poi.poi_id];
+        }
+        return;
       }
+
+      if (!this.markers[poi.poi_id]) {
+        const poiData = this.pois.find(p => p.id === poi.poi_id);
+        if (poiData) {
+          this.addMarker(poiData, poi);
+        }
+        return;
+      }
+
+      const marker = this.markers[poi.poi_id];
+      const newHtml = `<div class="poi-marker ${poi.status}" id="marker-${poi.poi_id}">${poi.sekvens}</div>`;
+      const newIcon = L.divIcon({
+        html: newHtml,
+        className: '',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+      marker.setIcon(newIcon);
     });
 
     this.updateActiveRadiusCircle();

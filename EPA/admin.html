@@ -197,6 +197,10 @@
           <label>Ledtråd (valfritt)</label>
           <input type="text" id="poiHint" placeholder="En ledande ledtråd">
         </div>
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 0.75rem;">
+          <input type="checkbox" id="poiIsFinal" style="width: 18px; height: 18px;">
+          <label for="poiIsFinal" style="margin: 0; color: #fff;">Detta är FINAL / mål</label>
+        </div>
         <div class="form-group">
           <label style="color: #aaa; font-size: 0.85rem;">Klicka på kartan för att sätta koordinater</label>
           <input type="text" id="poiCoords" readonly placeholder="Lat, Lng" style="opacity: 0.5;">
@@ -546,13 +550,14 @@
 
       const poiName = document.getElementById('poiName').value;
       const poiRadius = parseInt(document.getElementById('poiRadius').value);
-      const poiQuestion = document.getElementById('poiQuestion').value;
+      const poiQuestion = document.getElementById('poiQuestion').value.trim();
       const poiAnswers = document.getElementById('poiAnswers').value.split(',').map(s => s.trim());
       const correctAnswer = parseInt(document.getElementById('poiCorrectAnswer').value) - 1;
       const poiHint = document.getElementById('poiHint').value;
+      const isFinal = document.getElementById('poiIsFinal').checked;
 
-      if (!poiName || !poiQuestion || poiAnswers.length < 2) {
-        alert('Fyll i alla obligatoriska fält');
+      if (!poiName || (!isFinal && (!poiQuestion || poiAnswers.length < 2))) {
+        alert(isFinal ? 'Fyll i namn och koordinater för målet' : 'Fyll i alla obligatoriska fält');
         return;
       }
 
@@ -573,26 +578,29 @@
         if (!poiResponse.ok) throw new Error('Kunde inte lägga till POI');
         const poiData = await poiResponse.json();
 
-        // Add question
-        const questionResponse = await fetch(`/api/epa/admin/poi/${poiData.id}/question`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            password: adminPassword,
-            text: poiQuestion,
-            alternativ: poiAnswers,
-            rattIndex: correctAnswer,
-            ledtrad: poiHint || null
-          })
-        });
+        if (!isFinal) {
+          // Add question
+          const questionResponse = await fetch(`/api/epa/admin/poi/${poiData.id}/question`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              password: adminPassword,
+              text: poiQuestion,
+              alternativ: poiAnswers,
+              rattIndex: correctAnswer,
+              ledtrad: poiHint || null
+            })
+          });
 
-        if (!questionResponse.ok) throw new Error('Kunde inte lägga till fråga');
+          if (!questionResponse.ok) throw new Error('Kunde inte lägga till fråga');
+        }
 
-        document.getElementById('poiMessage').innerHTML = '<div class="success">POI tillagd!</div>';
+        document.getElementById('poiMessage').innerHTML = '<div class="success">POI tillagd!' + (isFinal ? ' (final / mål utan fråga)' : '') + '</div>';
         document.getElementById('poiName').value = '';
         document.getElementById('poiQuestion').value = '';
         document.getElementById('poiAnswers').value = '';
         document.getElementById('poiHint').value = '';
+        document.getElementById('poiIsFinal').checked = false;
         selectedCoords = null;
         
         loadPOIs();
@@ -625,7 +633,12 @@
                 ${isGoal ? '<br><small style="color: #ffb703; font-weight: 700;">🏁 Final POI (mål)</small>' : '<br><small>Checkpunkt</small>'}
                 <br><small>${poi.lat.toFixed(4)}, ${poi.lng.toFixed(4)}</small>
               </div>
-              <button onclick="deletePOI(${poi.id})">Ta bort</button>
+              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <button onclick="movePOI(${poi.id}, -1)">↑</button>
+                <button onclick="movePOI(${poi.id}, 1)">↓</button>
+                <button onclick="setFinalPOI(${poi.id})">${isGoal ? 'Final' : 'Sätt som final'}</button>
+                <button onclick="deletePOI(${poi.id})">Ta bort</button>
+              </div>
             </div>
           `;
         }).join('');
@@ -652,6 +665,51 @@
       } catch (err) {
         console.error('Error loading POIs:', err);
       }
+    }
+
+    async function savePoiOrder() {
+      if (!adminPassword) return;
+
+      try {
+        const response = await fetch('/api/epa/admin/poi/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPassword, order: pois.map(poi => poi.id) })
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || 'Kunde inte uppdatera POI-ordning');
+        }
+      } catch (err) {
+        alert('Fel: ' + err.message);
+      }
+    }
+
+    async function movePOI(poiId, direction) {
+      const currentIndex = pois.findIndex(poi => poi.id === poiId);
+      if (currentIndex === -1) return;
+
+      const nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= pois.length) return;
+
+      const reordered = [...pois];
+      const [item] = reordered.splice(currentIndex, 1);
+      reordered.splice(nextIndex, 0, item);
+      pois = reordered;
+      await savePoiOrder();
+      loadPOIs();
+    }
+
+    async function setFinalPOI(poiId) {
+      const currentIndex = pois.findIndex(poi => poi.id === poiId);
+      if (currentIndex === -1) return;
+
+      const reordered = [...pois.filter(poi => poi.id !== poiId)];
+      reordered.push(pois[currentIndex]);
+      pois = reordered;
+      await savePoiOrder();
+      loadPOIs();
     }
 
     async function deletePOI(poiId) {
