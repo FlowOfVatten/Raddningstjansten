@@ -263,33 +263,9 @@ class EPAGame {
       
       // Start polling for game start
       this.startWaitingRoomPoll();
-      
-      // Also do an immediate check in case status is already ready/started
-      this.checkWaitingRoomStatus();
     } catch (err) {
       console.error('Error registering for game:', err);
       alert('Fel vid registrering: ' + err.message);
-    }
-  }
-
-  async checkWaitingRoomStatus() {
-    // Do an immediate check of game status without waiting for interval
-    try {
-      const response = await fetch('/api/epa/game-status');
-      if (!response.ok) return;
-
-      const data = await response.json();
-      console.log('Initial waiting room check - status:', data.status);
-
-      if (data.status === 'ready') {
-        console.log('Status already ready, showing engine start screen');
-        this.showScreen('engineStart');
-      } else if (data.status === 'started') {
-        console.log('Status already started, initializing game');
-        await this.initializeGameForPlayer();
-      }
-    } catch (err) {
-      console.error('Error checking initial status:', err);
     }
   }
 
