@@ -245,6 +245,9 @@ class EPAGame {
       this.showScreen('waiting');
       document.getElementById('waitingPlayerName').textContent = this.playerName;
       
+      // Start broadcast polling immediately so we get engine sound
+      this.startBroadcastPolling();
+      
       // Start polling for game start
       this.startWaitingRoomPoll();
     } catch (err) {
@@ -254,17 +257,26 @@ class EPAGame {
   }
 
   startWaitingRoomPoll() {
-    // Poll every 2 seconds
+    // Poll every 1 second for status changes
     this.waitingPollInterval = setInterval(async () => {
       try {
         const response = await fetch('/api/epa/game-status');
         if (!response.ok) throw new Error('Kunde inte hämta spelstatus');
 
         const data = await response.json();
+        console.log('Game status in waiting room:', data.status);
 
+        // Show engine start screen when status is ready
+        if (data.status === 'ready' && this.currentScreen !== 'engineStart') {
+          console.log('Showing engine start screen');
+          this.showScreen('engineStart');
+        }
+
+        // Start actual game when status is started
         if (data.status === 'started') {
           clearInterval(this.waitingPollInterval);
           this.waitingPollInterval = null;
+          console.log('Game started, initializing...');
           
           // Game started! Initialize the actual game
           await this.initializeGameForPlayer();
@@ -272,7 +284,7 @@ class EPAGame {
       } catch (err) {
         console.error('Error polling game status:', err);
       }
-    }, 2000);
+    }, 1000);
   }
 
   async initializeGameForPlayer() {
